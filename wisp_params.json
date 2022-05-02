@@ -1,0 +1,54 @@
+{
+    "domain_ref": [
+        5,
+        10000,
+        100
+    ],
+    "phylum_ref": [
+        5,
+        10000,
+        500
+    ],
+    "group_ref": [
+        5,
+        10000,
+        750
+    ],
+    "order_ref": [
+        4,
+        10000,
+        1000
+    ],
+    "family_ref": [
+        4,
+        10000,
+        1500
+    ],
+    "domain_sample": [
+        5,
+        10000,
+        500
+    ],
+    "phylum_sample": [
+        5,
+        10000,
+        500
+    ],
+    "group_sample": [
+        5,
+        10000,
+        750
+    ],
+    "order_sample": [
+        4,
+        10000,
+        1000
+    ],
+    "family_sample": [
+        4,
+        10000,
+        1000
+    ],
+    "input": "/udd/sidubois/Stage/Genomes/",
+    "output": "data/"
+}

@@ -1,0 +1,222 @@
+<html><head><title>Reports for job actino0</title>
+        <style type="text/css">
+        body {
+        margin-top: 1.0em;
+        background-color: #ffffff;
+        font-family: Helvetica, Arial, FreeSans, san-serif;
+        color: #000000;
+        }
+        h1 { font-size: 1.8em; color: #000000; }
+        h2 { font-size: 1.6em; color: #000000; }
+        h3 { font-size: 1.4em; color: #000000; }
+        a { color: #1e36ce; text-decoration:none; }
+        tt { font-family: "Courier New", Courier; }
+        /* pre style removed because it will interfer with pygments */
+        p { text-indent: 0px; }
+        hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
+        p.caption { width: 80%; font-style: normal; text-align: left; }
+        hr.figure { border: 0; width: 80%; border-bottom: 1px solid #aaa}
+        .alert-text-small   { font-size: 80%;  }
+        .alert-text-large   { font-size: 130%; }
+        .alert-text-normal  { font-size: 90%;  }
+        .alert {
+        padding:8px 35px 8px 14px; margin-bottom:18px;
+        text-shadow:0 1px 0 rgba(255,255,255,0.5);
+        border:1px solid #bababa;
+        border-radius: 4px;
+        -webkit-border-radius: 4px;
+        -moz-border-radius: 4px;
+        color: #555;
+        background-color: #f8f8f8;
+        background-position: 10px 5px;
+        background-repeat: no-repeat;
+        background-size: 38px;
+        padding-left: 55px;
+        width: 75%;
+        }
+        .row { display: flex; }
+        .column { flex: 33%; }
+        .center { display: block; margin-left: auto; margin-right: auto; width: 80%; }
+        div { text-align: justify; text-justify: inter-word; }
+        </style>
+    </head><body><h1 style="text-align:center">Global reports</h1 style="text-align:center">
+        <div class="row">
+            <div class="column">
+                <h2 style="text-align:center">Bacteria</h2><p style="text-align:center">(domain)</p>
+            </div>
+            <div class="column">
+                <h2 style="text-align:center">Actinobacteria</h2><p style="text-align:center">(phylum)</p>
+            </div>
+            <div class="column">
+                <h2 style="text-align:center">Actinobacteria</h2><p style="text-align:center">(group)</p>
+            </div>
+            <div class="column">
+                <h2 style="text-align:center">Corynebacteriales</h2><p style="text-align:center">(order)</p>
+            </div>
+            <div class="column">
+                <h2 style="text-align:center">Corynebacterium</h2><p style="text-align:center">(family)</p>
+            </div>
+        </div>
+        <h2 style="text-align:center">Explored hypothesis (above 10% of reads)</h2>
+        <br>
+        <div class="row">
+            <div class="column">
+                <img src="actino0_tree.png" class="center">
+            </div>
+        </div>
+        <br>
+    
+            <h2 style="text-align:center">Clade domain</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="domain_None_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="domain_None_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 0.99<br>recall : 0.94<br>f1-score : 0.96<br>support : 5450</p></div><div class="column"><h3 style="text-align:center">weighted avg</h3><p style="text-align:center">precision : 0.98<br>recall : 0.98<br>f1-score : 0.98<br>support : 5450</p></div><div class="column"><h3 style="text-align:center">Archaea</h3><p style="text-align:center">precision : 0.99<br>recall : 0.88<br>f1-score : 0.93<br>support : 800</p></div><div class="column"><h3 style="text-align:center">Bacteria</h3><p style="text-align:center">precision : 0.98<br>recall : 1.0<br>f1-score : 0.99<br>support : 4650</p></div></div>
+            
+            <h2 style="text-align:center">Clade phylum for hypothesis Bacteria</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="phylum_Bacteria_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="phylum_Bacteria_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">1.0</h3><p style="text-align:center">precision : 0.93<br>recall : 0.96<br>f1-score : 0.95<br>support : 2000</p></div><div class="column"><h3 style="text-align:center">4.0</h3><p style="text-align:center">precision : 0.97<br>recall : 0.96<br>f1-score : 0.96<br>support : 100</p></div><div class="column"><h3 style="text-align:center">5.0</h3><p style="text-align:center">precision : 0.99<br>recall : 0.98<br>f1-score : 0.98<br>support : 100</p></div><div class="column"><h3 style="text-align:center">6.0</h3><p style="text-align:center">precision : 0.0<br>recall : 0.0<br>f1-score : 0.0<br>support : 0</p></div><div class="column"><h3 style="text-align:center">7.0</h3><p style="text-align:center">precision : 0.99<br>recall : 0.87<br>f1-score : 0.92<br>support : 600</p></div></div><div class="row"><div class="column"><h3 style="text-align:center">9.0</h3><p style="text-align:center">precision : 0.96<br>recall : 0.97<br>f1-score : 0.97<br>support : 4200</p></div><div class="column"><h3 style="text-align:center">10.0</h3><p style="text-align:center">precision : 0.95<br>recall : 0.93<br>f1-score : 0.94<br>support : 900</p></div><div class="column"><h3 style="text-align:center">11.0</h3><p style="text-align:center">precision : 1.0<br>recall : 0.89<br>f1-score : 0.94<br>support : 100</p></div><div class="column"><h3 style="text-align:center">12.0</h3><p style="text-align:center">precision : 0.98<br>recall : 0.88<br>f1-score : 0.93<br>support : 300</p></div><div class="column"><h3 style="text-align:center">13.0</h3><p style="text-align:center">precision : 0.99<br>recall : 0.95<br>f1-score : 0.97<br>support : 400</p></div></div><div class="row"><div class="column"><h3 style="text-align:center">16.0</h3><p style="text-align:center">precision : 0.99<br>recall : 0.81<br>f1-score : 0.89<br>support : 100</p></div><div class="column"><h3 style="text-align:center">17.0</h3><p style="text-align:center">precision : 0.97<br>recall : 0.98<br>f1-score : 0.98<br>support : 100</p></div><div class="column"><h3 style="text-align:center">18.0</h3><p style="text-align:center">precision : 0.99<br>recall : 0.95<br>f1-score : 0.97<br>support : 100</p></div><div class="column"><h3 style="text-align:center">accuracy</h3><p style="text-align:center">0.9497849462365592</p></div><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 0.84<br>recall : 0.81<br>f1-score : 0.82<br>support : 9300</p></div></div><div class="row"></div>
+            
+            <h2 style="text-align:center">Clade group for hypothesis Actinobacteria</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="group_Actinobacteria_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="group_Actinobacteria_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 1.0<br>recall : 0.98<br>f1-score : 0.99<br>support : 25500</p></div><div class="column"><h3 style="text-align:center">weighted avg</h3><p style="text-align:center">precision : 1.0<br>recall : 1.0<br>f1-score : 1.0<br>support : 25500</p></div><div class="column"><h3 style="text-align:center">Acidimicrobiia</h3><p style="text-align:center">precision : 1.0<br>recall : 0.95<br>f1-score : 0.97<br>support : 750</p></div><div class="column"><h3 style="text-align:center">Coriobacteriia</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 3750</p></div><div class="column"><h3 style="text-align:center">Thermoleophilia</h3><p style="text-align:center">precision : 1.0<br>recall : 0.97<br>f1-score : 0.98<br>support : 750</p></div></div><div class="row"></div>
+            
+            <h2 style="text-align:center">Clade group for hypothesis Proteobacteria</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="group_Proteobacteria_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="group_Proteobacteria_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 0.99<br>recall : 0.98<br>f1-score : 0.99<br>support : 39000</p></div><div class="column"><h3 style="text-align:center">weighted avg</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 39000</p></div><div class="column"><h3 style="text-align:center">Deltaproteobacteria</h3><p style="text-align:center">precision : 1.0<br>recall : 0.97<br>f1-score : 0.98<br>support : 3000</p></div><div class="column"><h3 style="text-align:center">Betaproteobacteria</h3><p style="text-align:center">precision : 0.99<br>recall : 0.94<br>f1-score : 0.97<br>support : 5250</p></div><div class="column"><h3 style="text-align:center">Epsilonproteobacteria</h3><p style="text-align:center">precision : 1.0<br>recall : 1.0<br>f1-score : 1.0<br>support : 6000</p></div></div><div class="row"><div class="column"><h3 style="text-align:center">Gammaproteobacteria</h3><p style="text-align:center">precision : 0.98<br>recall : 1.0<br>f1-score : 0.99<br>support : 18000</p></div></div>
+            
+            <h2 style="text-align:center">Clade order for hypothesis Actinobacteria</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="order_Actinobacteria_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="order_Actinobacteria_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 0.97<br>recall : 0.94<br>f1-score : 0.96<br>support : 13500</p></div><div class="column"><h3 style="text-align:center">weighted avg</h3><p style="text-align:center">precision : 0.97<br>recall : 0.97<br>f1-score : 0.97<br>support : 13500</p></div><div class="column"><h3 style="text-align:center">Actinomycetales</h3><p style="text-align:center">precision : 0.99<br>recall : 0.96<br>f1-score : 0.98<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Propionibacteriales</h3><p style="text-align:center">precision : 0.98<br>recall : 0.95<br>f1-score : 0.97<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Glycomycetales</h3><p style="text-align:center">precision : 0.98<br>recall : 0.88<br>f1-score : 0.93<br>support : 500</p></div></div><div class="row"><div class="column"><h3 style="text-align:center">Catenulisporales</h3><p style="text-align:center">precision : 0.95<br>recall : 0.91<br>f1-score : 0.93<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Streptosporangiales</h3><p style="text-align:center">precision : 0.98<br>recall : 0.95<br>f1-score : 0.97<br>support : 1000</p></div><div class="column"><h3 style="text-align:center">Nakamurellales</h3><p style="text-align:center">precision : 0.99<br>recall : 0.94<br>f1-score : 0.96<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Bifidobacteriales</h3><p style="text-align:center">precision : 1.0<br>recall : 0.95<br>f1-score : 0.98<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Micrococcales</h3><p style="text-align:center">precision : 0.96<br>recall : 0.99<br>f1-score : 0.98<br>support : 4000</p></div></div><div class="row"><div class="column"><h3 style="text-align:center">Streptomycetales</h3><p style="text-align:center">precision : 0.97<br>recall : 0.96<br>f1-score : 0.96<br>support : 1000</p></div><div class="column"><h3 style="text-align:center">Corynebacteriales</h3><p style="text-align:center">precision : 0.95<br>recall : 1.0<br>f1-score : 0.97<br>support : 3000</p></div></div>
+            
+            <h2 style="text-align:center">Clade order for hypothesis Betaproteobacteria</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="order_Betaproteobacteria_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="order_Betaproteobacteria_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 3500</p></div><div class="column"><h3 style="text-align:center">weighted avg</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 3500</p></div><div class="column"><h3 style="text-align:center">Neisseriales</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 1000</p></div><div class="column"><h3 style="text-align:center">Burkholderiales</h3><p style="text-align:center">precision : 0.99<br>recall : 1.0<br>f1-score : 0.99<br>support : 2000</p></div><div class="column"><h3 style="text-align:center">Nitrosomonadales</h3><p style="text-align:center">precision : 0.99<br>recall : 0.98<br>f1-score : 0.99<br>support : 500</p></div></div>
+            
+            <h2 style="text-align:center">Clade order for hypothesis Gammaproteobacteria</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="order_Gammaproteobacteria_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="order_Gammaproteobacteria_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 0.98<br>recall : 0.98<br>f1-score : 0.98<br>support : 12000</p></div><div class="column"><h3 style="text-align:center">weighted avg</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 12000</p></div><div class="column"><h3 style="text-align:center">Pseudomonadales</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 1500</p></div><div class="column"><h3 style="text-align:center">Enterobacterales</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 4000</p></div><div class="column"><h3 style="text-align:center">Vibrionales</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 1500</p></div></div><div class="row"><div class="column"><h3 style="text-align:center">Legionellales</h3><p style="text-align:center">precision : 1.0<br>recall : 0.98<br>f1-score : 0.99<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Alteromonadales</h3><p style="text-align:center">precision : 0.98<br>recall : 0.96<br>f1-score : 0.97<br>support : 1000</p></div><div class="column"><h3 style="text-align:center">Xanthomonadales</h3><p style="text-align:center">precision : 0.99<br>recall : 0.98<br>f1-score : 0.98<br>support : 1500</p></div><div class="column"><h3 style="text-align:center">Pasteurellales</h3><p style="text-align:center">precision : 0.99<br>recall : 1.0<br>f1-score : 0.99<br>support : 1500</p></div></div>
+            
+            <h2 style="text-align:center">Clade family for hypothesis Nitrosomonadales</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="family_Nitrosomonadales_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="family_Nitrosomonadales_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 1.0<br>recall : 1.0<br>f1-score : 1.0<br>support : 500</p></div><div class="column"><h3 style="text-align:center">weighted avg</h3><p style="text-align:center">precision : 1.0<br>recall : 1.0<br>f1-score : 1.0<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Nitrosomonas</h3><p style="text-align:center">precision : 1.0<br>recall : 1.0<br>f1-score : 1.0<br>support : 500</p></div></div>
+            
+            <h2 style="text-align:center">Clade family for hypothesis Xanthomonadales</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="family_Xanthomonadales_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="family_Xanthomonadales_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 1500</p></div><div class="column"><h3 style="text-align:center">weighted avg</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 1500</p></div><div class="column"><h3 style="text-align:center">Xanthomonas</h3><p style="text-align:center">precision : 0.99<br>recall : 1.0<br>f1-score : 1.0<br>support : 1000</p></div><div class="column"><h3 style="text-align:center">Xylella</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 500</p></div></div>
+            
+            <h2 style="text-align:center">Clade family for hypothesis Pseudomonadales</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="family_Pseudomonadales_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="family_Pseudomonadales_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 1.0<br>recall : 1.0<br>f1-score : 1.0<br>support : 1500</p></div><div class="column"><h3 style="text-align:center">weighted avg</h3><p style="text-align:center">precision : 1.0<br>recall : 1.0<br>f1-score : 1.0<br>support : 1500</p></div><div class="column"><h3 style="text-align:center">Pseudomonas</h3><p style="text-align:center">precision : 1.0<br>recall : 1.0<br>f1-score : 1.0<br>support : 1500</p></div></div>
+            
+            <h2 style="text-align:center">Clade family for hypothesis Burkholderiales</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="family_Burkholderiales_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="family_Burkholderiales_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 0.98<br>recall : 0.97<br>f1-score : 0.98<br>support : 2000</p></div><div class="column"><h3 style="text-align:center">weighted avg</h3><p style="text-align:center">precision : 0.98<br>recall : 0.98<br>f1-score : 0.98<br>support : 2000</p></div><div class="column"><h3 style="text-align:center">Bordetella</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 1500</p></div><div class="column"><h3 style="text-align:center">Ralstonia</h3><p style="text-align:center">precision : 0.98<br>recall : 0.96<br>f1-score : 0.97<br>support : 500</p></div></div>
+            
+            <h2 style="text-align:center">Clade family for hypothesis Enterobacterales</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="family_Enterobacterales_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="family_Enterobacterales_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 0.89<br>recall : 0.89<br>f1-score : 0.89<br>support : 4000</p></div><div class="column"><h3 style="text-align:center">weighted avg</h3><p style="text-align:center">precision : 0.89<br>recall : 0.89<br>f1-score : 0.89<br>support : 4000</p></div><div class="column"><h3 style="text-align:center">Candidatus</h3><p style="text-align:center">precision : 1.0<br>recall : 1.0<br>f1-score : 1.0<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Wigglesworthia</h3><p style="text-align:center">precision : 1.0<br>recall : 1.0<br>f1-score : 1.0<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Shigella</h3><p style="text-align:center">precision : 0.69<br>recall : 0.67<br>f1-score : 0.68<br>support : 500</p></div></div><div class="row"><div class="column"><h3 style="text-align:center">Buchnera</h3><p style="text-align:center">precision : 1.0<br>recall : 0.99<br>f1-score : 1.0<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Salmonella</h3><p style="text-align:center">precision : 0.95<br>recall : 0.94<br>f1-score : 0.94<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Yersinia</h3><p style="text-align:center">precision : 0.94<br>recall : 0.92<br>f1-score : 0.93<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Photorhabdus</h3><p style="text-align:center">precision : 0.91<br>recall : 0.95<br>f1-score : 0.93<br>support : 500</p></div></div>
+            
+            <h2 style="text-align:center">Clade family for hypothesis Corynebacteriales</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="family_Corynebacteriales_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="family_Corynebacteriales_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 3000</p></div><div class="column"><h3 style="text-align:center">weighted avg</h3><p style="text-align:center">precision : 0.99<br>recall : 0.99<br>f1-score : 0.99<br>support : 3000</p></div><div class="column"><h3 style="text-align:center">Segniliparus</h3><p style="text-align:center">precision : 0.99<br>recall : 1.0<br>f1-score : 0.99<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Mycobacterium</h3><p style="text-align:center">precision : 1.0<br>recall : 0.99<br>f1-score : 0.99<br>support : 1000</p></div><div class="column"><h3 style="text-align:center">Corynebacterium</h3><p style="text-align:center">precision : 0.99<br>recall : 1.0<br>f1-score : 1.0<br>support : 1500</p></div></div>
+            
+            <h2 style="text-align:center">Clade family for hypothesis Neisseriales</h2>
+            <div class="row">
+                <div class="column">
+                    <img src="family_Neisseriales_confusion_matrix.png">
+                </div>
+                <div class="column">
+                    <img src="family_Neisseriales_graph_reads.png">
+                </div>
+            </div>
+            <div class="row"></div><div class="row"><div class="column"><h3 style="text-align:center">macro avg</h3><p style="text-align:center">precision : 1.0<br>recall : 0.99<br>f1-score : 0.99<br>support : 1000</p></div><div class="column"><h3 style="text-align:center">weighted avg</h3><p style="text-align:center">precision : 1.0<br>recall : 0.99<br>f1-score : 0.99<br>support : 1000</p></div><div class="column"><h3 style="text-align:center">Neisseria</h3><p style="text-align:center">precision : 0.99<br>recall : 1.0<br>f1-score : 1.0<br>support : 500</p></div><div class="column"><h3 style="text-align:center">Chromobacterium</h3><p style="text-align:center">precision : 1.0<br>recall : 0.99<br>f1-score : 0.99<br>support : 500</p></div></div>
+            </body></html>
