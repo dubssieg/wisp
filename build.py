@@ -1,7 +1,7 @@
 import xgboost as xgb
 from python_tools import my_output_msg, my_function_timer
 from wisp_lib import load_xgboost_data, recode_kmer_4
-from wisp_view import compare_test
+from wisp_view import compare_test, plot_features
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
@@ -179,7 +179,7 @@ def make_model(job_name: str, path: str, classif_level: str, db_name: str, sp_de
     save_params(bst, path, classif_level, db_name, sp_determined)
 
 
-@my_function_timer("Testing model")
+@my_function_timer("Plotting feature importance")
 def make_testing(size_kmer, job_name, sp_determined, path, db_name, classif_level, class_count, model_parameters, number_rounds) -> tuple:
     """_summary_
 
@@ -207,10 +207,9 @@ def make_testing(size_kmer, job_name, sp_determined, path, db_name, classif_leve
                     num_boost_round=20, early_stopping_rounds=10, metrics="auc", as_pandas=True, seed=123)
     bst = modelisation(mat, model_parameters, number_rounds)
     mapped = {
-        f"{recode_kmer_4(str(k[1:]),size_kmer)}": v for k, v in bst.get_fscore().items()}
-    ax = xgb.plot_importance(mapped, max_num_features=20)
-    ax.figure.savefig(
-        f"output/{job_name}/{classif_level}_{sp_determined}_feature_importance.png")
+        f"{recode_kmer_4(str(k[1:]),size_kmer)}": v for k, v in bst.get_score(importance_type='gain').items()}
+    plot_features(mapped, job_name, classif_level, sp_determined)
+
     """
     tree = xgb.to_graphviz(bst)
     tree.graph_attr = {'dpi': '400'}

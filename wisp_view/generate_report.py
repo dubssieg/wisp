@@ -10,7 +10,7 @@ def cute_value(val):
         return val
 
 
-def gen_html_report(job_name, dataset, reports, list_clades, test_results, threshold: float):
+def gen_html_report(job_name, dataset, reports, list_clades, test_results, threshold: float, test_status: bool):
 
     doctype: str = "<!DOCTYPE html>"
     dataset = [data for data in dataset]
@@ -111,6 +111,19 @@ def gen_html_report(job_name, dataset, reports, list_clades, test_results, thres
                     temp = f"{temp}</div><div class=\"row\">"
             res = f"{temp}</div>"
 
+            # will add supplementary plots only if required
+            if test_status:
+                insert_tests = f"""
+                <div class="column">
+                    <img src="{list_clades[i]}_{hypotesis}_boosting_results.png">
+                </div>
+                <div class="column">
+                    <img src="{list_clades[i]}_{hypotesis}_feature_importance.png">
+                </div>
+                """
+            else:
+                insert_tests = ""
+
             title = f"Clade {list_clades[i]} for hypothesis {hypotesis}" if hypotesis != 'None' else f"Clade {list_clades[i]}"
             string = f"""{string}
             <h2 style="text-align:center">{title}</h2>
@@ -121,12 +134,7 @@ def gen_html_report(job_name, dataset, reports, list_clades, test_results, thres
                 <div class="column">
                     <img src="{list_clades[i]}_{hypotesis}_graph_reads.png">
                 </div>
-                <div class="column">
-                    <img src="{list_clades[i]}_{hypotesis}_boosting_results.png">
-                </div>
-                <div class="column">
-                    <img src="{list_clades[i]}_{hypotesis}_feature_importance.png">
-                </div>
+                {insert_tests}
             </div>
             {res}
             """

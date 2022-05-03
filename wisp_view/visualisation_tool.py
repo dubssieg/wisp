@@ -127,17 +127,36 @@ def plot_boosting(df, sample_name, clade, determined, number_rounds):
 
     df.reset_index()
     X = df.index
-    mean = df.iloc[:, [0, 2]]
-    sd = df.iloc[:, [1, 3]]
+    mean_train = df.iloc[:, 0]
+    mean_test = df.iloc[:, 2]
+    sd_train = df.iloc[:, 1]
+    sd_test = df.iloc[:, 3]
 
     fig, axs = plt.subplots(2, 1, sharex=True)
     fig.suptitle(
         f"Mean and standard deviation for {clade} with hypothesis {determined}")
-    axs[0].plot(X, mean)
+    axs[0].plot(X, mean_train, color='#53668f', label='train')
+    axs[0].plot(X, mean_test, color='#07142f', label='test')
     axs[0].vlines(number_rounds, ymin=0.9, ymax=1, color="#465065",
                   linestyle='dashed', linewidth=1)
-    axs[1].plot(X, sd)
+    axs[0].legend(loc='lower right')
+    axs[1].plot(X, sd_train, color='#53668f', label='train')
+    axs[1].plot(X, sd_test, color='#07142f', label='test')
     axs[1].vlines(number_rounds, ymin=0, ymax=0.01, color="#465065",
                   linestyle='dashed', linewidth=1)
+    axs[1].legend(loc='upper right')
     plt.savefig(
         f"output/{sample_name}/{clade}_{determined}_boosting_results.png")
+
+
+def plot_features(datas, job_name, classif_level, sp_determined):
+
+    keys = list(datas.keys())
+    values = list(datas.values())
+
+    data = pd.DataFrame(data=values, index=keys, columns=[
+                        "score"]).sort_values(by="score", ascending=False)
+    data.nlargest(15, columns="score").plot(
+        kind='barh', color='#465065', figsize=(7, 6))
+    plt.savefig(
+        f"output/{job_name}/{classif_level}_{sp_determined}_feature_importance.png")

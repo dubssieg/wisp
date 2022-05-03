@@ -137,27 +137,40 @@ if __name__ == "__main__":
     parser.add_argument(
         "params", help="path to a params .json file", type=str)
     parser.add_argument("job_name", help="name of the given job", type=str)
+    parser.add_argument(
+        "-f", "--file", type=str, help="file to load. if not specified, loads the full unk/ folder")
 
     # executing args
     args = parser.parse_args()
 
-    my_params: dict = load_json(args.params)
+    input_file: str | bool = args.file if args.file != None else False
 
-    # storing args
-    JOB: str = args.job_name
-    DATABASE: str = args.database_name
-    INPUT_PATH: str = my_params['input']
-    OUTPUT_PATH: str = my_params['output']
+    # we try to load parmas file and gather data from it
+    try:
+        my_params: dict = load_json(args.params)
+        # storing args
+        JOB: str = args.job_name
+        DATABASE: str = args.database_name
+        INPUT_PATH: str = my_params['input']
+        OUTPUT_PATH: str = my_params['output']
+        nr = int(my_params['nb_boosts'])
+        threshold = float(my_params['threshold'])
+        test_state = bool(my_params['full_test_set'])
+    # if any error happens
+    except:
+        raise ValueError("Incorrect or missing file")
+
     FUNC: str | None = None
     RATIO: float = 1.5
 
-    nr = 10
-    threshold = 0.1
+    # init iterables and memory spaces
     topmost: dict = {}
     test_results: dict = {}
     taxa_map: list = ['domain', 'phylum', 'group', 'order', 'family']
     output: dict = {'domain': None, 'phylum': None,
                     'group': None, 'order': None, 'family': None}
+
+    # if only 4 levels, depreciated
     #taxa_map: list = ['domain', 'phylum', 'order', 'family']
     #output: dict = {'domain': None, 'phylum': None,'order': None, 'family': None}
     for taxa in taxa_map:
@@ -176,6 +189,7 @@ if __name__ == "__main__":
             if not check_if_database_exists(DATABASE, OUTPUT_PATH, taxa, parent_level):
 
                 make_datasets(
+                    input_style=False,
                     job_name=JOB,
                     input_dir=INPUT_PATH,
                     path=OUTPUT_PATH,
@@ -199,6 +213,7 @@ if __name__ == "__main__":
                            parent_level, init_parameters(len(map_sp)), number_rounds=nr)
 
             make_datasets(
+                input_style=input_file,
                 job_name=JOB,
                 input_dir=INPUT_PATH,
                 path=OUTPUT_PATH,
@@ -213,28 +228,30 @@ if __name__ == "__main__":
                 sp_determied=parent_level
             )
 
-            successive_boost_results = make_testing(
-                size_kmer=KMER_SIZE_REF,
-                job_name=JOB,
-                sp_determined=parent_level,
-                path=OUTPUT_PATH,
-                db_name=DATABASE,
-                classif_level=taxa,
-                class_count=len(map_sp),
-                model_parameters=init_parameters(len(map_sp)),
-                number_rounds=nr
-            )
+            # full test set, takes time, but gives info on structure
+            if test_state:
+                successive_boost_results = make_testing(
+                    size_kmer=KMER_SIZE_REF,
+                    job_name=JOB,
+                    sp_determined=parent_level,
+                    path=OUTPUT_PATH,
+                    db_name=DATABASE,
+                    classif_level=taxa,
+                    class_count=len(map_sp),
+                    model_parameters=init_parameters(len(map_sp)),
+                    number_rounds=nr
+                )
 
-            plot_boosting(successive_boost_results,
-                          JOB, taxa, parent_level, nr)
+                plot_boosting(successive_boost_results,
+                              JOB, taxa, parent_level, nr)
 
+            # base tests for heatmap and evaluators
             test_results[f"{taxa}_{parent_level}"] = (test_model(
                 OUTPUT_PATH, JOB, DATABASE, taxa, parent_level))
 
             output_temp = test_unk_sample(
                 OUTPUT_PATH, JOB, DATABASE, taxa, parent_level, threshold)
             topmost[f"{taxa}_{parent_level}"] = output_temp[f"Reads summation {taxa}"]
-            # output[taxa] = output_temp[f"Reads summation {taxa}"]  # TODO fix
 
             if f"Possible for {taxa}" in output:
                 output[f"Possible for {taxa}"] = [
@@ -242,6 +259,7 @@ if __name__ == "__main__":
 
             output = {**output_temp, **output}
 
+    # extraction of most probable path
     output["domain"] = topmost[f"domain_None"]
     output["phylum"] = topmost[f"phylum_{output['domain']}"]
     output["group"] = topmost[f"group_{output['phylum']}"]
@@ -255,4 +273,5 @@ if __name__ == "__main__":
 
     save_output({'Date': f"{datetime.today().strftime('%Y.%m.%d - %H:%M:%S')}", **
                  vars(args), **output}, JOB)
-    gen_html_report(JOB, [], output, taxa_map, test_results, threshold)
+    gen_html_report(JOB, [], output, taxa_map,
+                    test_results, threshold, test_state)

@@ -15,14 +15,14 @@
         750
     ],
     "order_ref": [
-        4,
+        5,
         10000,
-        1000
+        750
     ],
     "family_ref": [
-        4,
+        5,
         10000,
-        1500
+        500
     ],
     "domain_sample": [
         5,
@@ -32,7 +32,7 @@
     "phylum_sample": [
         5,
         10000,
-        500
+        750
     ],
     "group_sample": [
         5,
@@ -40,15 +40,18 @@
         750
     ],
     "order_sample": [
-        4,
+        5,
         10000,
-        1000
+        750
     ],
     "family_sample": [
-        4,
+        5,
         10000,
-        1000
+        500
     ],
     "input": "/udd/sidubois/Stage/Genomes/",
-    "output": "data/"
+    "output": "data/",
+    "threshold": 0.1,
+    "nb_boosts": 10,
+    "full_test_set": true
 }

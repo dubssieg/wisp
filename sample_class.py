@@ -254,7 +254,7 @@ def create_unk_sample(path_to_genome: str, sampling: int, path: str, job_name: s
 
 
 @ my_function_timer("Building datasets")
-def make_datasets(job_name: str, input_dir: str, path: str, datas: list[str], sampling: int, db_name: str, classif_level: str, func, ratio: float, kmer_size: int, read_size: int, sp_determied: str | None):
+def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: str, datas: list[str], sampling: int, db_name: str, classif_level: str, func, ratio: float, kmer_size: int, read_size: int, sp_determied: str | None):
     """
     Create the datasets and calls for storage
 
@@ -265,6 +265,7 @@ def make_datasets(job_name: str, input_dir: str, path: str, datas: list[str], sa
     * db_name (str) : database we need to search in
     """
     Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
+    # deprecated
     #taxa: dict = {'domain': 0, 'phylum': 1, 'order': 2, 'family': 3}
     taxa: dict = {'domain': 0, 'phylum': 1,
                   'group': 2, 'order': 3, 'family': 4}
@@ -276,8 +277,13 @@ def make_datasets(job_name: str, input_dir: str, path: str, datas: list[str], sa
                               classif_level, sp_determied)
 
     for type_data in datas:
-        my_sp = list(call_loader(
-            f"{input_dir}{type_data}/", kmer_size, taxa[classif_level], sp_determied, type_data))
+        if isinstance(input_style, bool):
+            my_sp = list(call_loader(
+                f"{input_dir}{type_data}/", kmer_size, taxa[classif_level], sp_determied, type_data))
+        else:
+            fileholder = my_parser(
+                f"{input_dir}{type_data}/{input_style}", True, True, "unk_sample")
+            my_sp = [Sample(fileholder['unk_sample'], kmer_size)]
         lines = []
         for sp in my_sp:
             my_ssp = overhaul_diversity(sp, sampling, kmer_size, read_size)
