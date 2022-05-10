@@ -23,17 +23,17 @@ def my_params():
     params_job: dict = {
         # 'taxa' : [kmer_size, reads_size, subsampling_depth]
         # params for your database here
-        'domain_ref': [5, 10000, 100],
-        'phylum_ref': [5, 10000, 500],
-        'group_ref': [5, 10000, 750],
-        'order_ref': [5, 10000, 750],
-        'family_ref': [5, 10000, 500],
-        # params for for your sample here
-        'domain_sample': [5, 10000, 500],
-        'phylum_sample': [5, 10000, 750],
-        'group_sample': [5, 10000, 750],
-        'order_sample': [5, 10000, 750],
-        'family_sample': [5, 10000, 500],
+        'domain_ref': [4, 10000, 50],
+        'phylum_ref': [4, 10000, 250],
+        'group_ref': [4, 10000, 375],
+        'order_ref': [4, 10000, 375],
+        'family_ref': [4, 10000, 250],
+        # params for your sample here
+        'domain_sample': [4, 10000, 500],
+        'phylum_sample': [4, 10000, 750],
+        'group_sample': [4, 10000, 750],
+        'order_sample': [4, 10000, 750],
+        'family_sample': [4, 10000, 500],
         # 'input' : location of genomes
         'input': "/udd/sidubois/Stage/Genomes/",
         # 'output' : output for database
@@ -42,7 +42,7 @@ def my_params():
         'threshold': 0.1,
         'nb_boosts': 10,
         # parameters regarding restuls
-        'full_test_set': True
+        'full_test_set': False
     }
     save_json("wisp_params", params_job)
 

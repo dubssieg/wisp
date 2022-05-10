@@ -18,8 +18,18 @@ Once your python envrionnement or installation is up, you can install quickly al
 pip install -r requirements.txt
 ```
 
-# Parameters
+# Launching WISP with wisp.py
 
+This way is best suited for huge amounts of genomes computations : it will iterate through your unknown genomes and create separate reports for each one.
+Will be later on modified to a bash script in order to add this tool more easily into pipelines.
+
+```bash
+python wisp.py
+```
+
+# Launching WISP with main.py
+
+This way is more suited for single genome analysis, or intensive plotting for one result.
 From command line, main class can be used with the following arguments :
 
 **Required arguments :**

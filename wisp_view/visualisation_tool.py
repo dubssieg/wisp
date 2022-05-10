@@ -107,7 +107,7 @@ def pandas_confusion(test_classes, test_preds, inverted_map: dict) -> pd.DataFra
         'Actual'], colnames=['Predicted'])
 
 
-def plot_pandas(cm: pd.DataFrame, sample_name: str, clade: str, determined: str, cmap: str = 'bone') -> None:
+def plot_pandas(cm: pd.DataFrame, sample_name: str, clade: str, determined: str, cmap: str = 'bone') -> dict:
     """Plots the confusion matrix for test data at given level
 
     Args:
@@ -116,11 +116,17 @@ def plot_pandas(cm: pd.DataFrame, sample_name: str, clade: str, determined: str,
         clade (str): level we're working at
         determined (str): upper level already determined
         cmap (str, optional): set of colors for the heatmap. Defaults to 'bone'.
+
+    Returns:
+        dict : number of true and false classifications for clade
     """
     plt.figure(figsize=(6, 5))
     sns.heatmap(cm, annot=True, cmap=cmap, fmt='d', linewidths=0.5)
     plt.savefig(
         f"output/{sample_name}/{clade}_{determined}_confusion_matrix.png")
+    diag = pd.Series(np.diag(cm), index=[cm.index, cm.columns])
+    total = cm.to_numpy().sum()
+    return {f"{clade}_{determined}_true": diag, f"{clade}_{determined}_false": total-diag}
 
 
 def plot_boosting(df, sample_name, clade, determined, number_rounds):
@@ -156,7 +162,7 @@ def plot_features(datas, job_name, classif_level, sp_determined):
 
     data = pd.DataFrame(data=values, index=keys, columns=[
                         "score"]).sort_values(by="score", ascending=False)
-    data.nlargest(15, columns="score").plot(
+    data.astype(float).nlargest(15, columns="score").plot(
         kind='barh', color='#465065', figsize=(7, 6))
     plt.savefig(
         f"output/{job_name}/{classif_level}_{sp_determined}_feature_importance.png")

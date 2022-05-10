@@ -1,51 +1,51 @@
 {
     "domain_ref": [
-        5,
+        4,
         10000,
-        100
+        50
     ],
     "phylum_ref": [
-        5,
+        4,
         10000,
-        500
+        250
     ],
     "group_ref": [
-        5,
+        4,
         10000,
-        750
+        375
     ],
     "order_ref": [
-        5,
+        4,
         10000,
-        750
+        375
     ],
     "family_ref": [
-        5,
+        4,
         10000,
-        500
+        250
     ],
     "domain_sample": [
-        5,
+        4,
         10000,
         500
     ],
     "phylum_sample": [
-        5,
+        4,
         10000,
         750
     ],
     "group_sample": [
-        5,
+        4,
         10000,
         750
     ],
     "order_sample": [
-        5,
+        4,
         10000,
         750
     ],
     "family_sample": [
-        5,
+        4,
         10000,
         500
     ],
@@ -53,5 +53,5 @@
     "output": "data/",
     "threshold": 0.1,
     "nb_boosts": 10,
-    "full_test_set": true
+    "full_test_set": false
 }

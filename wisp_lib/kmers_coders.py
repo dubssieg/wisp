@@ -39,6 +39,11 @@ def decode_kmer_4(kmer: str) -> str:
     return ''.join([mapper[k] for k in kmer])
 
 
+def my_encoder_k4():
+    # maybe this can help gain speed ? specific to k=4
+    return {f"{a}{b}{c}{d}": encode_kmer_4(f"{a}{b}{c}{d}") for a in ['A', 'T', 'G', 'C'] for b in ['A', 'T', 'G', 'C'] for c in ['A', 'T', 'G', 'C']for d in ['A', 'T', 'G', 'C']}
+
+
 def kmer_indexing(entry: str, kmer_size: int):
     # Note:
     #    - The forward and reverse complements will be collapsed since in this case

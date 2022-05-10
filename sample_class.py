@@ -7,6 +7,7 @@ from wisp_lib import species_map, encode_kmer_4, write_xgboost_data, load_mappin
 from os import listdir
 from json import dump
 from pathlib import Path
+import time
 
 
 class Sample:
@@ -43,7 +44,7 @@ class Sample:
     def counts(self, kmer_counts):
         self.__counts = kmer_counts
 
-    def __init__(self, seq_dna: str, kmer_size: int, seq_specie: str | None = None):
+    def __init__(self, seq_dna: str, kmer_size: int, seq_specie: str | None = None, counting=True):
         """Inits a new Sample object, container for sequence
 
         Args:
@@ -54,7 +55,8 @@ class Sample:
         self.specie = seq_specie  # name of file
         self.seq = seq_dna  # nucleotides
         self.size = len(self.__seq)  # size of seq
-        self.counts = kmer_indexing(seq_dna, kmer_size)
+        self.counts = kmer_indexing(
+            seq_dna, kmer_size) if counting else Counter()
 
     def update_counts(self, func: Callable, ratio: float) -> None:
         """Filters out results which are not matching func threshold
@@ -96,11 +98,8 @@ def call_loader(path: str, size_kmer: int, classif_level_int: int, filter: str |
         lst_sequences = [l for l in listdir(
             path) if l.split('_')[classif_level_int-1] == filter]
     lst_sequences = [(f"{path}", f"{elt}", size_kmer) for elt in lst_sequences]
-    return my_futures_collector(load_and_compute_one_genome, lst_sequences, 10)
-
-    # my_futures_collector(load_and_compute_one_genome, lst_sequences, 30)
-
-    # [load_and_compute_one_genome(path_file, elt, size_km) for (path_file, elt, size_km) in lst_sequences]
+    return [load_and_compute_one_genome(path_file, elt, size_km) for (path_file, elt, size_km) in lst_sequences]
+    #my_futures_collector(load_and_compute_one_genome, lst_sequences, 10)
 
 
 def load_and_compute_one_genome(path: str, elt: str, size_kmer: int) -> Sample:
@@ -114,20 +113,15 @@ def load_and_compute_one_genome(path: str, elt: str, size_kmer: int) -> Sample:
     Returns:
         Sample: a sample which merges all sequences from the file
     """
-    if '_' in elt:
-        try:
-            mn = f"{elt.split('_')[1]}_{elt.split('_')[2].split('.')[0]}"
-        except:
-            my_output_msg(f"Error with element {elt}")
-            mn = elt
-    else:
-        mn = elt
-    parsed = my_parser(f"{path}{elt}", clean=True, merge=True, merge_name=mn)
+    # prend 0.00022 s
+    parsed = my_parser(f"{path}{elt}", clean=True, merge=True, merge_name=elt)
+
+    # prend 3 s, à fix
     return Sample(
-        seq_dna=parsed[mn],
+        seq_dna=parsed[elt],
         kmer_size=size_kmer,
-        # seq_id=mn,
-        seq_specie=elt.split('/')[-1]
+        seq_specie=elt.split('/')[-1],
+        counting=False
     )
 
 
@@ -137,7 +131,7 @@ def generate_diversity(spl: Sample, sample_number: int, size_kmer: int, size_rea
         size_read = int(spl.size/2)
     read: str = f"{spl.seq}{spl.seq[-(size_kmer-1):]}"
     spl_list: list = []
-    for i in range(sample_number):
+    for _ in range(sample_number):
         x = randrange(0, len(read)-size_read-size_kmer)
         subread = read[x:x+size_read+size_kmer]
         spl_list.append(
@@ -162,7 +156,19 @@ def sum_counter_list(spl: list[Sample]) -> Counter:
 
 
 def mapping_sp(input_dir: str, path: str, classif_level: str, db_name: str, int_level: int, taxa: str | None) -> dict:
-    "Creates a map of species, saves it, and return map as a dict"
+    """Calls for a map of species, saves it, and return map as a dict
+
+    Args:
+        input_dir (str): dir where references genomes are stored
+        path (str): path for database, used to save the map
+        classif_level (str): _description_
+        db_name (str): _description_
+        int_level (int): _description_
+        taxa (str | None): _description_
+
+    Returns:
+        dict: a map of species for gien taxa
+    """
     list_sp = species_map(input_dir, int_level, taxa)
     my_path = f"{path}{db_name}/{classif_level}/{taxa}_saved_mapping.json" if taxa != None else f"{path}{db_name}/{classif_level}/saved_mapping.json"
     with open(my_path, 'w') as file_manager:
@@ -170,90 +176,7 @@ def mapping_sp(input_dir: str, path: str, classif_level: str, db_name: str, int_
     return list_sp
 
 
-"""
 @my_function_timer("Building datasets")
-def make_datasets_order(input_dir: str, path: str, job_name: str, sampling: int, func, ratio: float, kmer_size: int, reads_size: int):
-    "Cannot allocate memory"
-    sp_map = mapping_sp(f"{input_dir}train/", path, job_name)
-    KMER_SIZE = kmer_size
-    for type in ['test', 'train']:
-        my_sp = list(call_loader(f"{input_dir}{type}/", kmer_size))
-        list_of_subsamplings: list = my_futures_collector(
-            generate_diversity, [(sp, sampling, KMER_SIZE, reads_size) for sp in my_sp], 50)
-        list_of_subsamplings = [s.encoding_mapping(sp_map[s.specie.split(
-            '_')[0]]) for s in chain.from_iterable(list_of_subsamplings)]
-        output_writing(list_of_subsamplings, path, job_name, type)
-        print(
-            f"{type} : loaded {len(my_sp)} genomes under {len(sp_map)} distinct clades")
-"""
-"""
-
-@my_function_timer("Building datasets")
-def make_datasets_order(input_dir: str, path: str, job_name: str, sampling: int, func, ratio: float, kmer_size):
-    "Creating datasets with new methods"
-    sp_map = mapping_sp(f"{input_dir}train/", path, job_name)
-    KMER_SIZE = kmer_size
-    for type in ['test', 'train']:
-        my_sp = list(call_loader(f"{input_dir}{type}/", kmer_size))
-        lines = []
-        for sp in my_sp:
-            my_ssp = generate_diversity(sp, sampling, KMER_SIZE, 10000)
-            if func != None:
-                sp.update_counts(func, ratio)
-            for s in my_ssp:
-                lines.append(s.encoding_mapping(
-                    sp_map[s.specie.split('_')[0]]))
-        write_xgboost_data(lines, path, job_name, type)
-        print(
-            f"{type} : loaded {len(my_sp)} genomes under {len(sp_map)} distinct clades")
-
-
-@my_function_timer("Building datasets")
-def make_datasets_family(input_dir: str, path: str, job_name: str, sampling: int, family: str, func, ratio: float, kmer_size: int):
-    print("Family level is still WIP !!!")
-    Path(f"{path}{family}/").mkdir(parents=True, exist_ok=True)
-    # family mapping is TODO func
-    sp_map = mapping_sp(f"{input_dir}train/", path, job_name, family)
-    KMER_SIZE = kmer_size
-    for type in ['train', 'test']:
-        # new loader is TODO
-        my_sp = list(call_loader(
-            f"{input_dir}{type}/", kmer_size, family))
-        lines = []
-        for sp in my_sp:
-            my_ssp = generate_diversity(sp, sampling, KMER_SIZE, 10000)
-            if func != None:
-                sp.update_counts(func, ratio)
-            for s in my_ssp:
-                lines.append(s.encoding_mapping(
-                    sp_map[s.specie.split('_')[1]]))
-        write_xgboost_data(lines, f"{path}{family}/", job_name, type)
-        print(
-            f"{type} : loaded {len(my_sp)} genomes under {len(sp_map)} distinct clades")
-
-"""
-
-"""
-def create_unk_sample(path_to_genome: str, sampling: int, path: str, job_name: str, kmer_size: int, func, ratio: float, classif_level, db_name):
-
-    # Generates dataset for unk. sample
-
-    lines = []
-    my_sample = load_and_compute_one_genome(
-        f"{'/'.join(path_to_genome.split('/')[:-1])}/",
-        path_to_genome.split('/')[-1],
-        kmer_size
-    )
-    my_ssp = generate_diversity(my_sample, sampling, kmer_size, 10000)
-    for s in my_ssp:
-        if func != None:
-            s.update_counts(func, ratio)
-        lines.append(s.encoding_mapping(0))
-    write_xgboost_data(lines, path, job_name, classif_level, 'unk', db_name)
-"""
-
-
-@ my_function_timer("Building datasets")
 def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: str, datas: list[str], sampling: int, db_name: str, classif_level: str, func, ratio: float, kmer_size: int, read_size: int, sp_determied: str | None):
     """
     Create the datasets and calls for storage
@@ -264,15 +187,17 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
     * classif_level (str) : level of cassification we're working at
     * db_name (str) : database we need to search in
     """
+    # safe creation of dir
     Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
-    # deprecated
-    #taxa: dict = {'domain': 0, 'phylum': 1, 'order': 2, 'family': 3}
+    # iteration levels
     taxa: dict = {'domain': 0, 'phylum': 1,
                   'group': 2, 'order': 3, 'family': 4}
     if datas == ['train', 'test']:
+        # we re-generate database, so we need to map it out
         sp_map = mapping_sp(f"{input_dir}train/", path,
                             classif_level, db_name, taxa[classif_level], sp_determied)
     else:
+        # database already generated, loading mapping without erasing it
         sp_map = load_mapping(path, db_name,
                               classif_level, sp_determied)
 
@@ -286,6 +211,7 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
             my_sp = [Sample(fileholder['unk_sample'], kmer_size)]
         lines = []
         for sp in my_sp:
+            # iterate through all samples and creates subsampling
             my_ssp = overhaul_diversity(sp, sampling, kmer_size, read_size)
             if func != None:
                 sp.update_counts(func, ratio)
