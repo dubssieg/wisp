@@ -39,10 +39,13 @@ def my_params():
         # 'output' : output for database
         'output': "data/",
         # parameters for exploration and algorithm
-        'threshold': 0.1,
-        'nb_boosts': 10,
-        # parameters regarding restuls
-        'full_test_set': False
+        'threshold': 0.2,
+        'nb_boosts': 8,
+        # parameters regarding results
+        'full_test_set': False,
+        # parameter for read selection, signifiance for softprob
+        'reads_th': 0.35
+
     }
     save_json("wisp_params", params_job)
 

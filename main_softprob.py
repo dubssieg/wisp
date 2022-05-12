@@ -1,6 +1,6 @@
 import argparse
 from sample_class import make_datasets
-from build import load_model, load_params, prediction, make_model, init_parameters, make_testing
+from build_softprob import load_model, load_params, prediction, make_model, init_parameters, make_testing
 import warnings
 import xgboost as xgb
 import json
@@ -64,7 +64,7 @@ def save_output(dico: dict, job_name: str) -> None:
         fm.write('\n')
 
 
-def test_model(out_path, job_name, database_name, classif_level, sp_determined: str | None):
+def test_model(out_path, job_name, database_name, classif_level, reads_threshold, sp_determined: str | None):
     """
     Does the testing of our model with the data in /test.
     Will estimate some meaningful estimators and will plot heatmap
@@ -90,7 +90,8 @@ def test_model(out_path, job_name, database_name, classif_level, sp_determined: 
     load_params(bst, out_path, classif_level, database_name, sp_determined)
 
     my_output_msg("Preds calculation...")
-    preds = prediction(dtest, bst)
+    preds = prediction(dtest, bst, job_name, classif_level,
+                       sp_determined, reads_threshold)
 
     if sp_determined == None:
         with open(f"{out_path}{database_name}/{classif_level}/data.txt.test", "r") as reader:
@@ -102,7 +103,7 @@ def test_model(out_path, job_name, database_name, classif_level, sp_determined: 
     return compare_test(real, preds, inverted_map, job_name, classif_level, sp_determined)
 
 
-def test_unk_sample(out_path, job_name, database_name, classif_level, sp_determined, threshold):
+def test_unk_sample(out_path, job_name, database_name, classif_level, sp_determined, threshold, reads_threshold):
     map_sp = load_mapping(out_path, database_name,
                           classif_level, sp_determined)
     inverted_map = {str(v): k for k, v in map_sp.items()}
@@ -118,9 +119,8 @@ def test_unk_sample(out_path, job_name, database_name, classif_level, sp_determi
     load_params(bst, out_path, classif_level, database_name, sp_determined)
 
     my_output_msg("Preds calculation...")
-    preds = prediction(dunk, bst)
-    print(preds)
-    print(type(preds))
+    preds = prediction(dunk, bst, job_name, classif_level,
+                       sp_determined, reads_threshold)
 
     return estimations(preds, job_name, inverted_map, classif_level, sp_determined, threshold)
 
@@ -157,6 +157,7 @@ if __name__ == "__main__":
         OUTPUT_PATH: str = my_params['output']
         nr = int(my_params['nb_boosts'])
         threshold = float(my_params['threshold'])
+        reads_threshold = float(my_params['reads_th'])
         test_state = bool(my_params['full_test_set'])
     # if any error happens
     except:
@@ -249,10 +250,10 @@ if __name__ == "__main__":
 
             # base tests for heatmap and evaluators
             test_results[f"{taxa}_{parent_level}"] = (test_model(
-                OUTPUT_PATH, JOB, DATABASE, taxa, parent_level))
+                OUTPUT_PATH, JOB, DATABASE, taxa, reads_threshold, parent_level))
 
             output_temp = test_unk_sample(
-                OUTPUT_PATH, JOB, DATABASE, taxa, parent_level, threshold)
+                OUTPUT_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold)
             topmost[f"{taxa}_{parent_level}"] = output_temp[f"Reads summation {taxa}"]
 
             if f"Possible for {taxa}" in output:

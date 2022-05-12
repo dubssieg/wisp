@@ -19,7 +19,8 @@ def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, cl
         determined (str): previous hypothesis of determination
         threshold (float): to plot a line, threshold for exploration options
     """
-    datas = dict(Counter(predicitions))
+    datas = dict(Counter(pred for pred in predicitions if not pred == False))
+    print(datas)
     keys_sorted = sorted([k for k in datas.keys()])
     x = np.array(keys_sorted)
     y = np.array([datas[k] for k in keys_sorted])
@@ -99,8 +100,10 @@ def pandas_confusion(test_classes, test_preds, inverted_map: dict) -> pd.DataFra
     Returns:
         pd.DataFrame: confusion matrix
     """
-    test_classes = [inverted_map[str(int(t))] for t in test_classes]
-    test_preds = [inverted_map[str(int(t))] for t in test_preds]
+    test_classes = [inverted_map[str(int(t))] for i, t in enumerate(
+        test_classes) if not isinstance(test_preds[i], bool)]
+    test_preds = [inverted_map[str(int(t))]
+                  for t in test_preds if not isinstance(t, bool)]
     data = {'y_Actual': test_classes, 'y_Predicted': test_preds}
     df = pd.DataFrame(data, columns=['y_Actual', 'y_Predicted'])
     return pd.crosstab(df['y_Actual'], df['y_Predicted'], rownames=[
@@ -121,12 +124,14 @@ def plot_pandas(cm: pd.DataFrame, sample_name: str, clade: str, determined: str,
         dict : number of true and false classifications for clade
     """
     plt.figure(figsize=(6, 5))
-    sns.heatmap(cm, annot=True, cmap=cmap, fmt='d', linewidths=0.5)
+    # percentage
+    cm = cm.div(cm.sum(axis=1), axis=0) * 100
+    sns.heatmap(cm, annot=True, cmap=cmap, fmt='.0f', linewidths=0.5)
     plt.savefig(
         f"output/{sample_name}/{clade}_{determined}_confusion_matrix.png")
-    diag = pd.Series(np.diag(cm), index=[cm.index, cm.columns])
-    total = cm.to_numpy().sum()
-    return {f"{clade}_{determined}_true": diag, f"{clade}_{determined}_false": total-diag}
+    #diag = pd.Series(np.diag(cm), index=[cm.index, cm.columns])
+    #total = cm.to_numpy().sum()
+    # return {f"{clade}_{determined}_true": diag, f"{clade}_{determined}_false": total-diag}
 
 
 def plot_boosting(df, sample_name, clade, determined, number_rounds):

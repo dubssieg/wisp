@@ -36,6 +36,21 @@ def init_parameters(class_count: int, depth: int = DEPTH, eta: float = ETA):
 
 
 def tests_with_kfold(cls, xgbMatrix, X, y, class_count, classif_level, inverted_map, sample, sp_determined):
+    """Does kfold validation for our model
+
+    Args:
+        xgbMatrix (xgb.DMatrix): _description_
+        X (_type_): _description_
+        y (_type_): _description_
+        class_count (_type_): _description_
+        classif_level (_type_): _description_
+        inverted_map (_type_): _description_
+        sample (str): name of job
+        sp_determined (str): nave of (if exists) previous hypothesis
+
+    Returns:
+        _type_: _description_
+    """
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=0)
 

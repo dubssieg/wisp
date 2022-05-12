@@ -1,9 +1,13 @@
+from cProfile import label
 import xgboost as xgb
 from python_tools import my_output_msg, my_function_timer
 from wisp_lib import load_xgboost_data, recode_kmer_4
 from wisp_view import compare_test, plot_features
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+from scipy.special import softmax
+from numpy import asarray, argmax, amax, amin, mean
+from collections import Counter
 import matplotlib.pyplot as plt
 
 # consts for test
@@ -30,7 +34,7 @@ def init_parameters(class_count: int, depth: int = DEPTH, eta: float = ETA):
     * depth (int)
     * eta (int)
     """
-    return {'max_depth': depth, 'objective': 'multi:softmax', 'num_class': class_count, 'eta': eta}
+    return {'max_depth': depth, 'objective': 'multi:softprob', 'num_class': class_count, 'eta': eta, 'eval_metric': 'mlogloss'}
 
 #################### VALIDATION ####################
 
@@ -143,7 +147,7 @@ def modelisation(dtrain, params: dict, num_round: int):
     return xgb.train(params, dtrain, num_round)
 
 
-def prediction(data, model):
+def prediction(data, model, sample_name, clade, determined, reads_threshold, with_softmax_norm=True):
     """
     Does the calculation given a model and a dataset of catergories of this dataset
     Return predictions
@@ -151,7 +155,54 @@ def prediction(data, model):
     * data (DMatrix) : data to compute
     * model (xgb.Booster) : trained XGBoost model
     """
-    return model.predict(data)
+    preds = model.predict(data)
+    res = softmax_from_prediction(preds, reads_threshold)
+    #softpred_from_prediction(preds, sample_name, clade, determined)
+    return res if with_softmax_norm else preds
+
+
+def softmax_from_prediction(preds, reads_selection_threshold):
+    """Given a list of predictions of x arrays of size num_classes, computes a list of x predictions, one for each sample
+    Recursive function that will compute until a selection of reads can be made if threshold is too high
+
+    Args:
+        preds (array): a prediction from a objective = softprob model
+        reads_selection_threshold (float) : a threshold for meaningful reads selection
+
+    Returns:
+        list : a list of x softmax predictions selected from reads above threshold
+    """
+    if reads_selection_threshold < 0:
+        raise ValueError(
+            "An error occured during puring of reads, check your entry data.")
+    ret = [argmax(a) if amax(a)-mean(a) >
+           reads_selection_threshold else False for a in preds]
+    if len(ret) == 0:
+        raise ValueError(
+            "There's no read to evaluate, your entry data might be broken.")
+    elif not all(p == False for p in ret):
+        my_output_msg(
+            f"All reads with a delta inferior at {reads_selection_threshold} have been purged.")
+        return ret
+    else:
+        return softmax_from_prediction(preds, reads_selection_threshold-0.05)
+
+
+def softpred_from_prediction(preds, sample_name, clade, determined):
+    thsh = [0, 0.4, 0.8]
+    f = plt.figure()
+
+    for t in thsh:
+        preds[preds < t] = 0
+        plt.plot(preds.sum(axis=0), label=f"softprob:t={t}")
+
+        softmax = sorted(Counter(softmax_from_prediction(preds)).items())
+        softmax_vals, softmax_keys = [b for (_, b) in softmax if not isinstance(b, bool)], [
+            a for (a, b) in softmax if not isinstance(b, bool)]
+        plt.scatter(softmax_keys, softmax_vals, label=f"softmax:t={t}")
+    plt.legend(loc="upper left")
+    plt.savefig(f"output/{sample_name}/{clade}_{determined}_softprob.png")
+
 
 #################### CORE ####################
 

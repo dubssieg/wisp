@@ -13,7 +13,7 @@ def my_output_msg(string: str) -> None:
 
 def my_logs_global_config(filepath: str):
     logging.basicConfig(format='%(asctime)s %(message)s', datefmt='[%m/%d/%Y %I:%M:%S %p]', filename=f"{filepath}.log",
-                        encoding='utf-8', level=logging.DEBUG)
+                        encoding='utf-8', level=logging.ERROR)
 
 
 def my_function_timer(arg: str):

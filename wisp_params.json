@@ -51,7 +51,8 @@
     ],
     "input": "/udd/sidubois/Stage/Genomes/",
     "output": "data/",
-    "threshold": 0.1,
-    "nb_boosts": 10,
-    "full_test_set": false
+    "threshold": 0.2,
+    "nb_boosts": 8,
+    "full_test_set": false,
+    "reads_th": 0.35
 }

@@ -10,7 +10,7 @@ def cute_value(val):
         return val
 
 
-def gen_html_report(job_name, dataset, reports, list_clades, test_results, threshold: float, test_status: bool):
+def gen_html_report(job_name, dataset, reports, list_clades, test_results, threshold: float, test_status: bool, reads_ratio=None):
 
     doctype: str = "<!DOCTYPE html>"
     dataset = [data for data in dataset]
@@ -65,6 +65,7 @@ def gen_html_report(job_name, dataset, reports, list_clades, test_results, thres
     def balise(name: str, content: str) -> str:
         return f"<{name}>{content}</{name}>"
 
+    reads_ratio_text = f"All explorations have been made within a significance range of {reads_ratio}." if reads_ratio != None else ""
     # defining figures
     string = f"""
         <div class="row">
@@ -85,7 +86,7 @@ def gen_html_report(job_name, dataset, reports, list_clades, test_results, thres
             </div>
         </div>
         <h2 style="text-align:center">Explored hypothesis (above {int(threshold*100)}% of reads)</h2>
-        <br>
+        <p style="text-align:center">{reads_ratio_text}</p>
         <div class="row">
             <div class="container">
                 <img src="{job_name}_tree.png" class="center">
@@ -114,6 +115,9 @@ def gen_html_report(job_name, dataset, reports, list_clades, test_results, thres
             # will add supplementary plots only if required
             if test_status:
                 insert_tests = f"""
+                <div class="column">
+                    <img src="{list_clades[i]}_{hypotesis}_softprob.png">
+                </div>
                 <div class="column">
                     <img src="{list_clades[i]}_{hypotesis}_boosting_results.png">
                 </div>

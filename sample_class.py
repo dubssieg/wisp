@@ -7,7 +7,6 @@ from wisp_lib import species_map, encode_kmer_4, write_xgboost_data, load_mappin
 from os import listdir
 from json import dump
 from pathlib import Path
-import time
 
 
 class Sample:
