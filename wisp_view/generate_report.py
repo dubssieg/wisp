@@ -10,7 +10,7 @@ def cute_value(val):
         return val
 
 
-def gen_html_report(job_name, dataset, reports, list_clades, test_results, threshold: float, test_status: bool, reads_ratio=None):
+def gen_html_report(params, job_name, dataset, reports, list_clades, test_results, threshold: float, test_status: bool, reads_ratio=None):
 
     doctype: str = "<!DOCTYPE html>"
     dataset = [data for data in dataset]
@@ -65,7 +65,18 @@ def gen_html_report(job_name, dataset, reports, list_clades, test_results, thres
     def balise(name: str, content: str) -> str:
         return f"<{name}>{content}</{name}>"
 
-    reads_ratio_text = f"All explorations have been made within a significance range of {reads_ratio}." if reads_ratio != None else ""
+    table_params_booster = f"""<div class="column"><p style="text-align:center"><b>Parameters</b></p></div>
+        <div class="row">
+            <div class="column">
+                {''.join(["<p style='text-align:center'>"+k+"</p>" for k in params.keys()])}
+            </div>
+            <div class="column">
+                {''.join(["<p style='text-align:center'>"+str(v)+"</p>" for v in params.values()])}
+            </div>
+        </div>
+        """
+
+    reads_ratio_text = f"All explorations have been made within a significance range of [0, {reads_ratio}[." if reads_ratio != None else ""
     # defining figures
     string = f"""
         <div class="row">
@@ -92,6 +103,7 @@ def gen_html_report(job_name, dataset, reports, list_clades, test_results, thres
                 <img src="{job_name}_tree.png" class="center">
             </div>
         </div>
+        {table_params_booster}
     """
     for i in range(len(list_clades)):
         list_graphs = [file for file in listdir(

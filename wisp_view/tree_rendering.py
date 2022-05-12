@@ -1,6 +1,22 @@
 import pygraphviz as PG
 
 
+def node_childrens(tree: PG.AGraph, name_of_node: str) -> int:
+    """Counts children nodes of selected node
+
+    Args:
+        tree (PG.AGraph): a tree to seek node in
+        name_of_node (str): a node name in tree
+
+    Returns:
+        int: number of children of given node
+    """
+    try:
+        return len(tree.successors(tree.get_node(name_of_node)))
+    except:
+        return 0
+
+
 def tree_render(results: dict, job_name: str, path: list) -> None:
     """Renders a classification tree with pygraphviz engine
 
@@ -36,7 +52,7 @@ def unpacking(tree: PG.AGraph, root: list, datas: dict, path: list) -> None:
                     tree.add_edge(
                         f"{elt}", f"{rt}", label=f" {datas[rt]}", penwidth=2)
                 if rt not in path:
-                    tree.add_node(f"{rt}", color="#a7b7d9")
+                    tree.add_node(f"{rt}", color="#a7b7d9", shape="box")
             unpacking(tree, new_root, datas, path)
         except:
             pass

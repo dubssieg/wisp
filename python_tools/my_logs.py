@@ -8,12 +8,12 @@ import inspect
 def my_output_msg(string: str) -> None:
     "Prints the date and time of action + info specified in str"
     logging.info(f"{string}")
-    print(f"[{str(datetime.now())}] {string}")
+    #print(f"[{str(datetime.now())}] {string}")
 
 
 def my_logs_global_config(filepath: str):
     logging.basicConfig(format='%(asctime)s %(message)s', datefmt='[%m/%d/%Y %I:%M:%S %p]', filename=f"{filepath}.log",
-                        encoding='utf-8', level=logging.ERROR)
+                        encoding='utf-8', level=logging.INFO)
 
 
 def my_function_timer(arg: str):

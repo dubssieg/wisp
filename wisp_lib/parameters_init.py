@@ -24,15 +24,15 @@ def my_params():
         # 'taxa' : [kmer_size, reads_size, subsampling_depth]
         # params for your database here
         'domain_ref': [4, 10000, 50],
-        'phylum_ref': [4, 10000, 250],
-        'group_ref': [4, 10000, 375],
-        'order_ref': [4, 10000, 375],
-        'family_ref': [4, 10000, 250],
+        'phylum_ref': [4, 10000, 200],
+        'group_ref': [4, 10000, 150],
+        'order_ref': [4, 10000, 150],
+        'family_ref': [4, 10000, 100],
         # params for your sample here
-        'domain_sample': [4, 10000, 500],
-        'phylum_sample': [4, 10000, 750],
-        'group_sample': [4, 10000, 750],
-        'order_sample': [4, 10000, 750],
+        'domain_sample': [4, 10000, 250],
+        'phylum_sample': [4, 10000, 1000],
+        'group_sample': [4, 10000, 1000],
+        'order_sample': [4, 10000, 1000],
         'family_sample': [4, 10000, 500],
         # 'input' : location of genomes
         'input': "/udd/sidubois/Stage/Genomes/",
@@ -40,12 +40,13 @@ def my_params():
         'output': "data/",
         # parameters for exploration and algorithm
         'threshold': 0.2,
-        'nb_boosts': 8,
+        'nb_boosts': 10,
         # parameters regarding results
         'full_test_set': False,
         # parameter for read selection, signifiance for softprob
-        'reads_th': 0.35
-
+        'reads_th': 0.25,
+        # force rebuilding full model, when you re-use a database but you changed model parameters
+        'force_model_rebuild': True
     }
     save_json("wisp_params", params_job)
 

@@ -3,10 +3,12 @@ from python_tools import my_parser, my_function_timer, my_futures_collector, my_
 from collections import Counter
 from random import randrange
 from functools import reduce
-from wisp_lib import species_map, encode_kmer_4, write_xgboost_data, load_mapping, kmer_indexing
+from wisp_lib import species_map, encode_kmer_4, write_xgboost_data, load_mapping, kmer_indexing, my_encoder_k4
 from os import listdir
 from json import dump
 from pathlib import Path
+
+MY_ENCODER = my_encoder_k4()
 
 
 class Sample:
@@ -55,7 +57,7 @@ class Sample:
         self.seq = seq_dna  # nucleotides
         self.size = len(self.__seq)  # size of seq
         self.counts = kmer_indexing(
-            seq_dna, kmer_size) if counting else Counter()
+            seq_dna, kmer_size) if counting else Counter()  # allows to load a full genome without computing it
 
     def update_counts(self, func: Callable, ratio: float) -> None:
         """Filters out results which are not matching func threshold
@@ -71,7 +73,8 @@ class Sample:
         """
         Retun an entry for XGBoost formated according to LIBSVS system
         """
-        return str(num_sp) + " " + ' '.join([f"{encode_kmer_4(k)}:{round((v/self.size)*10000,2)}" for k, v in self.counts.items()])
+        # TODO better structure if k != 4
+        return str(num_sp) + " " + ' '.join([f"{MY_ENCODER[k]}:{round((v/self.size)*10000,2)}" for k, v in self.counts.items()])
 
     def __str__(self):
         # f"Sample {self.id} (from file {self.specie}) -> [{self.seq[:10]} --- {self.seq[-10:]}]"

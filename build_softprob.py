@@ -9,6 +9,8 @@ from scipy.special import softmax
 from numpy import asarray, argmax, amax, amin, mean
 from collections import Counter
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
+import pandas as pd
 
 # consts for test
 DEPTH: int = 6
@@ -147,7 +149,7 @@ def modelisation(dtrain, params: dict, num_round: int):
     return xgb.train(params, dtrain, num_round)
 
 
-def prediction(data, model, sample_name, clade, determined, reads_threshold, with_softmax_norm=True):
+def prediction(data, model, sample_name, clade, determined, reads_threshold, with_intensive_test, inverted_map, with_softmax_norm=True):
     """
     Does the calculation given a model and a dataset of catergories of this dataset
     Return predictions
@@ -157,11 +159,13 @@ def prediction(data, model, sample_name, clade, determined, reads_threshold, wit
     """
     preds = model.predict(data)
     res = softmax_from_prediction(preds, reads_threshold)
-    #softpred_from_prediction(preds, sample_name, clade, determined)
+    if with_intensive_test:
+        softpred_from_prediction(
+            preds, sample_name, clade, determined, inverted_map)
     return res if with_softmax_norm else preds
 
 
-def softmax_from_prediction(preds, reads_selection_threshold):
+def softmax_from_prediction(preds, reads_selection_threshold, func='delta_mean'):
     """Given a list of predictions of x arrays of size num_classes, computes a list of x predictions, one for each sample
     Recursive function that will compute until a selection of reads can be made if threshold is too high
 
@@ -173,33 +177,51 @@ def softmax_from_prediction(preds, reads_selection_threshold):
         list : a list of x softmax predictions selected from reads above threshold
     """
     if reads_selection_threshold < 0:
-        raise ValueError(
-            "An error occured during puring of reads, check your entry data.")
-    ret = [argmax(a) if amax(a)-mean(a) >
-           reads_selection_threshold else False for a in preds]
+        return [argmax(a) for a in preds]
+    match func:
+        case 'delta_mean':
+            ret = [argmax(a) if amax(a)-mean(a) >
+                   reads_selection_threshold else False for a in preds]
+        case 'min_max':
+            ret = [argmax(a) if min([amax(a)-p for p in a if p != amax(a)]) >
+                   reads_selection_threshold else False for a in preds]
+        case _:
+            ret = [argmax(a) for a in preds]
     if len(ret) == 0:
         raise ValueError(
             "There's no read to evaluate, your entry data might be broken.")
     elif not all(p == False for p in ret):
         my_output_msg(
-            f"All reads with a delta inferior at {reads_selection_threshold} have been purged.")
+            f"All reads with a threshold inferior at {reads_selection_threshold} for function {func} have been purged.")
         return ret
     else:
         return softmax_from_prediction(preds, reads_selection_threshold-0.05)
 
 
-def softpred_from_prediction(preds, sample_name, clade, determined):
-    thsh = [0, 0.4, 0.8]
-    f = plt.figure()
-
+def softpred_from_prediction(preds, sample_name, clade, determined, inverted_map):
+    lsc = [i for i in range(len(inverted_map))]
+    df = pd.DataFrame(columns=lsc)
+    thsh = [0, 0.25, 0.5]
+    f = plt.figure(figsize=(7, 6))
+    plt.style.use('seaborn-deep')
+    graph = f.add_axes([0.2, 0.2, 0.8, 0.6])
     for t in thsh:
-        preds[preds < t] = 0
-        plt.plot(preds.sum(axis=0), label=f"softprob:t={t}")
-
-        softmax = sorted(Counter(softmax_from_prediction(preds)).items())
-        softmax_vals, softmax_keys = [b for (_, b) in softmax if not isinstance(b, bool)], [
-            a for (a, b) in softmax if not isinstance(b, bool)]
-        plt.scatter(softmax_keys, softmax_vals, label=f"softmax:t={t}")
+        for func in ['delta_mean', 'min_max']:
+            softmax = Counter(a for a in softmax_from_prediction(
+                preds, t, func) if not isinstance(a, bool))
+            ser = pd.Series(data=softmax, index=softmax.keys(),
+                            name=f"{func}:{t}")
+            df = df.append(ser).fillna(0)
+            #softmax = sorted(Counter(a for a in softmax_from_prediction(preds, t, func) if not isinstance(a, bool)).items())
+            #softmax_vals, softmax_keys = [b for (_, b) in softmax], [a for (a, _) in softmax]
+            #plt.scatter(softmax_keys, softmax_vals,label=f"softmax:{func};t={t}")
+    df = df.transpose()
+    ax = df.plot(kind='bar')
+    #ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=3)
+    ax.set_xticks([i for i in range(len(inverted_map))])
+    ax.set_xticklabels([f"{inverted_map[str(i)]}"
+                        for i in range(len(inverted_map))])
+    graph.yaxis.set_major_locator(MaxNLocator(integer=True))  # for int display
     plt.legend(loc="upper left")
     plt.savefig(f"output/{sample_name}/{clade}_{determined}_softprob.png")
 

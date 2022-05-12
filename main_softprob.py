@@ -91,7 +91,7 @@ def test_model(out_path, job_name, database_name, classif_level, reads_threshold
 
     my_output_msg("Preds calculation...")
     preds = prediction(dtest, bst, job_name, classif_level,
-                       sp_determined, reads_threshold)
+                       sp_determined, reads_threshold, False, inverted_map)
 
     if sp_determined == None:
         with open(f"{out_path}{database_name}/{classif_level}/data.txt.test", "r") as reader:
@@ -100,10 +100,14 @@ def test_model(out_path, job_name, database_name, classif_level, reads_threshold
         with open(f"{out_path}{database_name}/{classif_level}/{sp_determined}_data.txt.test", "r") as reader:
             real = [int(l.split(' ')[0]) for l in reader]
 
+    # filtering
+    real = [p for i, p in enumerate(real) if not isinstance(preds[i], bool)]
+    preds = [p for p in preds if not isinstance(p, bool)]
+
     return compare_test(real, preds, inverted_map, job_name, classif_level, sp_determined)
 
 
-def test_unk_sample(out_path, job_name, database_name, classif_level, sp_determined, threshold, reads_threshold):
+def test_unk_sample(out_path, job_name, database_name, classif_level, sp_determined, threshold, reads_threshold, test_status):
     map_sp = load_mapping(out_path, database_name,
                           classif_level, sp_determined)
     inverted_map = {str(v): k for k, v in map_sp.items()}
@@ -120,7 +124,8 @@ def test_unk_sample(out_path, job_name, database_name, classif_level, sp_determi
 
     my_output_msg("Preds calculation...")
     preds = prediction(dunk, bst, job_name, classif_level,
-                       sp_determined, reads_threshold)
+                       sp_determined, reads_threshold, test_status, inverted_map)
+    preds = [p for p in preds if not isinstance(p, bool)]
 
     return estimations(preds, job_name, inverted_map, classif_level, sp_determined, threshold)
 
@@ -159,6 +164,7 @@ if __name__ == "__main__":
         threshold = float(my_params['threshold'])
         reads_threshold = float(my_params['reads_th'])
         test_state = bool(my_params['full_test_set'])
+        force_rebuild = bool(my_params['force_model_rebuild'])
     # if any error happens
     except:
         raise ValueError("Incorrect or missing file")
@@ -210,7 +216,7 @@ if __name__ == "__main__":
             map_sp = load_mapping(OUTPUT_PATH, DATABASE,
                                   taxa, parent_level)
 
-            if not check_if_model_exists(DATABASE, OUTPUT_PATH, taxa, parent_level):
+            if force_rebuild or not check_if_model_exists(DATABASE, OUTPUT_PATH, taxa, parent_level):
 
                 make_model(JOB, OUTPUT_PATH, taxa, DATABASE,
                            parent_level, init_parameters(len(map_sp)), number_rounds=nr)
@@ -253,7 +259,7 @@ if __name__ == "__main__":
                 OUTPUT_PATH, JOB, DATABASE, taxa, reads_threshold, parent_level))
 
             output_temp = test_unk_sample(
-                OUTPUT_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold)
+                OUTPUT_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold, test_state)
             topmost[f"{taxa}_{parent_level}"] = output_temp[f"Reads summation {taxa}"]
 
             if f"Possible for {taxa}" in output:
@@ -276,5 +282,5 @@ if __name__ == "__main__":
 
     save_output({'Date': f"{datetime.today().strftime('%Y.%m.%d - %H:%M:%S')}", **
                  vars(args), **output}, JOB)
-    gen_html_report(JOB, [], output, taxa_map,
-                    test_results, threshold, test_state)
+    gen_html_report(my_params, JOB, [], output, taxa_map,
+                    test_results, threshold, test_state, round(reads_threshold, 2))

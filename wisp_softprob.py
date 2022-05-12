@@ -3,7 +3,7 @@
 from os import listdir, system, rename
 from python_tools import my_output_msg, my_function_timer
 
-DATABASE = "4k_softprob_10000pb"
+DATABASE = "4k_full"
 PARAMS = "wisp_params.json"
 JOB = "fasta_for_read"
 PATH = "/udd/sidubois/Stage/Genomes/unk/"
@@ -26,7 +26,7 @@ def core_call():
 
     for i, file in enumerate(file_list):
         system(
-            f"python main_softprob.py {DATABASE} {PARAMS} 4k_softprob_{file[:-4]} -f {file}")
+            f"python main_softprob.py {DATABASE} {PARAMS} soft_{file[:-4]} -f {file}")
     my_output_msg(
         f"Sucessfully processed {len(file_list)} genomes. Results are in output/ folder")
 

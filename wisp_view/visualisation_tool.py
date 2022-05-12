@@ -19,17 +19,13 @@ def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, cl
         determined (str): previous hypothesis of determination
         threshold (float): to plot a line, threshold for exploration options
     """
-    datas = dict(Counter(pred for pred in predicitions if not pred == False))
-    print(datas)
+    datas = dict(Counter(predicitions))
     keys_sorted = sorted([k for k in datas.keys()])
     x = np.array(keys_sorted)
     y = np.array([datas[k] for k in keys_sorted])
     maxm = sum(y)
-    #X_Y_Spline = make_interp_spline(x, y)
-    #X_ = np.linspace(x.min(), x.max(), 500)
-    #Y_ = X_Y_Spline(X_)
     figure = plt.figure(figsize=(10, 6))
-    graph = figure.add_axes([0.1, 0.3, 0.8, 0.6])
+    graph = figure.add_axes([0.1, 0.2, 0.8, 0.6])
     bars = graph.bar(x, y, color='black')
     plt.title(
         f"Reads accross {clade} for {sample_name}")
@@ -123,15 +119,16 @@ def plot_pandas(cm: pd.DataFrame, sample_name: str, clade: str, determined: str,
     Returns:
         dict : number of true and false classifications for clade
     """
-    plt.figure(figsize=(6, 5))
+    plt.figure(figsize=(7, 6))
+    ax = plt.axes()
     # percentage
     cm = cm.div(cm.sum(axis=1), axis=0) * 100
-    sns.heatmap(cm, annot=True, cmap=cmap, fmt='.0f', linewidths=0.5)
+    sns.heatmap(cm, annot=True, cmap=cmap, fmt='.0f', linewidths=0.5, ax=ax)
+    ax.set_title(f"Confusion matrix for {clade} level")
+    plt.yticks(fontsize=5)
+    plt.xticks(fontsize=5)
     plt.savefig(
         f"output/{sample_name}/{clade}_{determined}_confusion_matrix.png")
-    #diag = pd.Series(np.diag(cm), index=[cm.index, cm.columns])
-    #total = cm.to_numpy().sum()
-    # return {f"{clade}_{determined}_true": diag, f"{clade}_{determined}_false": total-diag}
 
 
 def plot_boosting(df, sample_name, clade, determined, number_rounds):
@@ -143,7 +140,7 @@ def plot_boosting(df, sample_name, clade, determined, number_rounds):
     sd_train = df.iloc[:, 1]
     sd_test = df.iloc[:, 3]
 
-    fig, axs = plt.subplots(2, 1, sharex=True)
+    fig, axs = plt.subplots(2, 1, sharex=True, figsize=(7, 6))
     fig.suptitle(
         f"Mean and standard deviation for {clade} with hypothesis {determined}")
     axs[0].plot(X, mean_train, color='#53668f', label='train')

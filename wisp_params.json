@@ -7,42 +7,42 @@
     "phylum_ref": [
         4,
         10000,
-        250
+        200
     ],
     "group_ref": [
         4,
         10000,
-        375
+        150
     ],
     "order_ref": [
         4,
         10000,
-        375
+        150
     ],
     "family_ref": [
         4,
         10000,
-        250
+        100
     ],
     "domain_sample": [
         4,
         10000,
-        500
+        250
     ],
     "phylum_sample": [
         4,
         10000,
-        750
+        1000
     ],
     "group_sample": [
         4,
         10000,
-        750
+        1000
     ],
     "order_sample": [
         4,
         10000,
-        750
+        1000
     ],
     "family_sample": [
         4,
@@ -52,7 +52,8 @@
     "input": "/udd/sidubois/Stage/Genomes/",
     "output": "data/",
     "threshold": 0.2,
-    "nb_boosts": 8,
+    "nb_boosts": 10,
     "full_test_set": false,
-    "reads_th": 0.35
+    "reads_th": 0.25,
+    "force_model_rebuild": true
 }

@@ -4,8 +4,8 @@ from xgboost import DMatrix
 from os import listdir
 from pathlib import Path
 from os.path import exists
-from random import choice
 from json import load
+from python_tools import my_output_msg
 
 
 def load_mapping(path: str, db_name: str, classif_level: str, sp_determined: str | None) -> dict:
@@ -118,10 +118,10 @@ def check_if_database_exists(db_name: str, path: str, taxa_level: str, sp_determ
     all_correct = True
     for file in files_to_check:
         if not exists(file):
-            print(f"File not existing : {file}")
+            my_output_msg(f"File not existing : {file}")
             all_correct = False
         else:
-            print(f"File found : {file}")
+            my_output_msg(f"File found : {file}")
     return all_correct
 
 
@@ -142,8 +142,8 @@ def check_if_model_exists(db_name: str, path: str, taxa_level: str, sp_determine
     all_correct = True
     for file in files_to_check:
         if not exists(file):
-            print(f"File not existing : {file}")
+            my_output_msg(f"File not existing : {file}")
             all_correct = False
         else:
-            print(f"File found : {file}")
+            my_output_msg(f"File found : {file}")
     return all_correct

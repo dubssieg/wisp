@@ -7,7 +7,8 @@ This Python program is meant to determine to which taxa a bacteria is belonginig
 Currently, five levels of taxa are implemented : **domain**, **phylum**, **group**, **order** and **family**.
 This tool is requiring some reference genomes, which it will index, to create a XGBoost model.
 It has been trained in its initial state over the 143 genomes assembly (see https://espace.library.uq.edu.au/view/UQ:411283)
-Once a model finished at a given taxa level, it aims to do another iteration from previous results, dividing non-matching reference genomes.
+Once a model finished at a given taxa level, it aims to do another iteration from previous results, excluding non-matching reference genomes.
+The core functionnalities relies on a class probabiliy attribution to discriminate reads that might not be good indicators for our specie to be determined. As many other options, you can choose the ratio and the selection function to suit best your biological context.
 
 # Requirements
 
@@ -17,6 +18,8 @@ Once your python envrionnement or installation is up, you can install quickly al
 ```bash
 pip install -r requirements.txt
 ```
+
+Also requires a Graphviz installation in order to perform trees rendering.
 
 # Launching WISP with wisp.py
 
@@ -44,7 +47,7 @@ python main.py db_name wisp_params.json my_sample_job
 
 **Optional arguments :**
 
-+ -f, -file > Specifies a file name inside output unk folder to test only this file and not the full folder
++ -f, -file > Specifies a file name inside output unk folder to test only this file and not the full folder. If no file is specified, all files will be merged as one single sample.
 
 In result, you can call the file alternatively with :
 
@@ -59,32 +62,36 @@ Code and comments are self explanatory enough, so see this snippet of code for d
 
 ```python
 params_job: dict = {
-    # 'taxa' : [kmer_size, reads_size, subsampling_depth]
-    # params for your database here
-        'domain_ref': [5, 10000, 100],
-        'phylum_ref': [5, 10000, 500],
-        'group_ref': [5, 10000, 750],
-        'order_ref': [5, 10000, 750],
-        'family_ref': [5, 10000, 500],
-    # params for for your sample here
-        'domain_sample': [5, 10000, 500],
-        'phylum_sample': [5, 10000, 750],
-        'group_sample': [5, 10000, 750],
-        'order_sample': [5, 10000, 750],
-        'family_sample': [5, 10000, 500],
-    # 'input' : location of genomes
+        # 'taxa' : [kmer_size, reads_size, subsampling_depth]
+        # params for your database here
+        'domain_ref': [4, 10000, 50],
+        'phylum_ref': [4, 10000, 250],
+        'group_ref': [4, 10000, 375],
+        'order_ref': [4, 10000, 375],
+        'family_ref': [4, 10000, 250],
+        # params for your sample here
+        'domain_sample': [4, 10000, 500],
+        'phylum_sample': [4, 10000, 750],
+        'group_sample': [4, 10000, 750],
+        'order_sample': [4, 10000, 750],
+        'family_sample': [4, 10000, 500],
+        # 'input' : location of genomes
         'input': "/udd/sidubois/Stage/Genomes/",
-    # 'output' : output for database
+        # 'output' : output for database
         'output': "data/",
-    # parameters for exploration and algorithm
-        'threshold': 0.1,
-        'nb_boosts': 10,
-    # parameters regarding results : show full takes time
-        'full_test_set': True
-}
+        # parameters for exploration and algorithm
+        'threshold': 0.2,
+        'nb_boosts': 12,
+        # parameters regarding results
+        'full_test_set': False,
+        # parameter for read selection, signifiance for softprob
+        'reads_th': 0.25,
+        # force rebuilding full model, when you re-use a database but you changed model parameters
+        'force_model_rebuild': True
+    }
 ```
 
-You can modify the raw .json file, or rather update the dict contained in script *wisp_lib/parameters_init.py* and re-generates the file with :
+You can modify the raw .json file, or update the dict contained in script *wisp_lib/parameters_init.py* and re-generate the file with :
 
 ```bash
 python wisp_lib/parameters_init.py
