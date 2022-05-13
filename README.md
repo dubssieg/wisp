@@ -97,6 +97,18 @@ You can modify the raw .json file, or update the dict contained in script *wisp_
 python wisp_lib/parameters_init.py
 ```
 
+# Force database building
+
+One can enforce full database building (all levels and all branches) to generate full database and models for future usage. This folder then can be safely copied to another installation of WISP and be used from here.
+It aims to allow people to index huge databases on reliable machines, then loading it on another less powerfull computer.
+
+```bash
+python force_build.py db_name params.json 
+```
+
++ "db_name" > Name of database, will buid it if ont exists (type=str)
++ "params" > Path to a .json parameters file. See example.
+
 # Results
 
 Results are currently exported into a set of plots, a html file and a json file, in order to easily overview data or fetch it to another program.
