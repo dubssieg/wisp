@@ -10,14 +10,14 @@ PATH: str = "/udd/sidubois/Stage/Genomes/to_annotate"
 
 def rename_genomes():
     files = [f"{file[:-4]}" for file in listdir(
-        "/udd/sidubois/Stage/Genomes/to_annotate/")]
+        f"{PATH}/")]
 
     for file in files:
         new_name = my_classification_mapper(file)
 
         if new_name != None:
-            rename(f"/udd/sidubois/Stage/Genomes/to_annotate/{file}.fna",
-                   f"/udd/sidubois/Stage/Genomes/to_annotate/{new_name}.fna")
+            rename(f"{PATH}/{file}.fna",
+                   f"{PATH}/{new_name}.fna")
 
 
 def cancel_genomes():
@@ -29,18 +29,18 @@ def cancel_genomes():
         new_name = f"_{file}"
 
         if new_name != None:
-            rename(f"/udd/sidubois/Stage/Genomes/to_annotate/{file}.fna",
-                   f"/udd/sidubois/Stage/Genomes/to_annotate/{new_name}.fna")
+            rename(f"{PATH}/{file}.fna",
+                   f"{PATH}/{new_name}.fna")
 
 
 def pre_rename():
-    files = listdir("/udd/sidubois/Stage/Genomes/to_annotate/")
+    files = listdir("{PATH}/")
 
     for file in files:
-        with open(f"/udd/sidubois/Stage/Genomes/to_annotate/{file}", "r") as reader:
+        with open(f"{PATH}/{file}", "r") as reader:
             accession = reader.readline().split('.')[0][1:]
-        rename(f"/udd/sidubois/Stage/Genomes/to_annotate/{file}",
-               f"/udd/sidubois/Stage/Genomes/to_annotate/{accession}.fna")
+        rename(f"{PATH}/{file}",
+               f"{PATH}/{accession}.fna")
 
 
 def get_info(csv_file):
@@ -100,7 +100,10 @@ def summary_to_dl(summary_file):
         next(summary_reader)
         next(summary_reader)
         for i, line in enumerate(summary_reader):
-            if i < 2500:
+            if i < 5000:
+                print("Already done")
+                next(summary_reader)
+            elif i >= 5000 and i < 6000:
                 # accession, name, https
                 split = line.split()
                 try:
@@ -125,5 +128,6 @@ def merge_and_clean(genome):
 
 
 # summary_to_dl("/udd/sidubois/Stage/assembly_summary.txt")
+system(f"rm {PATH}/*.gz")
 pre_rename()
 rename_genomes()

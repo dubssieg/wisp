@@ -11,6 +11,12 @@ def my_output_msg(string: str) -> None:
     #print(f"[{str(datetime.now())}] {string}")
 
 
+def my_logs_clear(filepath: str):
+    "Cleans out log file if run was success"
+    with open(f"{filepath}", 'w'):
+        pass
+
+
 def my_logs_global_config(filepath: str):
     logging.basicConfig(format='%(asctime)s %(message)s', datefmt='[%m/%d/%Y %I:%M:%S %p]', filename=f"{filepath}.log",
                         encoding='utf-8', level=logging.INFO)

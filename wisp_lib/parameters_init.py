@@ -23,13 +23,13 @@ def my_params():
     params_job: dict = {
         # 'taxa' : [kmer_size, reads_size, subsampling_depth]
         # params for your database here
-        'domain_ref': [4, 10000, 50],
-        'phylum_ref': [4, 10000, 200],
+        'domain_ref': [4, 10000, 10],
+        'phylum_ref': [4, 10000, 150],
         'group_ref': [4, 10000, 150],
         'order_ref': [4, 10000, 150],
         'family_ref': [4, 10000, 100],
         # params for your sample here
-        'domain_sample': [4, 10000, 250],
+        'domain_sample': [4, 10000, 200],
         'phylum_sample': [4, 10000, 1000],
         'group_sample': [4, 10000, 1000],
         'order_sample': [4, 10000, 1000],
@@ -43,9 +43,10 @@ def my_params():
         'nb_boosts': 10,
         'tree_depth': 8,
         # parameters regarding results
-        'full_test_set': False,
+        'full_test_set': True,
         # parameter for read selection, signifiance for softprob
         'reads_th': 0.50,
+        'selection_mode': 'min_max',  # 'min_max','delta_mean'
         # force rebuilding full model, when you re-use a database but you changed model parameters
         'force_model_rebuild': True
     }

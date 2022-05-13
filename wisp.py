@@ -1,14 +1,14 @@
 "Calls for command line wisp over a set of files"
 
 from os import listdir, system, rename
-from python_tools import my_output_msg, my_function_timer
+from python_tools import my_output_msg, my_function_timer, my_logs_clear
 
 # constants ; change those to select database and such
-DATABASE: str = "4k_full"
+DATABASE: str = "my_db"
 PARAMS: str = "wisp_params.json"
 JOB: str = "fasta_for_read"
 PATH: str = "/udd/sidubois/Stage/Genomes/unk/"
-PREFIX_JOB: str = "my_sample"
+PREFIX_JOB: str = "test_db"
 
 
 def rename_genomes(path: str):
@@ -30,11 +30,12 @@ def core_call():
     """
     file_list: list[str] = listdir(
         PATH)  # rename_genomes(path) as alternate call
+    my_logs_clear("LOG_wisp.log")  # we clean before entering loop
 
     for i, file in enumerate(file_list):
         try:  # if a job happens to fail, you can check the .log file to check the crash cause
             system(
-                f"python main_softprob.py {DATABASE} {PARAMS} {PREFIX_JOB}_{file[:-4]} -f {file}")
+                f"python main.py {DATABASE} {PARAMS} {PREFIX_JOB}_{file[:-4]} -f {file}")
             my_output_msg(
                 f"Sucessfully processed {len(file_list)} genomes. Results are in output/ folder")
         except:

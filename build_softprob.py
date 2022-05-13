@@ -298,5 +298,5 @@ def make_testing(size_kmer, job_name, sp_determined, path, db_name, classif_leve
         f"{recode_kmer_4(str(k[1:]),size_kmer)}": v for k, v in bst.get_score(importance_type='gain').items()}
     if mapped != {}:
         plot_features(mapped, job_name, classif_level, sp_determined)
-
+    plot_tree_model(bst, job_name, classif_level, sp_determined)
     return xgb_cv

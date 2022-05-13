@@ -2,12 +2,12 @@
     "domain_ref": [
         4,
         10000,
-        50
+        10
     ],
     "phylum_ref": [
         4,
         10000,
-        200
+        150
     ],
     "group_ref": [
         4,
@@ -27,7 +27,7 @@
     "domain_sample": [
         4,
         10000,
-        250
+        200
     ],
     "phylum_sample": [
         4,
@@ -54,7 +54,8 @@
     "threshold": 0.2,
     "nb_boosts": 10,
     "tree_depth": 8,
-    "full_test_set": false,
+    "full_test_set": true,
     "reads_th": 0.5,
+    "selection_mode": "min_max",
     "force_model_rebuild": true
 }

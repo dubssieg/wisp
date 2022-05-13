@@ -206,7 +206,7 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
     for type_data in datas:
         if isinstance(input_style, bool):
             my_sp = list(call_loader(
-                f"{input_dir}{type_data}/", kmer_size, taxa[classif_level], sp_determied, type_data))
+                f"{input_dir}train/", kmer_size, taxa[classif_level], sp_determied, type_data))
         else:
             fileholder = my_parser(
                 f"{input_dir}{type_data}/{input_style}", True, True, "unk_sample")
