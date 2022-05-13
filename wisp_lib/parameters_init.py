@@ -45,7 +45,7 @@ def my_params():
         # parameters regarding results
         'full_test_set': False,
         # parameter for read selection, signifiance for softprob
-        'reads_th': 0.00,
+        'reads_th': 0.50,
         # force rebuilding full model, when you re-use a database but you changed model parameters
         'force_model_rebuild': True
     }

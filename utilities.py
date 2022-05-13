@@ -1,22 +1,23 @@
 # to do random tests
 
 from python_tools import my_classification_mapper, my_fetcher
-from wisp_lib import species_list
-from os import listdir, rename
+from os import listdir, rename, system
 import csv
 from Bio import SeqIO
+
+PATH: str = "/udd/sidubois/Stage/Genomes/to_annotate"
 
 
 def rename_genomes():
     files = [f"{file[:-4]}" for file in listdir(
-        "/udd/sidubois/Stage/Genomes/143_genomes/")]
+        "/udd/sidubois/Stage/Genomes/to_annotate/")]
 
     for file in files:
         new_name = my_classification_mapper(file)
 
         if new_name != None:
-            rename(f"/udd/sidubois/Stage/Genomes/143_genomes/{file}.fna",
-                   f"/udd/sidubois/Stage/Genomes/143_genomes/{new_name}.fna")
+            rename(f"/udd/sidubois/Stage/Genomes/to_annotate/{file}.fna",
+                   f"/udd/sidubois/Stage/Genomes/to_annotate/{new_name}.fna")
 
 
 def cancel_genomes():
@@ -28,18 +29,18 @@ def cancel_genomes():
         new_name = f"_{file}"
 
         if new_name != None:
-            rename(f"/udd/sidubois/Stage/Genomes/143_genomes/{file}.fna",
-                   f"/udd/sidubois/Stage/Genomes/143_genomes/{new_name}.fna")
+            rename(f"/udd/sidubois/Stage/Genomes/to_annotate/{file}.fna",
+                   f"/udd/sidubois/Stage/Genomes/to_annotate/{new_name}.fna")
 
 
 def pre_rename():
-    files = listdir("/udd/sidubois/Stage/Genomes/143_genomes/")
+    files = listdir("/udd/sidubois/Stage/Genomes/to_annotate/")
 
     for file in files:
-        with open(f"/udd/sidubois/Stage/Genomes/143_genomes/{file}", "r") as reader:
+        with open(f"/udd/sidubois/Stage/Genomes/to_annotate/{file}", "r") as reader:
             accession = reader.readline().split('.')[0][1:]
-        rename(f"/udd/sidubois/Stage/Genomes/143_genomes/{file}",
-               f"/udd/sidubois/Stage/Genomes/143_genomes/{accession}.fna")
+        rename(f"/udd/sidubois/Stage/Genomes/to_annotate/{file}",
+               f"/udd/sidubois/Stage/Genomes/to_annotate/{accession}.fna")
 
 
 def get_info(csv_file):
@@ -77,11 +78,52 @@ def scatter(fasta_file):
     my_tuple = [(fasta.id, fasta.seq)
                 for fasta in SeqIO.parse(open(fasta_file), 'fasta')]
     for id, seq in my_tuple:
-        name: str | None = my_classification_mapper(id)
+        name: str | None = id  # my_classification_mapper(id)
         if name != None:
             with open(f"gen/{name}.fna", "w") as writer:
                 writer.write(f"> {id} {name.replace('_',' ')}\n{seq}")
             print(f"File {name}.fna sucessfully writed out!")
 
 
-cancel_genomes()
+def verificator(fasta_file):
+    integer = 0
+    with open(fasta_file, "r") as reader:
+        for line in reader:
+            if '>' in line:
+                integer += 1
+    print(integer)
+
+
+def summary_to_dl(summary_file):
+    # assumming its a standard NCBI summary file
+    with open(summary_file, "r") as summary_reader:
+        next(summary_reader)
+        next(summary_reader)
+        for i, line in enumerate(summary_reader):
+            if i < 2500:
+                # accession, name, https
+                split = line.split()
+                try:
+                    https_wget = [
+                        elt for elt in split if elt[:5] == 'https'][0]
+                    access = [split[0], https_wget]
+                    system(
+                        f"wget -P {PATH} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz")
+                except:
+                    pass
+            else:
+                break
+
+
+def merge_and_clean(genome):
+    with open(genome, "r") as reader:
+        pass
+    system(
+        f"gzip -d {PATH}/{access[1][8:].split('/')[-1]}_genomic.fna.gz")
+    system(
+        f"rm {PATH}/{access[1][8:].split('/')[-1]}_genomic.fna.gz")
+
+
+# summary_to_dl("/udd/sidubois/Stage/assembly_summary.txt")
+pre_rename()
+rename_genomes()

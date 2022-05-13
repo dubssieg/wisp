@@ -55,6 +55,6 @@
     "nb_boosts": 10,
     "tree_depth": 8,
     "full_test_set": false,
-    "reads_th": 0.0,
+    "reads_th": 0.5,
     "force_model_rebuild": true
 }

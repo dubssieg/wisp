@@ -198,7 +198,7 @@ def softmax_from_prediction(preds, reads_selection_threshold, func='delta_mean')
         return softmax_from_prediction(preds, reads_selection_threshold-0.05)
 
 
-def softpred_from_prediction(preds, sample_name, clade, determined, inverted_map):
+def softpred_from_prediction(preds, sample_name: str, clade: str, determined: str, inverted_map: dict):
     lsc = [i for i in range(len(inverted_map))]
     df = pd.DataFrame(columns=lsc)
     thsh = [0, 0.25, 0.5]
@@ -224,6 +224,21 @@ def softpred_from_prediction(preds, sample_name, clade, determined, inverted_map
     graph.yaxis.set_major_locator(MaxNLocator(integer=True))  # for int display
     plt.legend(loc="upper left")
     plt.savefig(f"output/{sample_name}/{clade}_{determined}_softprob.png")
+
+
+def plot_tree_model(bst: xgb.Booster, job_name: str, classif_level: str, sp_determined: str) -> None:
+    """Plots out one sample tree to explore params, and saves it as a .png file
+
+    Args:
+        bst (xgb.Booster): a pre-trained booster
+        job_name (str): name of job, for naming purposes
+        classif_level (str): level of classif we're working at
+        sp_determined (str): previous level we've determined
+    """
+    tree = xgb.to_graphviz(bst)
+    tree.graph_attr = {'dpi': '400'}
+    tree.render(
+        f"output/{job_name}/{classif_level}_{sp_determined}_trees_overview", format='png')
 
 
 #################### CORE ####################
@@ -284,10 +299,4 @@ def make_testing(size_kmer, job_name, sp_determined, path, db_name, classif_leve
     if mapped != {}:
         plot_features(mapped, job_name, classif_level, sp_determined)
 
-    """
-    tree = xgb.to_graphviz(bst)
-    tree.graph_attr = {'dpi': '400'}
-    tree.render(
-        f"output/{job_name}/{classif_level}_{sp_determined}_trees_overview", format='png')
-    """
     return xgb_cv

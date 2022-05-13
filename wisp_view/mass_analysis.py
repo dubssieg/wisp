@@ -7,6 +7,8 @@ list_of_folders = ['purge_reads_0,00_8_boosts',
                    'purge_reads_0,00_10_boosts',
                    'purge_reads_0,50_8_boosts',
                    'purge_reads_0,50_10_boosts',
+                   '2_purge_reads_0,00_10_boosts',
+                   '2_purge_reads_0,25_10_boosts',
                    'purge_reads_0,25_8_boosts',
                    'purge_reads_0,25_10_boosts',
                    'purge_reads_0,25_12_boosts']
