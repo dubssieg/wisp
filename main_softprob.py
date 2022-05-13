@@ -165,6 +165,7 @@ if __name__ == "__main__":
         reads_threshold = float(my_params['reads_th'])
         test_state = bool(my_params['full_test_set'])
         force_rebuild = bool(my_params['force_model_rebuild'])
+        tree_depth = int(my_params['tree_depth'])
     # if any error happens
     except:
         raise ValueError("Incorrect or missing file")
@@ -219,7 +220,7 @@ if __name__ == "__main__":
             if force_rebuild or not check_if_model_exists(DATABASE, OUTPUT_PATH, taxa, parent_level):
 
                 make_model(JOB, OUTPUT_PATH, taxa, DATABASE,
-                           parent_level, init_parameters(len(map_sp)), number_rounds=nr)
+                           parent_level, init_parameters(len(map_sp), tree_depth), number_rounds=nr)
 
             make_datasets(
                 input_style=input_file,

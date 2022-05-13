@@ -65,7 +65,7 @@ def gen_html_report(params, job_name, dataset, reports, list_clades, test_result
     def balise(name: str, content: str) -> str:
         return f"<{name}>{content}</{name}>"
 
-    table_params_booster = f"""<div class="column"><p style="text-align:center"><b>Parameters</b></p></div>
+    table_params_booster = f"""<div class="column"><h1 style="text-align:center">Parameters</h1></div>
         <div class="row">
             <div class="column">
                 {''.join(["<p style='text-align:center'>"+k+"</p>" for k in params.keys()])}
@@ -103,7 +103,6 @@ def gen_html_report(params, job_name, dataset, reports, list_clades, test_result
                 <img src="{job_name}_tree.png" class="center">
             </div>
         </div>
-        {table_params_booster}
     """
     for i in range(len(list_clades)):
         list_graphs = [file for file in listdir(
@@ -140,7 +139,7 @@ def gen_html_report(params, job_name, dataset, reports, list_clades, test_result
             else:
                 insert_tests = ""
 
-            title = f"Clade {list_clades[i]} for hypothesis {hypotesis}" if hypotesis != 'None' else f"Clade {list_clades[i]}"
+            title = f"Level {list_clades[i]} for hypothesis {hypotesis}" if hypotesis != 'None' else f"Level {list_clades[i]}"
             string = f"""{string}
             <h2 style="text-align:center">{title}</h2>
             <div class="row">
@@ -156,7 +155,7 @@ def gen_html_report(params, job_name, dataset, reports, list_clades, test_result
             """
 
     html_string = balise("html", balise("head", balise("title", f"Reports for job {job_name}")+style_sheet)+balise(
-        "body", balise("h1 style=\"text-align:center\"", "Global reports")+string))
+        "body", balise("h1 style=\"text-align:center\"", "Global reports")+string+table_params_booster))
 
     with open(f"output/{job_name}/{job_name}_report.html", "w") as writer:
         writer.write(html_string)

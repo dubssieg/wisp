@@ -3,15 +3,17 @@
 from os import listdir, system, rename
 from python_tools import my_output_msg, my_function_timer
 
-DATABASE = "4k_full"
-PARAMS = "wisp_params.json"
-JOB = "fasta_for_read"
-PATH = "/udd/sidubois/Stage/Genomes/unk/"
+# constants ; change those to select database and such
+DATABASE: str = "4k_full"
+PARAMS: str = "wisp_params.json"
+JOB: str = "fasta_for_read"
+PATH: str = "/udd/sidubois/Stage/Genomes/unk/"
+PREFIX_JOB: str = "my_sample"
 
 
-def rename_genomes(path):
+def rename_genomes(path: str):
     "If preprocessing of names is necessary for you"
-    files = [file for file in listdir(path)]
+    files: list[str] = [file for file in listdir(path)]
 
     for file in files:
         new_name = file.replace('_', '-')
@@ -22,13 +24,21 @@ def rename_genomes(path):
 
 @my_function_timer("Running WISP on unk folder")
 def core_call():
-    file_list = listdir(PATH)  # rename_genomes(path) as alternate call
+    """
+    Calls the building and prediction functions with global constants defined above
+    If a job fails, skips to the next one
+    """
+    file_list: list[str] = listdir(
+        PATH)  # rename_genomes(path) as alternate call
 
     for i, file in enumerate(file_list):
-        system(
-            f"python main_softprob.py {DATABASE} {PARAMS} soft_{file[:-4]} -f {file}")
-    my_output_msg(
-        f"Sucessfully processed {len(file_list)} genomes. Results are in output/ folder")
+        try:  # if a job happens to fail, you can check the .log file to check the crash cause
+            system(
+                f"python main_softprob.py {DATABASE} {PARAMS} {PREFIX_JOB}_{file[:-4]} -f {file}")
+            my_output_msg(
+                f"Sucessfully processed {len(file_list)} genomes. Results are in output/ folder")
+        except:
+            my_output_msg(f"Job failed for sample number {i} ({file})")
 
 
 if __name__ == "__main__":

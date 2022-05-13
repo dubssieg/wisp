@@ -1,7 +1,7 @@
 # WISP
 XGBoost implementation for determining bacteria taxas.
 
-![img](https://github.com/Tharos-ux/wisp/blob/master/ensifer.png)
+![img](https://github.com/Tharos-ux/wisp/blob/master/preview/preview.png)
 
 This Python program is meant to determine to which taxa a bacteria is belonginig to, from long reads (>10.000bp), solely based upon alignment-free methods. As of now, the main focus is upon kmers proportions.
 Currently, five levels of taxa are implemented : **domain**, **phylum**, **group**, **order** and **family**.
@@ -16,7 +16,7 @@ Requires a Python 3.10 version, and all packages listed in the *requirements.txt
 Once your python envrionnement or installation is up, you can install quickly all dependencies with :
 
 ```bash
-pip install -r requirements.txt
+pip install -r build/requirements.txt
 ```
 
 Also requires a Graphviz installation in order to perform trees rendering.
@@ -100,11 +100,3 @@ python wisp_lib/parameters_init.py
 # Results
 
 Results are currently exported into a set of plots, a html file and a json file, in order to easily overview data or fetch it to another program.
-
-See some samples here :
-
-![img](https://github.com/Tharos-ux/wisp/blob/main/test_clostridium.png)
-
-![img](https://github.com/Tharos-ux/wisp/blob/main/test_pseudomonas.png)
-
-![img](https://github.com/Tharos-ux/wisp/blob/main/test_rhodococcus.png)

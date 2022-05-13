@@ -25,7 +25,7 @@ def compare():
                     f"{temp_dict['phylum']}, {temp_dict['group']}, {temp_dict['order']}, {temp_dict['family']}")
         df[subfolder] = temp_list
         df.index = listdir(f"output/{subfolder}/")
-    df.to_csv("mass_report.csv")
+    df.to_csv("output/mass_report.csv")
 
 
 compare()
