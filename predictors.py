@@ -39,13 +39,11 @@ def estimations(preds, sample_name: str, inverted_map: dict[str, str], clade: st
     outputs_classif[f"Tree {determined} ({map_clade[map_clade.index(clade[0])-1]})"] = [
         f"{inverted_map[str(k)]} ({clade[0]})" for k, v in sum_preds.items() if float(v) > float(threshold * sum)]
 
-    outputs = {**outputs_classif, **outputs_predictions, **outputs_labels}
-
     Path(f"output/{sample_name}").mkdir(parents=True, exist_ok=True)
     reads_species_plotter(preds, sample_name, inverted_map,
                           clade, determined, threshold)
 
-    return outputs
+    return {**outputs_classif, **outputs_predictions, **outputs_labels}
 
 
 def save_output(dico: dict, job_name: str) -> None:

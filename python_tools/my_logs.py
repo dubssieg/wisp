@@ -1,13 +1,13 @@
-import time
-from datetime import datetime, timedelta
+from time import monotonic
+from datetime import timedelta
 from enum import Enum
-import logging
-import inspect
+from logging import basicConfig, INFO, info
+from inspect import signature
 
 
 def my_output_msg(string: str) -> None:
     "Prints the date and time of action + info specified in str"
-    logging.info(f"{string}")
+    info(f"{string}")
     #print(f"[{str(datetime.now())}] {string}")
 
 
@@ -18,8 +18,8 @@ def my_logs_clear(filepath: str):
 
 
 def my_logs_global_config(filepath: str):
-    logging.basicConfig(format='%(asctime)s %(message)s', datefmt='[%m/%d/%Y %I:%M:%S %p]', filename=f"{filepath}.log",
-                        encoding='utf-8', level=logging.INFO)
+    basicConfig(format='%(asctime)s %(message)s', datefmt='[%m/%d/%Y %I:%M:%S %p]', filename=f"{filepath}.log",
+                encoding='utf-8', level=INFO)
 
 
 def my_function_timer(arg: str):
@@ -30,9 +30,9 @@ def my_function_timer(arg: str):
     def my_inner_dec(func):
         def wrapper(*args, **kwargs):
             my_output_msg("Starting job...")
-            start_time = time.monotonic()
+            start_time = monotonic()
             res = func(*args, **kwargs)
-            end_time = time.monotonic()
+            end_time = monotonic()
             my_output_msg(
                 f"{arg} : Finished after {timedelta(seconds=end_time - start_time)} seconds")
             return res
@@ -61,7 +61,7 @@ def my_entries_checker(func):
         # formation des listes de comparaison
         arguments = args + tuple(kwargs.keys())
         args_types = [type(arg) for arg in arguments]
-        signature_func = inspect.signature(func).parameters
+        signature_func = signature(func).parameters
         annotations = [
             signature_func[elt].annotation for elt in signature_func]
         my_output_msg(f"Function {func.__name__} :")

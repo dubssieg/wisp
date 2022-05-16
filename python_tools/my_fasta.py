@@ -1,6 +1,6 @@
 from Bio import SeqIO, Entrez
-import logging
-import os
+from logging import info
+from os import path
 
 
 def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_name: str = "Merged") -> dict:
@@ -13,7 +13,7 @@ def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_nam
     * clean si le fichier doit être nettoyé de ses N
     * merge si on merge tous les fasta d'un fichier en une seule chaine
     """
-    logging.info(f"Loading {filename} under label {merge_name}")
+    info(f"Loading {filename} under label {merge_name}")
     if clean and merge:
         loading = {fasta.id: str(fasta.seq).replace('N', '')
                    for fasta in SeqIO.parse(open(filename), 'fasta')}
@@ -66,7 +66,7 @@ def my_fetcher(filelist, outname):
     Entrez.email = 'siegfried.dubois@inria.fr'
     for file in filelist:
 
-        if not os.path.isfile(f"gen/{file}_{outname}.fna"):
+        if not path.isfile(f"gen/{file}_{outname}.fna"):
 
             with Entrez.efetch(db="nucleotide", id=file,
                                rettype="fasta", retmode="text") as handle:

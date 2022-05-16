@@ -4,7 +4,7 @@ from os import listdir
 from python_tools import my_function_timer, my_output_msg, my_logs_global_config, my_logs_clear
 from wisp_lib import load_mapping, load_json
 from argparse import ArgumentParser
-from constants import FUNC, RATIO
+from constants import FUNC, RATIO, TAXAS_LEVELS
 
 
 @my_function_timer("Building full database")
@@ -35,11 +35,10 @@ def build_full_db(args) -> None:
 
     list_of_genomes = [genome.split('.')[0]
                        for genome in listdir(f"{INPUT_PATH}train/")]
-    taxa_map: list = ['domain', 'phylum', 'group', 'order', 'family']
-    for taxa in taxa_map:
+    for taxa in TAXAS_LEVELS:
         KMER_SIZE_REF, RS_REF, SAMPLING_REF = my_params[f"{taxa}_ref"]
 
-        list_parent_level = [i for i in set([e.split('_')[taxa_map.index(
+        list_parent_level = [i for i in set([e.split('_')[TAXAS_LEVELS.index(
             taxa)-1] for e in list_of_genomes])] if taxa != 'domain' else [False]
 
         for parent_level in list_parent_level:

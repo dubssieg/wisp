@@ -6,7 +6,7 @@ from python_tools import my_output_msg, my_function_timer, my_logs_clear
 # constants ; change those to select database and such
 DATABASE: str = "my_db"
 PARAMS: str = "wisp_params.json"
-PATH: str = "/udd/sidubois/Stage/Genomes/unk/"
+SAMPLE_PATH: str = "/udd/sidubois/Stage/Genomes/unk/"
 PREFIX_JOB: str = "plot"
 
 
@@ -28,7 +28,7 @@ def core_call():
     If a job fails, skips to the next one
     """
     file_list: list[str] = listdir(
-        PATH)  # rename_genomes(path) as alternate call
+        SAMPLE_PATH)  # rename_genomes(path) as alternate call
     my_logs_clear("LOG_wisp.log")  # we clean before entering loop
 
     for i, file in enumerate(file_list):

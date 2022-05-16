@@ -1,8 +1,8 @@
-import pygraphviz as PG
+from pygraphviz import AGraph
 from numpy import argmin
 
 
-def node_childrens(tree: PG.AGraph, name_of_node: str) -> int:
+def node_childrens(tree: AGraph, name_of_node: str) -> int:
     """Counts children nodes of selected node
 
     Args:
@@ -22,7 +22,7 @@ def node_childrens(tree: PG.AGraph, name_of_node: str) -> int:
         return 0
 
 
-def names_children(tree: PG.AGraph, name_of_node: str) -> list:
+def names_children(tree: AGraph, name_of_node: str) -> list:
     """Counts children nodes of selected node
 
     Args:
@@ -36,6 +36,26 @@ def names_children(tree: PG.AGraph, name_of_node: str) -> list:
         res = tree.successors(tree.get_node(name_of_node))
         if res != 0:
             for subnode in tree.successors(tree.get_node(name_of_node)):
+                res += names_children(tree, subnode)
+        return res
+    except:
+        return []
+
+
+def names_predecessors(tree: AGraph, name_of_node: str) -> list:
+    """Counts children nodes of selected node
+
+    Args:
+        tree (PG.AGraph): a tree to seek node in
+        name_of_node (str): a node name in tree
+
+    Returns:
+        int: number of children of given node
+    """
+    try:
+        res = tree.predecessors(tree.get_node(name_of_node))
+        if res != 0:
+            for subnode in tree.predecessors(tree.get_node(name_of_node)):
                 res += names_children(tree, subnode)
         return res
     except:
@@ -59,6 +79,11 @@ def tree_stats(tree):
     return {node: node_childrens(tree, node) for node in names_children(tree, "None (-)")}
 
 
+def final_node_score(tree: AGraph, lon: list):
+    my_stats = tree_stats(tree)
+    return {node: sum([my_stats[i] for i in names_predecessors(tree, node) if i != 'None (-)']) for node in lon}
+
+
 def tree_evaluator(tree, path):
     my_stats = tree_stats(tree)
     for i, level in enumerate(['d', 'p', 'g', 'o']):
@@ -71,6 +96,8 @@ def tree_evaluator(tree, path):
         else:
             print(
                 f"At level ({level}), default path is less parcimonious than {fixed_list[argmin(min(min_all_other_scores))]}")
+    print(final_node_score(
+        tree, [p for p in names_children(tree, 'None (-)') if p[-2] == 'f']))
 
 
 def tree_render(results: dict, job_name: str, path: list) -> None:
@@ -82,14 +109,14 @@ def tree_render(results: dict, job_name: str, path: list) -> None:
         path (list): list of clades we're assuming is the correct one
     """
     root = ["None (-)"]
-    tree = PG.AGraph(directed=False, strict=True)
+    tree = AGraph(directed=False, strict=True)
     unpacking(tree, root, results, path)
     tree_evaluator(tree, path)
     tree.layout(prog='dot')
     tree.draw(f"output/{job_name}/{job_name}_tree.png")
 
 
-def unpacking(tree: PG.AGraph, root: list, datas: dict, path: list) -> None:
+def unpacking(tree: AGraph, root: list, datas: dict, path: list) -> None:
     """Recursive function that builds the nodes and edges of classification tree
 
     Args:

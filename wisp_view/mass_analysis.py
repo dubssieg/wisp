@@ -1,7 +1,7 @@
 # Aim of this module is to do comparaisons between sets of parameters, assuming the same series were run multiple times with different parameters
 from os import listdir
 from json import load
-import pandas as pd
+from pandas import DataFrame
 
 list_of_folders = ['purge_reads_0,00_8_boosts',
                    'purge_reads_0,00_10_boosts',
@@ -15,7 +15,7 @@ list_of_folders = ['purge_reads_0,00_8_boosts',
 
 
 def compare():
-    df = pd.DataFrame()
+    df = DataFrame()
     for subfolder in list_of_folders:
         temp_list = []
         for report_folder in listdir(f"output/{subfolder}/"):

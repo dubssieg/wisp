@@ -7,7 +7,7 @@ from datetime import datetime
 from wisp_view import gen_html_report, tree_render, plot_boosting
 from wisp_lib import check_if_database_exists, check_if_model_exists, load_mapping, load_json
 from predictors import test_unk_sample, save_output, test_model
-from constants import RATIO, FUNC
+from constants import RATIO, FUNC, TAXAS_LEVELS
 
 if __name__ == "__main__":
     "Executes main procedure"
@@ -53,16 +53,15 @@ if __name__ == "__main__":
     # init iterables and memory spaces
     topmost: dict = {}
     test_results: dict = {}
-    taxa_map: list = ['domain', 'phylum', 'group', 'order', 'family']
     output: dict = {'domain': None, 'phylum': None,
                     'group': None, 'order': None, 'family': None}
 
-    for taxa in taxa_map:
+    for taxa in TAXAS_LEVELS:
         KMER_SIZE_REF, RS_REF, SAMPLING_REF = my_params[f"{taxa}_ref"]
         KMER_SIZE_SAMPLE, RS_SAMPLE, SAMPLING_SAMPLE = my_params[f"{taxa}_sample"]
 
         list_parent_level = output[
-            f"Possible for {taxa_map[taxa_map.index(taxa)-1]}"] if taxa != 'domain' else [False]
+            f"Possible for {TAXAS_LEVELS[TAXAS_LEVELS.index(taxa)-1]}"] if taxa != 'domain' else [False]
 
         for parent_level in list_parent_level:
             if isinstance(parent_level, bool):
@@ -155,5 +154,5 @@ if __name__ == "__main__":
 
     save_output({'Date': f"{datetime.today().strftime('%Y.%m.%d - %H:%M:%S')}", **
                  vars(args), **output}, JOB)
-    gen_html_report(my_params, JOB, [], output, taxa_map,
+    gen_html_report(my_params, JOB, [], output, TAXAS_LEVELS,
                     test_results, threshold, test_state, round(reads_threshold, 2))

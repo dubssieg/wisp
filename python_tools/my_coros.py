@@ -1,9 +1,7 @@
-#from asyncio import gather, get_event_loop, to_thread
-from multiprocessing import BoundedSemaphore
 from queue import Queue
 from threading import Thread, Semaphore, Lock, currentThread
 from concurrent.futures import ThreadPoolExecutor
-from typing import Callable, Tuple
+from typing import Callable
 
 
 def my_coro(func, args: list):
@@ -30,19 +28,6 @@ def my_thread(resultQueue=None):
             return process
         return pw
     return wrapper
-
-
-"""
-    async def prep_coros():
-        return await gather(*[to_thread(func(arg)) for arg in args])
-
-    loop = get_event_loop()
-    return loop.run_until_complete(prep_coros())
-"""
-
-
-# https://docs.python.org/fr/3.9/library/threading.html
-# semaphores
 
 
 def parallelize(func, list_args: list[tuple]):

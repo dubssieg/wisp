@@ -1,6 +1,6 @@
 "From a dict, generates HTML report of results"
 #import webbrowser
-from os import listdir, path
+from os import listdir
 
 
 def cute_value(val):

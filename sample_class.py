@@ -212,7 +212,11 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
         lines = []
         for sp in my_sp:
             # iterate through all samples and creates subsampling
-            my_ssp = overhaul_diversity(sp, sampling, kmer_size, read_size)
+            if type_data == 'test':
+                my_ssp = overhaul_diversity(
+                    sp, int(sampling/10), kmer_size, read_size)
+            else:
+                my_ssp = overhaul_diversity(sp, sampling, kmer_size, read_size)
             if func != None:
                 sp.update_counts(func, ratio)
             for s in my_ssp:

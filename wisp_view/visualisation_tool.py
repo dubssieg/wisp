@@ -1,11 +1,11 @@
 from collections import Counter
 from multiprocessing.dummy import Array
-import numpy as np
+from numpy import array, diag
 from scipy.interpolate import make_interp_spline
 import matplotlib.pyplot as plt
 from sklearn.metrics import classification_report, confusion_matrix
 import seaborn as sns
-import pandas as pd
+from pandas import DataFrame, Series, crosstab
 
 
 def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, clade: str, determined: str, threshold: float) -> None:
@@ -21,16 +21,16 @@ def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, cl
     """
     datas = dict(Counter(predicitions))
     keys_sorted = sorted([k for k in datas.keys()])
-    x = np.array(keys_sorted)
-    y = np.array([datas[k] for k in keys_sorted])
+    x = array(keys_sorted)
+    y = array([datas[k] for k in keys_sorted])
     maxm = sum(y)
-    figure = plt.figure(figsize=(10, 6))
+    figure = plt.figure(figsize=(9, 6))
     graph = figure.add_axes([0.1, 0.2, 0.8, 0.6])
     bars = graph.bar(x, y, color='black')
     plt.title(
         f"Reads accross {clade} for {sample_name}")
     plt.ylabel("Read counts")
-    plt.xticks(rotation=70)
+    plt.xticks(rotation=70, fontsize=6, ha='right')
     graph.set_xticks([i for i in range(len(inverted_map))])
     graph.set_xticklabels([f"{inverted_map[str(i)]}"
                           for i in range(len(inverted_map))])
@@ -100,7 +100,7 @@ def text_classification_report(test_classes, test_preds, inverted_map: dict) -> 
     return cls
 
 
-def pandas_confusion(test_classes, test_preds, inverted_map: dict) -> pd.DataFrame:
+def pandas_confusion(test_classes, test_preds, inverted_map: dict) -> DataFrame:
     """Creates the dataframe used to plot a confusion matrix from test datas
 
     Args:
@@ -116,12 +116,12 @@ def pandas_confusion(test_classes, test_preds, inverted_map: dict) -> pd.DataFra
     test_preds = [inverted_map[str(int(t))]
                   for t in test_preds if not isinstance(t, bool)]
     data = {'y_Actual': test_classes, 'y_Predicted': test_preds}
-    df = pd.DataFrame(data, columns=['y_Actual', 'y_Predicted'])
-    return pd.crosstab(df['y_Actual'], df['y_Predicted'], rownames=[
+    df = DataFrame(data, columns=['y_Actual', 'y_Predicted'])
+    return crosstab(df['y_Actual'], df['y_Predicted'], rownames=[
         'Actual'], colnames=['Predicted'])
 
 
-def plot_pandas(cm: pd.DataFrame, sample_name: str, clade: str, determined: str, cmap: str = 'bone') -> dict:
+def plot_pandas(cm: DataFrame, sample_name: str, clade: str, determined: str, cmap: str = 'bone') -> dict:
     """Plots the confusion matrix for test data at given level
 
     Args:
@@ -136,10 +136,17 @@ def plot_pandas(cm: pd.DataFrame, sample_name: str, clade: str, determined: str,
     """
     plt.figure(figsize=(7, 6))
     ax = plt.axes()
+    try:
+        diag_axis = Series(diag(cm)).sum()
+        full_set = cm.to_numpy().sum()
+        ax.set_title(
+            f"Confusion matrix for {clade} level. R={round(diag_axis/(full_set-diag_axis),2)}")
+    except:
+        ax.set_title(
+            f"Confusion matrix for {clade} level.")
     # percentage
     cm = cm.div(cm.sum(axis=1), axis=0) * 100
     sns.heatmap(cm, annot=True, cmap=cmap, fmt='.0f', linewidths=0.5, ax=ax)
-    ax.set_title(f"Confusion matrix for {clade} level")
     plt.yticks(fontsize=5)
     plt.xticks(fontsize=5)
     plt.savefig(
@@ -177,8 +184,8 @@ def plot_features(datas, job_name, classif_level, sp_determined):
     keys = list(datas.keys())
     values = list(datas.values())
 
-    data = pd.DataFrame(data=values, index=keys, columns=[
-                        "score"]).sort_values(by="score", ascending=False)
+    data = DataFrame(data=values, index=keys, columns=[
+        "score"]).sort_values(by="score", ascending=False)
     data.astype(float).nlargest(15, columns="score").plot(
         kind='barh', color='#465065', figsize=(7, 6))
     plt.savefig(

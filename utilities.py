@@ -98,10 +98,10 @@ def summary_to_dl(summary_file):
         next(summary_reader)
         next(summary_reader)
         for i, line in enumerate(summary_reader):
-            if i < 5500:
+            if i < 6500:
                 print("Already done")
                 next(summary_reader)
-            elif i >= 5500 and i < 6500:
+            elif i >= 6500 and i < 10000:
                 # accession, https
                 split = line.split()
                 print(f"Resolving entry n°{i} : {split[0]}")

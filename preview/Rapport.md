@@ -154,6 +154,9 @@ La taille de la base de données peut être approximée par la fonction f(X,n,k)
 
 Ce système de base permet à l'utilisateur de créer différents jeux de train avec différents groupements de génomes, différents paramètres de sampling, de taille de k-mers... et ainsi de garder d'une part le système explorable pour quiconque trouverait des paramètres offrant une meilleure couverture, et d'autre part permettre le partage d'une base cohérente dans un format unifié.
 
+**Expansion et génération**
+
+Une classe, nommée `force_build.py`, permet d'appeler les méthodes pour construire une base de données complète sans effectuer de prédiction pour un génome ; ce qui s'avère utile quand le nombre de génomes à indexer est grand et qu'on veut l'effectuer en amont ou construire la base pour un autre poste. Cela va créer tous les jeux d'entraînement et les modèles (qu'il est possible de regénérer plus tard si certains des paramètres sont changés)
 
 ## Résultats biologiques
 
