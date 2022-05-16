@@ -2,11 +2,10 @@ from cProfile import label
 import xgboost as xgb
 from python_tools import my_output_msg, my_function_timer
 from wisp_lib import load_xgboost_data, recode_kmer_4
-from wisp_view import compare_test, plot_features
+from wisp_view import compare_test, plot_features, plot_all_reads
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-from scipy.special import softmax
-from numpy import asarray, argmax, amax, amin, mean
+from numpy import argmax, amax, amin, mean
 from collections import Counter
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
@@ -162,6 +161,7 @@ def prediction(data, model, sample_name, clade, determined, reads_threshold, wit
     if with_intensive_test:
         softpred_from_prediction(
             preds, sample_name, clade, determined, inverted_map)
+        plot_all_reads(preds, sample_name, inverted_map, clade, determined)
     return res if with_softmax_norm else preds
 
 
@@ -185,6 +185,9 @@ def softmax_from_prediction(preds, reads_selection_threshold, func='delta_mean')
         case 'min_max':
             ret = [argmax(a) if min([amax(a)-p for p in a if p != amax(a)]) >
                    reads_selection_threshold else False for a in preds]
+        case 'delta_sum':
+            ret = [argmax(a) if amax(a) > (sum(a)-amax(a)) + reads_selection_threshold
+                   else False for a in preds]
         case _:
             ret = [argmax(a) for a in preds]
     if len(ret) == 0:
@@ -206,7 +209,7 @@ def softpred_from_prediction(preds, sample_name: str, clade: str, determined: st
     plt.style.use('seaborn-deep')
     graph = f.add_axes([0.2, 0.2, 0.8, 0.6])
     for t in thsh:
-        for func in ['delta_mean', 'min_max']:
+        for func in ['delta_mean', 'min_max', 'delta_sum']:
             softmax = Counter(a for a in softmax_from_prediction(
                 preds, t, func) if not isinstance(a, bool))
             ser = pd.Series(data=softmax, index=softmax.keys(),

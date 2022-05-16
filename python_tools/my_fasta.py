@@ -36,25 +36,27 @@ def my_pretty_printer(seq_dict: dict, size: int = 10) -> None:
 
 def my_classification_mapper(file):
     Entrez.email = 'siegfried.dubois@inria.fr'
-    try:
-        handle = Entrez.efetch(db="nucleotide", id=file,
-                               rettype="gb", retmode="text")
-        x = SeqIO.read(handle, 'genbank')  # def : genbank
-        classif = x.annotations['taxonomy']
-        print(classif)
-        sub = x.annotations['organism']
-        has_order = False
-        order = ""
-        for e in classif:
-            if e[-4:] == 'ales':
-                order = e
-                has_order = True
-        if has_order:
-            group = classif[2] if classif[2][-4:] != 'ales' else classif[1]
-            return f"{classif[0]}_{classif[1]}_{group}_{order}_{sub.split(' ')[0]}_{sub.split(' ')[1]}"
-    except:
-        print(f"Can't get data for {file}")
-        return None
+    # skipping unnecessary calls for already processed files
+    if('Bacteria' not in file and 'Archaea' not in file):
+        try:
+            handle = Entrez.efetch(db="nucleotide", id=file,
+                                   rettype="gb", retmode="text")
+            x = SeqIO.read(handle, 'genbank')  # def : genbank
+            classif = x.annotations['taxonomy']
+            sub = x.annotations['organism']
+            has_order = False
+            order = ""
+            for e in classif:
+                if e[-4:] == 'ales':
+                    order = e
+                    has_order = True
+            if has_order:
+                group = classif[2] if classif[2][-4:] != 'ales' else classif[1]
+                return f"{classif[0]}_{classif[1]}_{group}_{order}_{sub.split(' ')[0]}_{sub.split(' ')[1]}"
+        except:
+            print(f"Can't get data for {file}")
+            return None
+    return None
 
 
 def my_fetcher(filelist, outname):

@@ -1,19 +1,20 @@
-import argparse
+from argparse import ArgumentParser
 from sample_class import make_datasets
 from build_softprob import make_model, init_parameters, make_testing
-import warnings
+from warnings import filterwarnings
 from python_tools import my_logs_global_config
 from datetime import datetime
 from wisp_view import gen_html_report, tree_render, plot_boosting
 from wisp_lib import check_if_database_exists, check_if_model_exists, load_mapping, load_json
 from predictors import test_unk_sample, save_output, test_model
+from constants import RATIO, FUNC
 
 if __name__ == "__main__":
     "Executes main procedure"
-    warnings.filterwarnings('ignore')  # to ignore xgboost warnnings
+    filterwarnings('ignore')  # to ignore xgboost warnnings
     my_logs_global_config("LOG_wisp")
 
-    parser = argparse.ArgumentParser()
+    parser = ArgumentParser()
 
     # declaring args
     parser.add_argument(
@@ -48,10 +49,6 @@ if __name__ == "__main__":
     except:
         raise ValueError(
             "Incorrect or missing parameters file ; check path and/or contents of json reference.")
-
-    # to investigate
-    FUNC: str | None = None
-    RATIO: float = 1.5
 
     # init iterables and memory spaces
     topmost: dict = {}

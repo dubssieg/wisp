@@ -112,3 +112,34 @@ python force_build.py db_name params.json
 # Results
 
 Results are currently exported into a set of plots, a html file and a json file, in order to easily overview data or fetch it to another program.
+
+**How to interpret a report**
+
+For each classification level, you get a set of infos. You may get even more with `'full_test_set': True` but compute time will be higher. The first row tells the global classification result, based upon the reads selection method you choose.
+At the end of the report, you may find the full parameters set you used on this particular sample, for archiving purposes.
+The tree displays information on which ways were investigated, matching the threshold you defined. Nodes are classes and edges are percentages of attributed reads on those classes from previous node.
+
+![tree_example](https://github.com/Tharos-ux/wisp/blob/master/preview/tree_example.png)
+
+Then, you get the information by level : in base mode, you have one confusion matrix, displaying the results from a test set against the trained model ; numbers are row percentages, showing for each actual class the percentage of correctly (or not) predicted reads. Note that this info is calculated upon your selection parameters, so you can investigate which parameters works better for your database, but you should look out for overfitting!
+
+![confusion_matrix](https://github.com/Tharos-ux/wisp/blob/master/preview/phylum_confusion_matrix.png)
+
+The next graph tells you about reads attribution : once calculations are done, reads are attributed to a certain class.
+The dashed line displays the investigation limit you set (reads percentage to consider a class)
+
+![graph_reads](https://github.com/Tharos-ux/wisp/blob/master/preview/phylum_bacteria_graph_reads.png)
+
+Next up, if you choose advanced plotting options, you get an additionnal set of graphs.
+Firstly, you have 'Mean and standard deviation' which tells you more about the fidelity of successive boostings.
+
+![mean_deviation](https://github.com/Tharos-ux/wisp/blob/master/preview/family_lactobacillales_boosting_results.png)
+
+Secondly, you get a plotting of the 15 most important features for the split, to get an extra bit more info upon the signature concept which this algorithm relies on.
+
+![features_example](https://github.com/Tharos-ux/wisp/blob/master/preview/order_bacilli_feature_importance.png)
+
+Lastly, you get additional plots that are not included inside the .html file but are freely consultable from the output folder :
+
++ Reads porbability repartition
++ Reads selection across functions

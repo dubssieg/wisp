@@ -1,7 +1,7 @@
 "Functions to encode and decode kmers"
 
 from functools import cache
-import khmer
+from khmer import Countgraph
 from collections import Counter
 
 

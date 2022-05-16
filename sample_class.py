@@ -8,8 +8,6 @@ from os import listdir
 from json import dump
 from pathlib import Path
 
-MY_ENCODER = my_encoder_k4()
-
 
 class Sample:
 
@@ -74,7 +72,7 @@ class Sample:
         Retun an entry for XGBoost formated according to LIBSVS system
         """
         # TODO better structure if k != 4
-        return str(num_sp) + " " + ' '.join([f"{MY_ENCODER[k]}:{round((v/self.size)*10000,2)}" for k, v in self.counts.items()])
+        return str(num_sp) + " " + ' '.join([f"{encode_kmer_4(k)}:{round((v/self.size)*10000,2)}" for k, v in self.counts.items()])
 
     def __str__(self):
         # f"Sample {self.id} (from file {self.specie}) -> [{self.seq[:10]} --- {self.seq[-10:]}]"

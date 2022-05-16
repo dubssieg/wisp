@@ -1,23 +1,20 @@
-# to do random tests
-
 from python_tools import my_classification_mapper, my_fetcher
 from os import listdir, rename, system
 import csv
 from Bio import SeqIO
-
-PATH: str = "/udd/sidubois/Stage/Genomes/to_annotate"
+from constants import ANNOTATE_PATH, SUMMARY_FILE
 
 
 def rename_genomes():
     files = [f"{file[:-4]}" for file in listdir(
-        f"{PATH}/")]
+        f"{ANNOTATE_PATH}/")]
 
     for file in files:
         new_name = my_classification_mapper(file)
 
         if new_name != None:
-            rename(f"{PATH}/{file}.fna",
-                   f"{PATH}/{new_name}.fna")
+            rename(f"{ANNOTATE_PATH}/{file}.fna",
+                   f"{ANNOTATE_PATH}/{new_name}.fna")
 
 
 def cancel_genomes():
@@ -29,18 +26,19 @@ def cancel_genomes():
         new_name = f"_{file}"
 
         if new_name != None:
-            rename(f"{PATH}/{file}.fna",
-                   f"{PATH}/{new_name}.fna")
+            rename(f"{ANNOTATE_PATH}/{file}.fna",
+                   f"{ANNOTATE_PATH}/{new_name}.fna")
 
 
 def pre_rename():
-    files = listdir("{PATH}/")
+    files = listdir(f"{ANNOTATE_PATH}/")
 
     for file in files:
-        with open(f"{PATH}/{file}", "r") as reader:
-            accession = reader.readline().split('.')[0][1:]
-        rename(f"{PATH}/{file}",
-               f"{PATH}/{accession}.fna")
+        if('Bacteria' not in file and 'Archaea' not in file):
+            with open(f"{ANNOTATE_PATH}/{file}", "r") as reader:
+                accession = reader.readline().split('.')[0][1:]
+            rename(f"{ANNOTATE_PATH}/{file}",
+                   f"{ANNOTATE_PATH}/{accession}.fna")
 
 
 def get_info(csv_file):
@@ -100,34 +98,30 @@ def summary_to_dl(summary_file):
         next(summary_reader)
         next(summary_reader)
         for i, line in enumerate(summary_reader):
-            if i < 5000:
+            if i < 5500:
                 print("Already done")
                 next(summary_reader)
-            elif i >= 5000 and i < 6000:
-                # accession, name, https
+            elif i >= 5500 and i < 6500:
+                # accession, https
                 split = line.split()
+                print(f"Resolving entry n°{i} : {split[0]}")
                 try:
                     https_wget = [
                         elt for elt in split if elt[:5] == 'https'][0]
                     access = [split[0], https_wget]
                     system(
-                        f"wget -P {PATH} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz")
+                        f"wget -P {ANNOTATE_PATH} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz; gzip -d {ANNOTATE_PATH}/*.gz")
+                    pre_rename()
+                    rename_genomes()
                 except:
                     pass
             else:
                 break
 
 
-def merge_and_clean(genome):
-    with open(genome, "r") as reader:
-        pass
-    system(
-        f"gzip -d {PATH}/{access[1][8:].split('/')[-1]}_genomic.fna.gz")
-    system(
-        f"rm {PATH}/{access[1][8:].split('/')[-1]}_genomic.fna.gz")
-
-
-# summary_to_dl("/udd/sidubois/Stage/assembly_summary.txt")
-system(f"rm {PATH}/*.gz")
-pre_rename()
-rename_genomes()
+if __name__ == "__main__":
+    # This class aims to help to generate databases from a set of references.
+    # From an assembly_summary.txt downloaded from NCBI (obtained via ftp.ncbi)
+    # it downloads all references, renames it according to the WISP file system
+    # All you have to do after is to put those files into train folder once process is done
+    summary_to_dl(SUMMARY_FILE)

@@ -6,9 +6,8 @@ from python_tools import my_output_msg, my_function_timer, my_logs_clear
 # constants ; change those to select database and such
 DATABASE: str = "my_db"
 PARAMS: str = "wisp_params.json"
-JOB: str = "fasta_for_read"
 PATH: str = "/udd/sidubois/Stage/Genomes/unk/"
-PREFIX_JOB: str = "test_db"
+PREFIX_JOB: str = "plot"
 
 
 def rename_genomes(path: str):

@@ -157,7 +157,7 @@ Ce système de base permet à l'utilisateur de créer différents jeux de train 
 
 ## Résultats biologiques
 
-A l'inverse d'une donnée informatique générée par une base sur laquelle un pourcentage d'aléatoire est déploté, la donnée biologique peut présenter d'autres types d'erreurs pouvant faire chuter le score, qui sont de plusieurs natures :
+A l'inverse d'une donnée informatique générée par une base sur laquelle un pourcentage d'aléatoire est déployé, la donnée biologique peut présenter d'autres types d'erreurs pouvant faire chuter le score, qui sont de plusieurs natures :
 
 + Du bruit sur le read, lié par exemple au séquenceur présentant des erreurs sur cette portion du séquençage
 + Une conatmination du read par une autre espèce (transfert horizontal...)
@@ -177,6 +177,13 @@ A cela, on adjoint un seuil ; ainsi, pour chaque read r, r sera pris en compte s
 En conséquence, la valeur maximale que peut prendre le seuil pour 'min_max' est 1 (100% de stringence) et 1/(nclasses) pour 'delta_mean' (100% de stringence)
 Afin d'éviter un blocage par une valeur trop haute, toutes les étapes ne présentant pas le même nombre de classes ni le même schéma de reads, la fonction chargée de la discrimination des reads peu significatifs a été codée de manière récursive : tant qu'aucun read ne peut être sélectionné, le calcul est réexécuté avec un seuil 0.05 plus bas.
 
+### Rapport produit
+
+Les rapports produits par WISP sont de plusieurs natures.
+
++ Une série de fichiers .png forme l'ensemble des figures de résultats
++ Un fichier .html sert de rapport global, plaçant les résultats de l'échantillon et les estimateurs en une seule interface
++ Un fichier .json contient des statistiques brutes, et peut être exploré avec certains des scripts afin d'en extraire des croisements de données entre plusieurs paramètres au format .csv
 
 ## Tests de stabilité
 

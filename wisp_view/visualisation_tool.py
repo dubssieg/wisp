@@ -40,6 +40,21 @@ def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, cl
     plt.savefig(f"output/{sample_name}/{clade}_{determined}_graph_reads.png")
 
 
+def plot_all_reads(matrix, sample_name: str, inverted_map: dict, clade: str, determined: str):
+    figure = plt.figure(figsize=(10, 6))
+    graph = figure.add_axes([0.1, 0.2, 0.8, 0.6])
+    for serie in matrix:
+        plt.plot(serie, color="#465065")
+    plt.title(
+        f"Probabilities accross {clade} for {sample_name}")
+    plt.ylabel("Probabilities")
+    plt.xticks(rotation=70)
+    graph.set_xticks([i for i in range(len(inverted_map))])
+    graph.set_xticklabels([f"{inverted_map[str(i)]}"
+                          for i in range(len(inverted_map))])
+    plt.savefig(f"output/{sample_name}/{clade}_{determined}_proba_reads.png")
+
+
 def compare_test(test_classes, test_preds, inverted_map: dict, sample_name: str, clade: str, determined: str):
     """Calling for estimators and plotting of confusion matrix
 

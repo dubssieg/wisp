@@ -4,6 +4,7 @@ from os import listdir
 from python_tools import my_function_timer, my_output_msg, my_logs_global_config, my_logs_clear
 from wisp_lib import load_mapping, load_json
 from argparse import ArgumentParser
+from constants import FUNC, RATIO
 
 
 @my_function_timer("Building full database")
@@ -16,9 +17,6 @@ def build_full_db(args) -> None:
     Raises:
         ValueError: _description_
     """
-    # same as main
-    FUNC: str | None = None
-    RATIO: float = 1.5
 
     # we try to load parmas file and gather data from it
     try:

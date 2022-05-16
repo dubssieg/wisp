@@ -127,9 +127,6 @@ def gen_html_report(params, job_name, dataset, reports, list_clades, test_result
             if test_status:
                 insert_tests = f"""
                 <div class="column">
-                    <img src="{list_clades[i]}_{hypotesis}_softprob.png">
-                </div>
-                <div class="column">
                     <img src="{list_clades[i]}_{hypotesis}_boosting_results.png">
                 </div>
                 <div class="column">
@@ -160,4 +157,5 @@ def gen_html_report(params, job_name, dataset, reports, list_clades, test_result
     with open(f"output/{job_name}/{job_name}_report.html", "w") as writer:
         writer.write(html_string)
 
+    # if you want it to open automatically
     #webbrowser.open('file://' + path.realpath(f"output/{job_name}/{job_name}_report.html"))
