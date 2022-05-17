@@ -65,12 +65,12 @@ def launcher(semaphore: Semaphore, pool_exec: ThreadPool, func: Callable, args):
         return ret
 
 
-def my_futures_collector(func: Callable, argslist: list[tuple], num_processes: int) -> list:
+def my_futures_collector(func: Callable, argslist: list, num_processes: int) -> list:
     """
     Spawns len(arglist) instances of func and executes them at num_processes instances at time.
 
     * func : a function
-    * argslist (list[tuple]): a list of tuples, arguments of each func
+    * argslist (list): a list of tuples, arguments of each func
     * num_processes (int) : max number of concurrent instances
     """
     with ThreadPoolExecutor(max_workers=num_processes) as executor:

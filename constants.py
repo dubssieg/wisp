@@ -15,4 +15,5 @@ TAXAS_LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
 DATABASE: str = "4k_16_05_2022"
 PARAMS: str = "wisp_params.json"
 SAMPLE_PATH: str = "/udd/sidubois/Stage/Genomes/unk/"
-PREFIX_JOB: str = "mda"
+PREFIX_JOB: str = "m"
+THREADPOOL: int = 8

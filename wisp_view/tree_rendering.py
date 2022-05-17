@@ -121,10 +121,13 @@ def tree_evaluator(tree: AGraph, path: list[str]) -> str:
     """
     scores = final_node_score(
         tree, [p for p in names_children(tree, 'None (-)') if p[-2] == 'f'])
-    if min(scores, key=scores.get) in path:
-        return f"Default path is more or equally parcimonious than any other."
+    #minScore = min(scores, key=scores.get)
+    minScore = min(scores.values())
+    pathScore = scores[path[-1]]
+    if pathScore <= minScore:
+        return f"Default path is more or equally parsimonious than any other."
     else:
-        return f"Though is it not the final guess, path leading to {min(scores, key=scores.get)[:-4]} is the most parcimonious."
+        return f"Though is it not the final guess, path(s) leading to {[x for x,y in scores.items() if y==minScore]} is the most parsimonious."
 
 
 def tree_render(results: dict, job_name: str, path: list) -> str:

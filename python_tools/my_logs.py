@@ -1,5 +1,5 @@
 from time import monotonic
-from datetime import timedelta
+from datetime import timedelta, datetime
 from enum import Enum
 from logging import basicConfig, INFO, info
 from inspect import signature
@@ -8,7 +8,7 @@ from inspect import signature
 def my_output_msg(string: str) -> None:
     "Prints the date and time of action + info specified in str"
     info(f"{string}")
-    #print(f"[{str(datetime.now())}] {string}")
+    print(f"[{str(datetime.now())}] {string}")
 
 
 def my_logs_clear(filepath: str):

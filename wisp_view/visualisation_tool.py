@@ -1,10 +1,7 @@
 from collections import Counter
-from multiprocessing.dummy import Array
-from gpg import Data
 from numpy import array, diag
-from scipy.interpolate import make_interp_spline
 import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report
 import seaborn as sns
 from pandas import DataFrame, Series, crosstab
 

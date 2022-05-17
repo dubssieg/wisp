@@ -1,6 +1,6 @@
 from build_softprob import load_model, load_params, prediction
 import xgboost as xgb
-import json
+from json import dump
 from python_tools import my_output_msg
 from collections import Counter
 from wisp_view import reads_species_plotter, compare_test
@@ -54,7 +54,7 @@ def save_output(dico: dict, job_name: str) -> None:
     * job_name (str) : name of current job, creates output path
     """
     with open(f"output/{job_name}/{job_name}_results.json", "a") as fm:
-        json.dump(dico, fm)
+        dump(dico, fm)
         fm.write('\n')
 
 
