@@ -1,5 +1,6 @@
 from collections import Counter
 from multiprocessing.dummy import Array
+from gpg import Data
 from numpy import array, diag
 from scipy.interpolate import make_interp_spline
 import matplotlib.pyplot as plt
@@ -40,7 +41,16 @@ def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, cl
     plt.savefig(f"output/{sample_name}/{clade}_{determined}_graph_reads.png")
 
 
-def plot_all_reads(matrix, sample_name: str, inverted_map: dict, clade: str, determined: str):
+def plot_all_reads(matrix, sample_name: str, inverted_map: dict, clade: str, determined: str) -> None:
+    """Does the plotting of reads repartition across clades
+
+    Args:
+        matrix (numpy array): set of predictions softmaxed we want to plot
+        sample_name (str): for naming purposes
+        inverted_map (dict): mapping between numbers and clades names
+        clade (str): level we're working at
+        determined (str): level previously determined
+    """
     figure = plt.figure(figsize=(10, 6))
     graph = figure.add_axes([0.1, 0.2, 0.8, 0.6])
     for serie in matrix:
@@ -55,7 +65,7 @@ def plot_all_reads(matrix, sample_name: str, inverted_map: dict, clade: str, det
     plt.savefig(f"output/{sample_name}/{clade}_{determined}_proba_reads.png")
 
 
-def compare_test(test_classes, test_preds, inverted_map: dict, sample_name: str, clade: str, determined: str):
+def compare_test(test_classes, test_preds, inverted_map: dict, sample_name: str, clade: str, determined: str) -> dict:
     """Calling for estimators and plotting of confusion matrix
 
     Args:
@@ -67,7 +77,7 @@ def compare_test(test_classes, test_preds, inverted_map: dict, sample_name: str,
         determined (str): upper level already determined
 
     Returns:
-        _type_: _description_
+        dict: report with estimators
     """
     test_preds = [t for t in test_preds]
     cm = pandas_confusion(test_classes, test_preds,
@@ -85,7 +95,7 @@ def text_classification_report(test_classes, test_preds, inverted_map: dict) -> 
         inverted_map (dict): mapping between ints and class labels
 
     Returns:
-        dict: _description_
+        dict: report with estimators
     """
     cls = classification_report(test_classes, test_preds, output_dict=True)
     for key, value in list(cls.items()):
@@ -121,7 +131,7 @@ def pandas_confusion(test_classes, test_preds, inverted_map: dict) -> DataFrame:
         'Actual'], colnames=['Predicted'])
 
 
-def plot_pandas(cm: DataFrame, sample_name: str, clade: str, determined: str, cmap: str = 'bone') -> dict:
+def plot_pandas(cm: DataFrame, sample_name: str, clade: str, determined: str, cmap: str = 'bone') -> None:
     """Plots the confusion matrix for test data at given level
 
     Args:
@@ -130,9 +140,6 @@ def plot_pandas(cm: DataFrame, sample_name: str, clade: str, determined: str, cm
         clade (str): level we're working at
         determined (str): upper level already determined
         cmap (str, optional): set of colors for the heatmap. Defaults to 'bone'.
-
-    Returns:
-        dict : number of true and false classifications for clade
     """
     plt.figure(figsize=(7, 6))
     ax = plt.axes()
@@ -153,8 +160,16 @@ def plot_pandas(cm: DataFrame, sample_name: str, clade: str, determined: str, cm
         f"output/{sample_name}/{clade}_{determined}_confusion_matrix.png")
 
 
-def plot_boosting(df, sample_name, clade, determined, number_rounds):
+def plot_boosting(df: DataFrame, sample_name: str, clade: str, determined: str, number_rounds: int) -> None:
+    """Plots the gain from multiple boostings
 
+    Args:
+        df (DataFrame): datas of each series
+        sample_name (str): name of job, naming purposes
+        clade (str): level we're working at
+        determined (str): previous level of classification
+        number_rounds (int): number of successive boostings that were done
+    """
     df.reset_index()
     X = df.index
     mean_train = df.iloc[:, 0]
@@ -179,8 +194,15 @@ def plot_boosting(df, sample_name, clade, determined, number_rounds):
         f"output/{sample_name}/{clade}_{determined}_boosting_results.png")
 
 
-def plot_features(datas, job_name, classif_level, sp_determined):
+def plot_features(datas, job_name: str, classif_level: str, sp_determined: str) -> None:
+    """Plots the repartition of features in gain mode which were used in our model
 
+    Args:
+        datas (Counter): a count of features
+        job_name (str): for naming purposes
+        classif_level (str): level we're working at
+        sp_determined (str): previous level estimation
+    """
     keys = list(datas.keys())
     values = list(datas.values())
 
