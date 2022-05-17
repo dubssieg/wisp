@@ -1,3 +1,5 @@
+"This script is rather a set of tools for downloading references ganomes and renaming those"
+
 from python_tools import my_classification_mapper, my_fetcher
 from os import listdir, rename, system
 import csv
@@ -5,32 +7,25 @@ from Bio import SeqIO
 from constants import ANNOTATE_PATH, SUMMARY_FILE
 
 
-def rename_genomes():
+def rename_genomes(path_to_genomes: str = ANNOTATE_PATH) -> None:
+    """Aims to rename each genome it finds in the folder according to the WISP system.
+    Only works on .fna files, as its the default input format for WISP.
+
+    Args:
+        path_to_genomes (str, optional): path to files to rename. Defaults to ANNOTATE_PATH.
+    """
     files = [f"{file[:-4]}" for file in listdir(
-        f"{ANNOTATE_PATH}/")]
+        f"{path_to_genomes}/") if file[-4:] == '.fna']
 
     for file in files:
         new_name = my_classification_mapper(file)
 
         if new_name != None:
-            rename(f"{ANNOTATE_PATH}/{file}.fna",
-                   f"{ANNOTATE_PATH}/{new_name}.fna")
+            rename(f"{path_to_genomes}/{file}.fna",
+                   f"{path_to_genomes}/{new_name}.fna")
 
 
-def cancel_genomes():
-    files = [file for file in listdir(
-        "/udd/sidubois/Stage/Genomes/train/") if len(file.split('_')) != 6]
-    print(files)
-
-    for file in files:
-        new_name = f"_{file}"
-
-        if new_name != None:
-            rename(f"{ANNOTATE_PATH}/{file}.fna",
-                   f"{ANNOTATE_PATH}/{new_name}.fna")
-
-
-def pre_rename():
+def pre_rename() -> None:
     files = listdir(f"{ANNOTATE_PATH}/")
 
     for file in files:
@@ -41,7 +36,7 @@ def pre_rename():
                    f"{ANNOTATE_PATH}/{accession}.fna")
 
 
-def get_info(csv_file):
+def get_info(csv_file: str) -> None:
     with open(csv_file) as file:
         csvreader = csv.reader(file)
         header = next(csvreader)
@@ -56,7 +51,7 @@ def get_info(csv_file):
             print("Bad request")
 
 
-def gather(csv_file):
+def gather(csv_file: str) -> None:
     ids = []
     with open(csv_file) as file:
         csvreader = csv.reader(file)
@@ -72,7 +67,7 @@ def gather(csv_file):
 # retrieving one huge .fasta file
 
 
-def scatter(fasta_file):
+def scatter(fasta_file: str) -> None:
     my_tuple = [(fasta.id, fasta.seq)
                 for fasta in SeqIO.parse(open(fasta_file), 'fasta')]
     for id, seq in my_tuple:
@@ -83,25 +78,32 @@ def scatter(fasta_file):
             print(f"File {name}.fna sucessfully writed out!")
 
 
-def verificator(fasta_file):
+def verificator(fasta_file: str) -> int:
+    """Counts number of fasta sequences inside a huge fasta file
+
+    Args:
+        fasta_file (str): a path to a file
+
+    Returns:
+        int: number of subsequences
+    """
     integer = 0
     with open(fasta_file, "r") as reader:
         for line in reader:
             if '>' in line:
                 integer += 1
-    print(integer)
+    return integer
 
 
-def summary_to_dl(summary_file):
+def summary_to_dl(summary_file: str) -> None:
     # assumming its a standard NCBI summary file
     with open(summary_file, "r") as summary_reader:
         next(summary_reader)
         next(summary_reader)
         for i, line in enumerate(summary_reader):
-            if i < 6500:
-                print("Already done")
+            if i < 10000:
                 next(summary_reader)
-            elif i >= 6500 and i < 10000:
+            elif i >= 10000 and i < 20000:
                 # accession, https
                 split = line.split()
                 print(f"Resolving entry n°{i} : {split[0]}")

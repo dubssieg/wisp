@@ -263,7 +263,7 @@ def make_model(job_name: str, path: str, classif_level: str, db_name: str, sp_de
     global_scope()
     #X, y = pandas_load_libsvm(sp_determined, 'train',path, db_name, classif_level)
     dtrain = load_xgboost_data(
-        path, classif_level, 'train', db_name, sp_determined)
+        path, classif_level, 'train', db_name, sp_determined, job_name)
     #dtrain = xgb.DMatrix(data=X, label=y)
     bst = modelisation(dtrain, model_parameters, number_rounds)
     save_model(bst, path, classif_level, db_name, sp_determined)
@@ -293,7 +293,7 @@ def make_testing(size_kmer, job_name, sp_determined, path, db_name, classif_leve
     bst = xgb.Booster()
     global_scope()
     mat = load_xgboost_data(
-        path, classif_level, 'train', db_name, sp_determined)
+        path, classif_level, 'train', db_name, sp_determined, job_name)
     xgb_cv = xgb.cv(dtrain=mat, params=init_parameters(class_count), nfold=3,
                     num_boost_round=20, early_stopping_rounds=10, metrics="auc", as_pandas=True, seed=123)
     bst = modelisation(mat, model_parameters, number_rounds)

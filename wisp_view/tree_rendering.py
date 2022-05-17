@@ -1,5 +1,4 @@
 from pygraphviz import AGraph
-from numpy import argmin
 
 
 def node_childrens(tree: AGraph, name_of_node: str) -> int:
@@ -62,7 +61,16 @@ def names_predecessors(tree: AGraph, name_of_node: str) -> list:
         return []
 
 
-def branch_score(from_node: str, tree_stats: dict):
+def branch_score(from_node: str, tree_stats: dict) -> int:
+    """Returns the score of a branch, solely looking upon number of co-branches
+
+    Args:
+        from_node (str): node we're starting from
+        tree_stats (dict): a dict outputted by tree_stats
+
+    Returns:
+        int: a score, 1 means perfect path, more means less than perfect
+    """
     taxa_level = from_node[-2]
     taxa_decrease = {
         '-': 5,
@@ -75,32 +83,51 @@ def branch_score(from_node: str, tree_stats: dict):
     return tree_stats[from_node] - taxa_decrease[taxa_level]
 
 
-def tree_stats(tree):
+def tree_stats(tree: AGraph) -> dict:
+    """Fetches the scores for each node
+
+    Args:
+        tree (AGraph): tree we're investigating
+
+    Returns:
+        dict: a dict of scores, ranging [1,inf]
+    """
     return {node: node_childrens(tree, node) for node in names_children(tree, "None (-)")}
 
 
-def final_node_score(tree: AGraph, lon: list):
+def final_node_score(tree: AGraph, lon: list) -> dict:
+    """Evaluates the score for each terminal node
+
+    Args:
+        tree (AGraph): tree we're investigating
+        lon (list): a list of leaf nodes
+
+    Returns:
+        dict: a dict of score of each leaf
+    """
     my_stats = tree_stats(tree)
     return {node: sum([my_stats[i] for i in names_predecessors(tree, node) if i != 'None (-)']) for node in lon}
 
 
-def tree_evaluator(tree, path):
-    my_stats = tree_stats(tree)
-    for i, level in enumerate(['d', 'p', 'g', 'o']):
-        fixed_list = list(my_stats.keys())
-        score_to_compare, min_all_other_scores = branch_score(path[i], my_stats), [branch_score(
-            item, my_stats) for item in [key for key in fixed_list if key[-2] == level]]
-        if score_to_compare >= min(min_all_other_scores):
-            print(
-                f"At level ({level}), default path is more or equally parcimonious than any other")
-        else:
-            print(
-                f"At level ({level}), default path is less parcimonious than {fixed_list[argmin(min(min_all_other_scores))]}")
-    print(final_node_score(
-        tree, [p for p in names_children(tree, 'None (-)') if p[-2] == 'f']))
+def tree_evaluator(tree: AGraph, path: list[str]) -> str:
+    """Main routine : calls calculations upon a tree
+
+    Args:
+        tree (AGraph): tree we're investigating into
+        path (list[str]): the prediction path to check against
+
+    Returns:
+        str: a sentence that resumes the parcimony of the tree
+    """
+    scores = final_node_score(
+        tree, [p for p in names_children(tree, 'None (-)') if p[-2] == 'f'])
+    if min(scores, key=scores.get) in path:
+        return f"Default path is more or equally parcimonious than any other."
+    else:
+        return f"Though is it not the final guess, path leading to {min(scores, key=scores.get)[:-4]} is the most parcimonious."
 
 
-def tree_render(results: dict, job_name: str, path: list) -> None:
+def tree_render(results: dict, job_name: str, path: list) -> str:
     """Renders a classification tree with pygraphviz engine
 
     Args:
@@ -111,9 +138,9 @@ def tree_render(results: dict, job_name: str, path: list) -> None:
     root = ["None (-)"]
     tree = AGraph(directed=False, strict=True)
     unpacking(tree, root, results, path)
-    tree_evaluator(tree, path)
     tree.layout(prog='dot')
     tree.draw(f"output/{job_name}/{job_name}_tree.png")
+    return tree_evaluator(tree, path)
 
 
 def unpacking(tree: AGraph, root: list, datas: dict, path: list) -> None:

@@ -103,6 +103,7 @@ def gen_html_report(params, job_name, dataset, reports, list_clades, test_result
                 <img src="{job_name}_tree.png" class="center">
             </div>
         </div>
+        <p style="text-align:center">{reports["parcimonious_path"]}</p>
     """
     for i in range(len(list_clades)):
         list_graphs = [file for file in listdir(

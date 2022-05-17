@@ -77,7 +77,7 @@ def test_model(out_path, job_name, database_name, classif_level, reads_threshold
 
     my_output_msg("Data loading...")
     dtest = load_xgboost_data(
-        out_path, classif_level, 'test', database_name, sp_determined)
+        out_path, classif_level, 'test', database_name, sp_determined, job_name)
 
     my_output_msg("Model loading...")
     load_model(bst, out_path, classif_level, database_name, sp_determined)
@@ -110,7 +110,7 @@ def test_unk_sample(out_path, job_name, database_name, classif_level, sp_determi
 
     my_output_msg("Data loading...")
     dunk = load_xgboost_data(
-        out_path, classif_level, 'unk', database_name, sp_determined)
+        out_path, classif_level, 'unk', database_name, sp_determined, job_name)
 
     my_output_msg("Model loading...")
     load_model(bst, out_path, classif_level, database_name, sp_determined)

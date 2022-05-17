@@ -51,11 +51,11 @@
     ],
     "input": "/udd/sidubois/Stage/Genomes/",
     "output": "data/",
-    "threshold": 0.1,
+    "threshold": 0.05,
     "nb_boosts": 10,
     "tree_depth": 8,
     "full_test_set": false,
-    "reads_th": 0.1,
-    "selection_mode": "delta_mean",
-    "force_model_rebuild": true
+    "reads_th": 0.0,
+    "selection_mode": "None",
+    "force_model_rebuild": false
 }

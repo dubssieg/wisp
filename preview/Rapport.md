@@ -156,7 +156,9 @@ Ce système de base permet à l'utilisateur de créer différents jeux de train 
 
 **Expansion et génération**
 
-Une classe, nommée `force_build.py`, permet d'appeler les méthodes pour construire une base de données complète sans effectuer de prédiction pour un génome ; ce qui s'avère utile quand le nombre de génomes à indexer est grand et qu'on veut l'effectuer en amont ou construire la base pour un autre poste. Cela va créer tous les jeux d'entraînement et les modèles (qu'il est possible de regénérer plus tard si certains des paramètres sont changés)
+Par défaut, il est possible de lancer une prédiction sur un échantillon sans avoir constitué de base. Dans ce contexte d'utilisation, on fournit à WISP un chemin vers des génomes de référence, et la base sera constituée à mesure de la prédiction, ne crééant les jeux de test et de train que lorsque ceux-ci sont nécessaires. Dans ce contexte, ce seront les prédictions successives qui étendront la base, faisant explorer de nouvelles sorties à mesure des itérations.
+Toutefois, si les génomes de référence sont retirés ou les paramètres changés au cours d'un tel processus de création de base, votre base de données comportera un biais que seul un rebuild complet pourra effacer.
+C'est pourquoi une seconde méthode de génération de base a été codée. Une classe, nommée `force_build.py`, permet d'appeler les méthodes pour construire une base de données complète sans effectuer de prédiction pour un génome ; ce qui s'avère utile quand le nombre de génomes à indexer est grand et qu'on veut l'effectuer en amont ou construire la base pour un autre poste. Cela va créer tous les jeux d'entraînement et les modèles (qu'il est possible de regénérer plus tard si certains des paramètres sont changés) pour tous les taxons à tous les niveaux. Ce processus prend un temps non négligeable (35 minutes pour ~400 génomes de référence à 500 samplings/génome, 10000 pb et k=4 sur une station de travail une Dell Precision Tower 5810, équipée d'un Xeon 4 core @2.80GHz avec 8Gb de RAM)
 
 ## Résultats biologiques
 
@@ -171,7 +173,7 @@ Il convient d'expliciter d'où vient le bruit, et de comment lutter contre ses e
 ### Notion de read peu siginificatif
 
 Lors de l'utilisation du programme, l'utilisateur définit un seuil et une fonction ; la fonction sera le filtre dont le seuil formera le filrage sur un read.
-Deux fonctions func(r) sont actuellement implémentées dans WISP :
+Trois fonctions func(r) sont actuellement implémentées dans WISP :
 
 + 'min_max' : on calcule, pour chaque read r, la différence minimale entre la valeur maximale et toute valeur x du vecteur v décrivant les probabilités d'appartenance aux classes de r.
 + 'delta_mean' : on calcule, pour chaque read r, la différence entre la valeur maximale du vecteur v décrivant les probabilités d'appartenance de r et la moyenne des composantes de v.
@@ -179,6 +181,10 @@ Deux fonctions func(r) sont actuellement implémentées dans WISP :
 A cela, on adjoint un seuil ; ainsi, pour chaque read r, r sera pris en compte si et seulement si on a func(r) > seuil.
 En conséquence, la valeur maximale que peut prendre le seuil pour 'min_max' est 1 (100% de stringence) et 1/(nclasses) pour 'delta_mean' (100% de stringence)
 Afin d'éviter un blocage par une valeur trop haute, toutes les étapes ne présentant pas le même nombre de classes ni le même schéma de reads, la fonction chargée de la discrimination des reads peu significatifs a été codée de manière récursive : tant qu'aucun read ne peut être sélectionné, le calcul est réexécuté avec un seuil 0.05 plus bas.
+
+Une troisième fonction, expérimentale, n'utilise pas le seuil de la même manière :
+
++ 'delta_sum' : on calcule, pour chaque read r, la somme des valeurs à l'exception de la valeur maximale, à laquelle on ajoute le seuil, et on compare à la valeur maximale de v.
 
 ### Rapport produit
 

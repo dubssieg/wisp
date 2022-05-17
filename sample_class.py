@@ -1,9 +1,11 @@
+"This class is about the computing of DNA samples"
+
 from typing import Callable
-from python_tools import my_parser, my_function_timer, my_futures_collector, my_output_msg
+from python_tools import my_parser, my_function_timer
 from collections import Counter
 from random import randrange
 from functools import reduce
-from wisp_lib import species_map, encode_kmer_4, write_xgboost_data, load_mapping, kmer_indexing, my_encoder_k4
+from wisp_lib import species_map, encode_kmer_4, write_xgboost_data, load_mapping, kmer_indexing
 from os import listdir
 from json import dump
 from pathlib import Path
@@ -39,9 +41,20 @@ class Sample:
     def size(self, sz):
         self.__size = sz
 
+    @property
+    def ksize(self):
+        return self.__ksize
+
+    @ksize.setter
+    def ksize(self, ksz):
+        self.__ksize = ksz
+
     @counts.setter
     def counts(self, kmer_counts):
         self.__counts = kmer_counts
+
+    def post_creation_counting(self):
+        self.counts = kmer_indexing(self.seq, self.ksize)
 
     def __init__(self, seq_dna: str, kmer_size: int, seq_specie: str | None = None, counting=True):
         """Inits a new Sample object, container for sequence
@@ -53,7 +66,8 @@ class Sample:
         """
         self.specie = seq_specie  # name of file
         self.seq = seq_dna  # nucleotides
-        self.size = len(self.__seq)  # size of seq
+        self.size = len(seq_dna)  # size of seq
+        self.ksize = kmer_size
         self.counts = kmer_indexing(
             seq_dna, kmer_size) if counting else Counter()  # allows to load a full genome without computing it
 
@@ -140,7 +154,11 @@ def generate_diversity(spl: Sample, sample_number: int, size_kmer: int, size_rea
 
 
 def overhaul_diversity(spl: Sample, sample_number: int, size_kmer: int, size_read: int) -> list[Sample]:
-    return [Sample(spl.seq[x:x+size_read+size_kmer], size_kmer, spl.specie) for x in [randrange(0, spl.size-size_read-size_kmer) for _ in range(sample_number)]]
+    try:
+        return [Sample(spl.seq[x:x+size_read+size_kmer], size_kmer, spl.specie) for x in [randrange(0, spl.size-size_read-size_kmer) for _ in range(sample_number)]]
+    except:
+        spl.post_creation_counting()
+        return [spl]
 
 
 def print_sample_list(spl: list[Sample]) -> None:
@@ -187,12 +205,12 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
     * classif_level (str) : level of cassification we're working at
     * db_name (str) : database we need to search in
     """
-    # safe creation of dir
-    Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
     # iteration levels
     taxa: dict = {'domain': 0, 'phylum': 1,
                   'group': 2, 'order': 3, 'family': 4}
     if datas == ['train', 'test']:
+        # safe creation of dir
+        Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
         # we re-generate database, so we need to map it out
         sp_map = mapping_sp(f"{input_dir}train/", path,
                             classif_level, db_name, taxa[classif_level], sp_determied)
@@ -208,7 +226,8 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
         else:
             fileholder = my_parser(
                 f"{input_dir}{type_data}/{input_style}", True, True, "unk_sample")
-            my_sp = [Sample(fileholder['unk_sample'], kmer_size)]
+            my_sp = [Sample(fileholder['unk_sample'],
+                            kmer_size, counting=False)]
         lines = []
         for sp in my_sp:
             # iterate through all samples and creates subsampling
@@ -217,9 +236,9 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
                     sp, int(sampling/10), kmer_size, read_size)
             else:
                 my_ssp = overhaul_diversity(sp, sampling, kmer_size, read_size)
-            if func != None:
-                sp.update_counts(func, ratio)
             for s in my_ssp:
+                if func != None:
+                    s.update_counts(func, ratio)
                 if type_data == 'train' or type_data == 'test':
                     lines.append(s.encoding_mapping(
                         sp_map[s.specie.split('_')[taxa[classif_level]]]))

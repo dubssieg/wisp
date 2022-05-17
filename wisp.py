@@ -1,24 +1,20 @@
-"Calls for command line wisp over a set of files"
+"This scripts aims to call for command line WISP over a set of files"
 
+###########################################################################################
+# This is your main interface. Or rather the call path to your main interface.
+# If you want to change any parameter as of database name and such
+# head over constants.py : all program constants are stored here.
+# Do not change something you're not sure about! If you did so, go to github
+# to get a clean copy of the constants file.
+# Model parameters and such are stored inside a .json file, "wisp_params" by default
+# If you want to change those, please refer to the README.md file!
+###########################################################################################
+
+from constants import DATABASE, PARAMS, SAMPLE_PATH, PREFIX_JOB
 from os import listdir, system, rename
 from python_tools import my_output_msg, my_function_timer, my_logs_clear
 
 # constants ; change those to select database and such
-DATABASE: str = "my_db"
-PARAMS: str = "wisp_params.json"
-SAMPLE_PATH: str = "/udd/sidubois/Stage/Genomes/unk/"
-PREFIX_JOB: str = "plot"
-
-
-def rename_genomes(path: str):
-    "If preprocessing of names is necessary for you"
-    files: list[str] = [file for file in listdir(path)]
-
-    for file in files:
-        new_name = file.replace('_', '-')
-        rename(f"{path}{file}",
-               f"{path}{new_name}")
-    return listdir(path)
 
 
 @my_function_timer("Running WISP on unk folder")
@@ -28,8 +24,9 @@ def core_call():
     If a job fails, skips to the next one
     """
     file_list: list[str] = listdir(
-        SAMPLE_PATH)  # rename_genomes(path) as alternate call
-    my_logs_clear("LOG_wisp.log")  # we clean before entering loop
+        SAMPLE_PATH)
+    # we clean log before entering loop, might be enormous
+    my_logs_clear("LOG_wisp.log")
 
     for i, file in enumerate(file_list):
         try:  # if a job happens to fail, you can check the .log file to check the crash cause

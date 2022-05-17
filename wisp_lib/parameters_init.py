@@ -39,16 +39,16 @@ def my_params():
         # 'output' : output for database
         'output': "data/",
         # parameters for exploration and algorithm
-        'threshold': 0.1,
+        'threshold': 0.05,
         'nb_boosts': 10,
         'tree_depth': 8,
         # parameters regarding results
         'full_test_set': False,
         # parameter for read selection, signifiance for softprob
-        'reads_th': 0.1,
-        'selection_mode': 'delta_mean',  # 'min_max','delta_mean','delta_sum'
+        'reads_th': 0.0,
+        'selection_mode': 'None',  # 'min_max','delta_mean','delta_sum'
         # force rebuilding full model, when you re-use a database but you changed model parameters
-        'force_model_rebuild': True
+        'force_model_rebuild': False
     }
     save_json("wisp_params", params_job)
 

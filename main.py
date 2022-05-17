@@ -8,6 +8,7 @@ from wisp_view import gen_html_report, tree_render, plot_boosting
 from wisp_lib import check_if_database_exists, check_if_model_exists, load_mapping, load_json
 from predictors import test_unk_sample, save_output, test_model
 from constants import RATIO, FUNC, TAXAS_LEVELS
+from pathlib import Path
 
 if __name__ == "__main__":
     "Executes main procedure"
@@ -55,7 +56,7 @@ if __name__ == "__main__":
     test_results: dict = {}
     output: dict = {'domain': None, 'phylum': None,
                     'group': None, 'order': None, 'family': None}
-
+    Path(f"output/{JOB}/").mkdir(parents=True, exist_ok=True)
     for taxa in TAXAS_LEVELS:
         KMER_SIZE_REF, RS_REF, SAMPLING_REF = my_params[f"{taxa}_ref"]
         KMER_SIZE_SAMPLE, RS_SAMPLE, SAMPLING_SAMPLE = my_params[f"{taxa}_sample"]
@@ -150,7 +151,7 @@ if __name__ == "__main__":
     path_taxa = [f"{output['domain']} (d)", f"{output['phylum']} (p)",
                  f"{output['group']} (g)", f"{output['order']} (o)", f"{output['family']} (f)"]
 
-    tree_render(output, JOB, path_taxa)
+    output["parcimonious_path"] = tree_render(output, JOB, path_taxa)
 
     save_output({'Date': f"{datetime.today().strftime('%Y.%m.%d - %H:%M:%S')}", **
                  vars(args), **output}, JOB)

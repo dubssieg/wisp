@@ -62,7 +62,7 @@ def species_map(input_dir: str, int_level: int, filter: str | None = None) -> di
     return {species_listed[i]: i for i in range(len(species_listed))}
 
 
-def load_xgboost_data(path: str, classif_level: str, suffix: str, db_name: str, sp_determined: str | None):
+def load_xgboost_data(path: str, classif_level: str, suffix: str, db_name: str, sp_determined: str | None, sample_name: str):
     """
     Return the target dataframe
 
@@ -72,8 +72,10 @@ def load_xgboost_data(path: str, classif_level: str, suffix: str, db_name: str, 
     * db_name (str) : database we need to search in
     * sp_determined (str | None): upper level we've already determined
     """
-    if sp_determined == None or suffix == 'unk':
+    if sp_determined == None:
         my_path = f"{path}{db_name}/{classif_level}/data.txt.{suffix}"
+    elif suffix == 'unk':
+        my_path = f"output/{sample_name}/data.txt.{suffix}"
     else:
         my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_data.txt.{suffix}"
     return DMatrix(my_path)
@@ -91,11 +93,14 @@ def write_xgboost_data(data: list[str], path: str, classif_level: str, suffix: s
     * db_name (str) : database we need to search in
     * sp_determined (str | None): upper level we've already determined
     """
-    Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
-    Path(f"output/{sample_name}/").mkdir(parents=True, exist_ok=True)
-    if sp_determined == None or suffix == 'unk':
+    if sp_determined == None:
+        Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
         my_path = f"{path}{db_name}/{classif_level}/data.txt.{suffix}"
+    elif suffix == 'unk':
+        Path(f"output/{sample_name}/").mkdir(parents=True, exist_ok=True)
+        my_path = f"output/{sample_name}/data.txt.{suffix}"
     else:
+        Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
         my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_data.txt.{suffix}"
     with open(my_path, "w") as writer:
         writer.write('\n'.join(data))
