@@ -17,7 +17,7 @@ L'intégralité du code de l'outil développé durant ce stage est disponible su
 
 En biologie, la similarité entre séquences est interpétée comme une évidence d'homologie[ref] par le partage d'un ancètre commun. Si le concept du meilleur alignement est valide dans le cas d'une conservation honorable du génome, grâce à des matrices de substitution et des alignements locaux, les bactéries s'avèrent souvent affectées par des recombinaisons et/ou réarrangements ; et les échanges latéraux ne sont pas représentables sous forme d'arbres.
 
-Ainsi, au cours de la dernière décennie, ont été pensées des approches sans alignement[ref] ; ce sont des techniques pouvant se baser sur une grammaire, sur de l'heuristique pure, une recherche de patterns... l'idée étant de donner des systèmes de contrainte à un algorithme d'apprentissage automatique afin qu'il puisse 
+Ainsi, au cours de la dernière décennie, ont été pensées des approches sans alignement[ref] ; ce sont des techniques pouvant se baser sur une grammaire, sur de l'heuristique pure, une recherche de patterns... l'idée étant de donner des systèmes de contrainte à un algorithme d'apprentissage automatique afin qu'il puisse faire émerger les propriétés de split entre classes qu'il est impossible sur des échelles de temps raisonnables de faire émerger par une observation des données.
 
 ## Séquençage et enjeux
 

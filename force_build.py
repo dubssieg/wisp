@@ -36,7 +36,7 @@ def build_full_db(args) -> None:
     list_of_genomes = [genome.split('.')[0]
                        for genome in listdir(f"{INPUT_PATH}train/")]
     for taxa in TAXAS_LEVELS:
-        KMER_SIZE_REF, RS_REF, SAMPLING_REF = my_params[f"{taxa}_ref"]
+        KMER_SIZE_REF, RS_REF, SAMPLING_REF, PATTERN_REF = my_params[f"{taxa}_ref"]
 
         list_parent_level = [i for i in set([e.split('_')[TAXAS_LEVELS.index(
             taxa)-1] for e in list_of_genomes])] if taxa != 'domain' else [False]
@@ -61,7 +61,8 @@ def build_full_db(args) -> None:
                 ratio=RATIO,
                 read_size=RS_REF,
                 classif_level=taxa,
-                sp_determied=parent_level
+                sp_determied=parent_level,
+                pattern=PATTERN_REF
             )
 
             map_sp = load_mapping(OUTPUT_PATH, DATABASE,

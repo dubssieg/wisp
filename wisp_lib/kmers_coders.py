@@ -44,11 +44,23 @@ def my_encoder_k4():
     return {f"{a}{b}{c}{d}": encode_kmer_4(f"{a}{b}{c}{d}") for a in ['A', 'T', 'G', 'C'] for b in ['A', 'T', 'G', 'C'] for c in ['A', 'T', 'G', 'C']for d in ['A', 'T', 'G', 'C']}
 
 
-def kmer_indexing(entry: str, kmer_size: int):
-    ksize = kmer_size
-    nkmers = 4**ksize
-    tablesize = nkmers + 10
-    cg = Countgraph(ksize, tablesize, 1)
-    for k in range(len(entry) - ksize + 1):
-        cg.count(entry[k:k+ksize])
-    return Counter({cg.reverse_hash(i): cg.get(i) for i in range(nkmers) if cg.get(i)})
+def apply_filter(substring: str, pattern: str) -> str:
+    if len(pattern) > len(substring):
+        raise ValueError("Substring is too small to apply filter.")
+    elif len(substring) == pattern.count('1'):
+        return substring
+    else:
+        return ''.join([substring[i] for i in range(len(substring)) if pattern[i] == '1'])
+
+
+def kmer_indexing(entry: str, kmer_size: int, pattern: str):
+    if pattern.count('1') != kmer_size:
+        raise ValueError("Filter does not match ksize.")
+    else:
+        ksize = kmer_size
+        nkmers = 4**ksize
+        tablesize = nkmers + 10
+        cg = Countgraph(ksize, tablesize, 1)
+        for k in range(len(entry) - len(pattern) + 1):
+            cg.count(apply_filter(entry[k:k+len(pattern)], pattern))
+        return Counter({cg.reverse_hash(i): cg.get(i) for i in range(nkmers) if cg.get(i)})

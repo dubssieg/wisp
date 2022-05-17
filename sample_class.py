@@ -42,6 +42,14 @@ class Sample:
         self.__size = sz
 
     @property
+    def pattern(self):
+        return self.__pattern
+
+    @pattern.setter
+    def pattern(self, pattern):
+        self.__pattern = pattern
+
+    @property
     def ksize(self):
         return self.__ksize
 
@@ -54,9 +62,9 @@ class Sample:
         self.__counts = kmer_counts
 
     def post_creation_counting(self):
-        self.counts = kmer_indexing(self.seq, self.ksize)
+        self.counts = kmer_indexing(self.seq, self.ksize, self.pattern)
 
-    def __init__(self, seq_dna: str, kmer_size: int, seq_specie: str | None = None, counting=True):
+    def __init__(self, seq_dna: str, kmer_size: int, pattern: str, seq_specie: str | None = None, counting=True):
         """Inits a new Sample object, container for sequence
 
         Args:
@@ -68,8 +76,9 @@ class Sample:
         self.seq = seq_dna  # nucleotides
         self.size = len(seq_dna)  # size of seq
         self.ksize = kmer_size
+        self.pattern = pattern
         self.counts = kmer_indexing(
-            seq_dna, kmer_size) if counting else Counter()  # allows to load a full genome without computing it
+            seq_dna, kmer_size, pattern) if counting else Counter()  # allows to load a full genome without computing it
 
     def update_counts(self, func: Callable, ratio: float) -> None:
         """Filters out results which are not matching func threshold
@@ -93,7 +102,7 @@ class Sample:
         return ""
 
 
-def call_loader(path: str, size_kmer: int, classif_level_int: int, filter: str | None, type_data: str) -> list:
+def call_loader(path: str, size_kmer: int, classif_level_int: int, filter: str | None, type_data: str, pattern: str) -> list:
     """Calls concurentially genomes loading inside sample objects
 
     Args:
@@ -112,11 +121,11 @@ def call_loader(path: str, size_kmer: int, classif_level_int: int, filter: str |
         lst_sequences = [l for l in listdir(
             path) if l.split('_')[classif_level_int-1] == filter]
     lst_sequences = [(f"{path}", f"{elt}", size_kmer) for elt in lst_sequences]
-    return [load_and_compute_one_genome(path_file, elt, size_km) for (path_file, elt, size_km) in lst_sequences]
+    return [load_and_compute_one_genome(path_file, elt, size_km, pattern) for (path_file, elt, size_km) in lst_sequences]
     #my_futures_collector(load_and_compute_one_genome, lst_sequences, 10)
 
 
-def load_and_compute_one_genome(path: str, elt: str, size_kmer: int) -> Sample:
+def load_and_compute_one_genome(path: str, elt: str, size_kmer: int, pattern: str) -> Sample:
     """Generate sample for one genome
 
     Args:
@@ -135,7 +144,8 @@ def load_and_compute_one_genome(path: str, elt: str, size_kmer: int) -> Sample:
         seq_dna=parsed[elt],
         kmer_size=size_kmer,
         seq_specie=elt.split('/')[-1],
-        counting=False
+        counting=False,
+        pattern=pattern
     )
 
 
@@ -154,11 +164,12 @@ def generate_diversity(spl: Sample, sample_number: int, size_kmer: int, size_rea
 
 
 def overhaul_diversity(spl: Sample, sample_number: int, size_kmer: int, size_read: int) -> list[Sample]:
-    try:
-        return [Sample(spl.seq[x:x+size_read+size_kmer], size_kmer, spl.specie) for x in [randrange(0, spl.size-size_read-size_kmer) for _ in range(sample_number)]]
-    except:
-        spl.post_creation_counting()
-        return [spl]
+    # try:
+    return [Sample(spl.seq[x:x+size_read+len(spl.pattern)], size_kmer, spl.pattern, spl.specie) for x in [randrange(0, spl.size-size_read-size_kmer) for _ in range(sample_number)]]
+    # except:
+    #    print('ayaya!')
+    #    spl.post_creation_counting()
+    #    return [spl]
 
 
 def print_sample_list(spl: list[Sample]) -> None:
@@ -195,7 +206,7 @@ def mapping_sp(input_dir: str, path: str, classif_level: str, db_name: str, int_
 
 
 @my_function_timer("Building datasets")
-def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: str, datas: list[str], sampling: int, db_name: str, classif_level: str, func, ratio: float, kmer_size: int, read_size: int, sp_determied: str | None):
+def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: str, datas: list[str], sampling: int, db_name: str, classif_level: str, func, ratio: float, kmer_size: int, read_size: int, pattern: str,  sp_determied: str | None):
     """
     Create the datasets and calls for storage
 
@@ -222,12 +233,12 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
     for type_data in datas:
         if isinstance(input_style, bool):
             my_sp = list(call_loader(
-                f"{input_dir}train/", kmer_size, taxa[classif_level], sp_determied, type_data))
+                f"{input_dir}train/", kmer_size, taxa[classif_level], sp_determied, type_data, pattern))
         else:
             fileholder = my_parser(
                 f"{input_dir}{type_data}/{input_style}", True, True, "unk_sample")
             my_sp = [Sample(fileholder['unk_sample'],
-                            kmer_size, counting=False)]
+                            kmer_size, counting=False, pattern=pattern)]
         lines = []
         for sp in my_sp:
             # iterate through all samples and creates subsampling

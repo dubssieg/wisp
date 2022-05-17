@@ -11,7 +11,6 @@ def cute_value(val):
 
 
 def gen_html_report(params, job_name, dataset, reports, list_clades, test_results, threshold: float, test_status: bool, reads_ratio=None):
-
     doctype: str = "<!DOCTYPE html>"
     dataset = [data for data in dataset]
 
@@ -105,13 +104,15 @@ def gen_html_report(params, job_name, dataset, reports, list_clades, test_result
         </div>
         <p style="text-align:center">{reports["parcimonious_path"]}</p>
     """
+    all_hypothesis = [['None'], reports['Possible for domain'], reports['Possible for phylum'],
+                      reports['Possible for group'], reports['Possible for order'], reports['Possible for family']]
     for i in range(len(list_clades)):
-        list_graphs = [file for file in listdir(
-            f"output/{job_name}/") if list_clades[i] in file]
+        #list_graphs = [file for file in listdir(f"output/{job_name}/") if list_clades[i] in file]
+        #set_hypotesis = set([graph.split('_')[1] for graph in list_graphs])
+        # print(set_hypotesis)
+        set_hypothesis = all_hypothesis[i]
 
-        set_hypotesis = set([graph.split('_')[1] for graph in list_graphs])
-
-        for hypotesis in set_hypotesis:
+        for hypotesis in set_hypothesis:
 
             table_res = [
                 f"<div class=\"column\"><h3 style=\"text-align:center\">{k}</h3><p style=\"text-align:center\">{cute_value(v)}</p></div>" for k, v in test_results[f"{list_clades[i]}_{hypotesis}"].items()]

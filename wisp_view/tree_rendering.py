@@ -1,4 +1,5 @@
 from pygraphviz import AGraph
+from wisp_lib import recode_kmer_4
 
 
 def node_childrens(tree: AGraph, name_of_node: str) -> int:
@@ -121,13 +122,14 @@ def tree_evaluator(tree: AGraph, path: list[str]) -> str:
     """
     scores = final_node_score(
         tree, [p for p in names_children(tree, 'None (-)') if p[-2] == 'f'])
-    #minScore = min(scores, key=scores.get)
     minScore = min(scores.values())
     pathScore = scores[path[-1]]
     if pathScore <= minScore:
         return f"Default path is more or equally parsimonious than any other."
     else:
-        return f"Though is it not the final guess, path(s) leading to {[x for x,y in scores.items() if y==minScore]} is the most parsimonious."
+        for elt in [x for x, y in scores.items() if y == minScore]:
+            tree.add_node(f"{elt}", color="#465e90", shape="box")
+        return f"Though is it not the final guess, path(s) leading to {[x[:-4] for x,y in scores.items() if y==minScore]} is the most parsimonious."
 
 
 def tree_render(results: dict, job_name: str, path: list) -> str:
@@ -141,9 +143,10 @@ def tree_render(results: dict, job_name: str, path: list) -> str:
     root = ["None (-)"]
     tree = AGraph(directed=False, strict=True)
     unpacking(tree, root, results, path)
+    eval_results = tree_evaluator(tree, path)
     tree.layout(prog='dot')
     tree.draw(f"output/{job_name}/{job_name}_tree.png")
-    return tree_evaluator(tree, path)
+    return eval_results
 
 
 def unpacking(tree: AGraph, root: list, datas: dict, path: list) -> None:
@@ -170,3 +173,16 @@ def unpacking(tree: AGraph, root: list, datas: dict, path: list) -> None:
             unpacking(tree, new_root, datas, path)
         except:
             pass
+
+
+def mod_to_tree(tree: AGraph, ksize: int) -> None:
+    list_of_nodes = tree.nodes()
+    for node in list_of_nodes:
+        if not '=' in node:
+            feature_name, val = node.split('<')[0][1:], node.split('<')[1]
+            new_name = recode_kmer_4(feature_name, ksize)
+            tree.add_node(
+                f"{node}", label=f"{new_name} < {round(float(val),2)}")
+        else:
+            tree.add_node(
+                f"{node}", label=f"{round(float(node.split('=')[1]),2)}")

@@ -1,22 +1,14 @@
-# Aim of this module is to do comparaisons between sets of parameters, assuming the same series were run multiple times with different parameters
+"Aim of this module is to do comparaisons between sets of parameters, assuming the same series were run multiple times with different parameters"
+
 from os import listdir
 from json import load
 from pandas import DataFrame
-
-list_of_folders = ['purge_reads_0,00_8_boosts',
-                   'purge_reads_0,00_10_boosts',
-                   'purge_reads_0,50_8_boosts',
-                   'purge_reads_0,50_10_boosts',
-                   '2_purge_reads_0,00_10_boosts',
-                   '2_purge_reads_0,25_10_boosts',
-                   'purge_reads_0,25_8_boosts',
-                   'purge_reads_0,25_10_boosts',
-                   'purge_reads_0,25_12_boosts']
+from constants import FOLDER_LIST
 
 
 def compare():
     df = DataFrame()
-    for subfolder in list_of_folders:
+    for subfolder in FOLDER_LIST:
         temp_list = []
         for report_folder in listdir(f"output/{subfolder}/"):
             json_report = [file for file in listdir(

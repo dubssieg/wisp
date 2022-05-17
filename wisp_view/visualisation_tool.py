@@ -207,5 +207,11 @@ def plot_features(datas, job_name: str, classif_level: str, sp_determined: str) 
         "score"]).sort_values(by="score", ascending=False)
     data.astype(float).nlargest(15, columns="score").plot(
         kind='barh', color='#465065', figsize=(7, 6))
+    if sp_determined != 'None':
+        plt.title(
+            f"Representative features for {classif_level} with {sp_determined}")
+    else:
+        plt.title(
+            f"Representative features for {classif_level}")
     plt.savefig(
         f"output/{job_name}/{classif_level}_{sp_determined}_feature_importance.png")

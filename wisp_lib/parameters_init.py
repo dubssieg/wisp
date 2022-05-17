@@ -1,3 +1,5 @@
+"Functions to generate params file"
+
 from json import load, dump
 
 
@@ -21,19 +23,19 @@ def save_json(json_file: str, dico_save: dict) -> None:
 def my_params():
     # dict to be converted in .json file to create our parameters set
     params_job: dict = {
-        # 'taxa' : [kmer_size, reads_size, subsampling_depth]
+        # 'taxa' : [kmer_size, reads_size, subsampling_depth, pattern]
         # params for your database here
-        'domain_ref': [4, 10000, 30],
-        'phylum_ref': [4, 10000, 400],
-        'group_ref': [4, 10000, 300],
-        'order_ref': [4, 10000, 300],
-        'family_ref': [4, 10000, 200],
+        'domain_ref': [4, 10000, 30, '110011'],
+        'phylum_ref': [4, 10000, 400, '110011'],
+        'group_ref': [4, 10000, 300, '110011'],
+        'order_ref': [4, 10000, 300, '110011'],
+        'family_ref': [4, 10000, 200, '110011'],
         # params for your sample here
-        'domain_sample': [4, 10000, 200],
-        'phylum_sample': [4, 10000, 600],
-        'group_sample': [4, 10000, 600],
-        'order_sample': [4, 10000, 600],
-        'family_sample': [4, 10000, 500],
+        'domain_sample': [4, 10000, 200, '110011'],
+        'phylum_sample': [4, 10000, 600, '110011'],
+        'group_sample': [4, 10000, 600, '110011'],
+        'order_sample': [4, 10000, 600, '110011'],
+        'family_sample': [4, 10000, 500, '110011'],
         # 'input' : location of genomes
         'input': "/udd/sidubois/Stage/Genomes/",
         # 'output' : output for database

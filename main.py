@@ -58,8 +58,9 @@ if __name__ == "__main__":
                     'group': None, 'order': None, 'family': None}
     Path(f"output/{JOB}/").mkdir(parents=True, exist_ok=True)
     for taxa in TAXAS_LEVELS:
-        KMER_SIZE_REF, RS_REF, SAMPLING_REF = my_params[f"{taxa}_ref"]
-        KMER_SIZE_SAMPLE, RS_SAMPLE, SAMPLING_SAMPLE = my_params[f"{taxa}_sample"]
+        KMER_SIZE_REF, RS_REF, SAMPLING_REF, PATTERN_REF = my_params[f"{taxa}_ref"]
+        KMER_SIZE_SAMPLE, RS_SAMPLE, SAMPLING_SAMPLE, PATTERN_SAMPLE = my_params[
+            f"{taxa}_sample"]
 
         list_parent_level = output[
             f"Possible for {TAXAS_LEVELS[TAXAS_LEVELS.index(taxa)-1]}"] if taxa != 'domain' else [False]
@@ -83,7 +84,8 @@ if __name__ == "__main__":
                     ratio=RATIO,
                     read_size=RS_REF,
                     classif_level=taxa,
-                    sp_determied=parent_level
+                    sp_determied=parent_level,
+                    pattern=PATTERN_REF
                 )
 
             map_sp = load_mapping(OUTPUT_PATH, DATABASE,
@@ -107,7 +109,8 @@ if __name__ == "__main__":
                 ratio=RATIO,
                 read_size=RS_SAMPLE,
                 classif_level=taxa,
-                sp_determied=parent_level
+                sp_determied=parent_level,
+                pattern=PATTERN_SAMPLE
             )
 
             # full test set, takes time, but gives info on structure
