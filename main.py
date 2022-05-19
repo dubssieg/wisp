@@ -132,10 +132,10 @@ if __name__ == "__main__":
 
             # base tests for heatmap and evaluators
             test_results[f"{taxa}_{parent_level}"] = (test_model(
-                OUTPUT_PATH, JOB, DATABASE, taxa, reads_threshold, parent_level))
+                OUTPUT_PATH, JOB, DATABASE, taxa, reads_threshold, parent_level, func_reads))
 
             output_temp = test_unk_sample(
-                OUTPUT_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold, test_state)
+                OUTPUT_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold, test_state, SAMPLING_SAMPLE, func_reads)
             topmost[f"{taxa}_{parent_level}"] = output_temp[f"Reads summation {taxa}"]
 
             if f"Possible for {taxa}" in output:

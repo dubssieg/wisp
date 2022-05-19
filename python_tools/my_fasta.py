@@ -1,6 +1,7 @@
 from Bio import SeqIO, Entrez
 from logging import info
 from os import path
+from constants import EMAIL
 
 
 def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_name: str = "Merged") -> dict:
@@ -35,7 +36,7 @@ def my_pretty_printer(seq_dict: dict, size: int = 10) -> None:
 
 
 def my_classification_mapper(file):
-    Entrez.email = 'siegfried.dubois@inria.fr'
+    Entrez.email = EMAIL
     # skipping unnecessary calls for already processed files
     if('Bacteria' not in file and 'Archaea' not in file):
         try:

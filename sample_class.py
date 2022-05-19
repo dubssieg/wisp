@@ -136,10 +136,7 @@ def load_and_compute_one_genome(path: str, elt: str, size_kmer: int, pattern: st
     Returns:
         Sample: a sample which merges all sequences from the file
     """
-    # prend 0.00022 s
     parsed = my_parser(f"{path}{elt}", clean=True, merge=True, merge_name=elt)
-
-    # prend 3 s, à fix
     return Sample(
         seq_dna=parsed[elt],
         kmer_size=size_kmer,
@@ -164,12 +161,11 @@ def generate_diversity(spl: Sample, sample_number: int, size_kmer: int, size_rea
 
 
 def overhaul_diversity(spl: Sample, sample_number: int, size_kmer: int, size_read: int) -> list[Sample]:
-    # try:
-    return [Sample(spl.seq[x:x+size_read+len(spl.pattern)], size_kmer, spl.pattern, spl.specie) for x in [randrange(0, spl.size-size_read-size_kmer) for _ in range(sample_number)]]
-    # except:
-    #    print('ayaya!')
-    #    spl.post_creation_counting()
-    #    return [spl]
+    try:
+        return [Sample(spl.seq[x:x+size_read+len(spl.pattern)], size_kmer, spl.pattern, spl.specie) for x in [randrange(0, spl.size-size_read-size_kmer) for _ in range(sample_number)]]
+    except:
+        spl.post_creation_counting()
+        return [spl]
 
 
 def print_sample_list(spl: list[Sample]) -> None:

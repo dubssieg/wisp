@@ -6,7 +6,7 @@ import seaborn as sns
 from pandas import DataFrame, Series, crosstab
 
 
-def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, clade: str, determined: str, threshold: float) -> None:
+def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, clade: str, determined: str, threshold: float, sampling_number) -> None:
     """Plots out reads repartition
 
     Args:
@@ -19,9 +19,10 @@ def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, cl
     """
     datas = dict(Counter(predicitions))
     keys_sorted = sorted([k for k in datas.keys()])
-    x = array(keys_sorted)
-    y = array([datas[k] for k in keys_sorted])
-    maxm = sum(y)
+    rejected = sampling_number - sum([datas[k] for k in keys_sorted])
+    x = array(keys_sorted + [max([int(i) for i in inverted_map.keys()])+1])
+    templist = [datas[k] for k in keys_sorted] + [rejected]
+    y = array(templist)
     figure = plt.figure(figsize=(9, 6))
     graph = figure.add_axes([0.1, 0.2, 0.8, 0.6])
     bars = graph.bar(x, y, color='black')
@@ -29,11 +30,14 @@ def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, cl
         f"Reads accross {clade} for {sample_name}")
     plt.ylabel("Read counts")
     plt.xticks(rotation=70, fontsize=6, ha='right')
-    graph.set_xticks([i for i in range(len(inverted_map))])
-    graph.set_xticklabels([f"{inverted_map[str(i)]}"
-                          for i in range(len(inverted_map))])
+    tl = [i for i in range(len(inverted_map))
+          ]+[len(inverted_map)]
+    graph.set_xticks(tl)
+    tk = [f"{inverted_map[str(i)]}"
+          for i in range(len(inverted_map))] + ["Rejected"]
+    graph.set_xticklabels(tk)
     graph.bar_label(bars)
-    plt.axhline(y=threshold*maxm, xmin=0, color="#465065",
+    plt.axhline(y=threshold*sampling_number, xmin=0, color="#465065",
                 linestyle='dashed', linewidth=1)
     plt.savefig(f"output/{sample_name}/{clade}_{determined}_graph_reads.png")
 
@@ -138,6 +142,7 @@ def plot_pandas(cm: DataFrame, sample_name: str, clade: str, determined: str, cm
         determined (str): upper level already determined
         cmap (str, optional): set of colors for the heatmap. Defaults to 'bone'.
     """
+    number_digits: int = 2
     plt.figure(figsize=(7, 6))
     ax = plt.axes()
     try:
@@ -150,7 +155,8 @@ def plot_pandas(cm: DataFrame, sample_name: str, clade: str, determined: str, cm
             f"Confusion matrix for {clade} level.")
     # percentage
     cm = cm.div(cm.sum(axis=1), axis=0) * 100
-    sns.heatmap(cm, annot=True, cmap=cmap, fmt='.0f', linewidths=0.5, ax=ax)
+    sns.heatmap(cm, annot=True, cmap=cmap,
+                fmt=f".{number_digits}f", linewidths=0.5, ax=ax)
     plt.yticks(fontsize=5)
     plt.xticks(fontsize=5)
     plt.savefig(
@@ -200,18 +206,20 @@ def plot_features(datas, job_name: str, classif_level: str, sp_determined: str) 
         classif_level (str): level we're working at
         sp_determined (str): previous level estimation
     """
-    keys = list(datas.keys())
-    values = list(datas.values())
+    keys: list = list(datas.keys())
+    values: list = list(datas.values())
+    nb_features: int = 16
 
     data = DataFrame(data=values, index=keys, columns=[
         "score"]).sort_values(by="score", ascending=False)
-    data.astype(float).nlargest(15, columns="score").plot(
+    data.astype(float).nlargest(nb_features, columns="score").plot(
         kind='barh', color='#465065', figsize=(7, 6))
+    plt.xlabel("Gain score")
     if sp_determined != 'None':
         plt.title(
-            f"Representative features for {classif_level} with {sp_determined}")
+            f"Top {nb_features} features for {classif_level} (knowing {sp_determined})")
     else:
         plt.title(
-            f"Representative features for {classif_level}")
+            f"Top {nb_features} features for {classif_level}")
     plt.savefig(
         f"output/{job_name}/{classif_level}_{sp_determined}_feature_importance.png")

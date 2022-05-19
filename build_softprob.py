@@ -4,7 +4,7 @@ from wisp_lib import load_xgboost_data, recode_kmer_4
 from wisp_view import compare_test, plot_features, plot_all_reads, mod_to_tree
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-from numpy import argmax, amax, mean
+from numpy import argmax, amax, mean, linspace
 from collections import Counter
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
@@ -147,7 +147,7 @@ def modelisation(dtrain, params: dict, num_round: int):
     return xgb.train(params, dtrain, num_round)
 
 
-def prediction(data, model, sample_name, clade, determined, reads_threshold, with_intensive_test, inverted_map, with_softmax_norm=True):
+def prediction(data, model, sample_name, clade, determined, reads_threshold, with_intensive_test, inverted_map, func, with_softmax_norm):
     """
     Does the calculation given a model and a dataset of catergories of this dataset
     Return predictions
@@ -156,7 +156,7 @@ def prediction(data, model, sample_name, clade, determined, reads_threshold, wit
     * model (xgb.Booster) : trained XGBoost model
     """
     preds = model.predict(data)
-    res = softmax_from_prediction(preds, reads_threshold)
+    res = softmax_from_prediction(preds, reads_threshold, func)
     if with_intensive_test:
         softpred_from_prediction(
             preds, sample_name, clade, determined, inverted_map)
@@ -164,7 +164,7 @@ def prediction(data, model, sample_name, clade, determined, reads_threshold, wit
     return res if with_softmax_norm else preds
 
 
-def softmax_from_prediction(preds, reads_selection_threshold, func='None'):
+def softmax_from_prediction(preds, reads_selection_threshold, func):
     """Given a list of predictions of x arrays of size num_classes, computes a list of x predictions, one for each sample
     Recursive function that will compute until a selection of reads can be made if threshold is too high
 
@@ -179,14 +179,23 @@ def softmax_from_prediction(preds, reads_selection_threshold, func='None'):
         return [argmax(a) for a in preds]
     match func:
         case 'delta_mean':
-            ret = [argmax(a) if amax(a)-mean(a) >
-                   reads_selection_threshold else False for a in preds]
+            try:
+                ret = [argmax(a) if amax(a)-mean(a) >
+                       reads_selection_threshold else False for a in preds]
+            except:
+                ret = [argmax(a) for a in preds]
         case 'min_max':
-            ret = [argmax(a) if min([amax(a)-p for p in a if p != amax(a)]) >
-                   reads_selection_threshold else False for a in preds]
+            try:
+                ret = [argmax(a) if min([amax(a)-p for p in a if p != amax(a)]) >
+                       reads_selection_threshold else False for a in preds]
+            except:
+                ret = [argmax(a) for a in preds]
         case 'delta_sum':
-            ret = [argmax(a) if amax(a) > (sum(a)-amax(a)) + reads_selection_threshold
-                   else False for a in preds]
+            try:
+                ret = [argmax(a) if amax(a) > (sum(a)-amax(a)) + reads_selection_threshold
+                       else False for a in preds]
+            except:
+                ret = [argmax(a) for a in preds]
         case _:
             ret = [argmax(a) for a in preds]
     if len(ret) == 0:
@@ -197,7 +206,7 @@ def softmax_from_prediction(preds, reads_selection_threshold, func='None'):
             f"All reads with a threshold inferior at {reads_selection_threshold} for function {func} have been purged.")
         return ret
     else:
-        return softmax_from_prediction(preds, reads_selection_threshold-0.05)
+        return softmax_from_prediction(preds, reads_selection_threshold-0.05, func)
 
 
 def softpred_from_prediction(preds, sample_name: str, clade: str, determined: str, inverted_map: dict):
@@ -238,10 +247,7 @@ def plot_tree_model(bst: xgb.Booster, job_name: str, classif_level: str, sp_dete
         sp_determined (str): previous level we've determined
     """
     tree = xgb.to_graphviz(bst)
-    mod_to_tree(tree, ksize)
-    tree.graph_attr = {'dpi': '400'}
-    tree.render(
-        f"output/{job_name}/{classif_level}_{sp_determined}_trees_overview", format='png')
+    mod_to_tree(tree, ksize, job_name, classif_level, sp_determined)
 
 
 #################### CORE ####################

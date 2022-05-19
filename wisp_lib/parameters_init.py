@@ -25,19 +25,19 @@ def my_params():
     params_job: dict = {
         # 'taxa' : [kmer_size, reads_size, subsampling_depth, pattern]
         # params for your database here
-        'domain_ref': [4, 10000, 30, '110011'],
-        'phylum_ref': [4, 10000, 400, '110011'],
-        'group_ref': [4, 10000, 300, '110011'],
-        'order_ref': [4, 10000, 300, '110011'],
-        'family_ref': [4, 10000, 200, '110011'],
+        'domain_ref': [4, 10000, 30, '1111'],
+        'phylum_ref': [4, 10000, 400, '1111'],
+        'group_ref': [4, 10000, 300, '1111'],
+        'order_ref': [4, 10000, 300, '1111'],
+        'family_ref': [4, 10000, 200, '1111'],
         # params for your sample here
-        'domain_sample': [4, 10000, 200, '110011'],
-        'phylum_sample': [4, 10000, 600, '110011'],
-        'group_sample': [4, 10000, 600, '110011'],
-        'order_sample': [4, 10000, 600, '110011'],
-        'family_sample': [4, 10000, 500, '110011'],
+        'domain_sample': [4, 10000, 200, '1111'],
+        'phylum_sample': [4, 10000, 600, '1111'],
+        'group_sample': [4, 10000, 600, '1111'],
+        'order_sample': [4, 10000, 600, '1111'],
+        'family_sample': [4, 10000, 500, '1111'],
         # 'input' : location of genomes
-        'input': "/udd/sidubois/Stage/Genomes/",
+        'input': "/udd/sidubois/Stage/143_Genomes/",
         # 'output' : output for database
         'output': "data/",
         # parameters for exploration and algorithm
@@ -46,9 +46,9 @@ def my_params():
         'tree_depth': 8,
         # parameters regarding results
         'full_test_set': False,
-        # parameter for read selection, signifiance for softprob
-        'reads_th': 0.0,
-        'selection_mode': 'None',  # 'min_max','delta_mean','delta_sum'
+        # parameter for read selection, significance for softprob
+        'reads_th': 0.25,
+        'selection_mode': 'delta_mean',  # 'min_max','delta_mean','delta_sum'
         # force rebuilding full model, when you re-use a database but you changed model parameters
         'force_model_rebuild': False
     }

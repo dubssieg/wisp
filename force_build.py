@@ -2,7 +2,7 @@ from sample_class import make_datasets
 from build_softprob import make_model, init_parameters
 from os import listdir
 from python_tools import my_function_timer, my_output_msg, my_logs_global_config, my_logs_clear
-from wisp_lib import load_mapping, load_json
+from wisp_lib import load_mapping, load_json, check_if_database_exists, check_if_model_exists
 from argparse import ArgumentParser
 from constants import FUNC, RATIO, TAXAS_LEVELS
 
@@ -45,31 +45,35 @@ def build_full_db(args) -> None:
             if isinstance(parent_level, bool):
                 parent_level = None
 
-            my_output_msg(
-                f"Building dataset at level {taxa} for parent level {parent_level}")
+            if not check_if_database_exists(DATABASE, OUTPUT_PATH, taxa, parent_level):
 
-            make_datasets(
-                input_style=False,
-                job_name=JOB,
-                input_dir=INPUT_PATH,
-                path=OUTPUT_PATH,
-                datas=['train', 'test'],
-                db_name=DATABASE,
-                sampling=SAMPLING_REF,
-                kmer_size=KMER_SIZE_REF,
-                func=FUNC,
-                ratio=RATIO,
-                read_size=RS_REF,
-                classif_level=taxa,
-                sp_determied=parent_level,
-                pattern=PATTERN_REF
-            )
+                my_output_msg(
+                    f"Building dataset at level {taxa} for parent level {parent_level}")
 
-            map_sp = load_mapping(OUTPUT_PATH, DATABASE,
-                                  taxa, parent_level)
+                make_datasets(
+                    input_style=False,
+                    job_name=JOB,
+                    input_dir=INPUT_PATH,
+                    path=OUTPUT_PATH,
+                    datas=['train', 'test'],
+                    db_name=DATABASE,
+                    sampling=SAMPLING_REF,
+                    kmer_size=KMER_SIZE_REF,
+                    func=FUNC,
+                    ratio=RATIO,
+                    read_size=RS_REF,
+                    classif_level=taxa,
+                    sp_determied=parent_level,
+                    pattern=PATTERN_REF
+                )
 
-            make_model(JOB, OUTPUT_PATH, taxa, DATABASE,
-                       parent_level, init_parameters(len(map_sp), tree_depth), number_rounds=nr)
+            if not check_if_model_exists(DATABASE, OUTPUT_PATH, taxa, parent_level):
+
+                map_sp = load_mapping(OUTPUT_PATH, DATABASE,
+                                      taxa, parent_level)
+
+                make_model(JOB, OUTPUT_PATH, taxa, DATABASE,
+                           parent_level, init_parameters(len(map_sp), tree_depth), number_rounds=nr)
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ from wisp_lib import load_xgboost_data, load_mapping
 from pathlib import Path
 
 
-def estimations(preds, sample_name: str, inverted_map: dict[str, str], clade: str, determined: str, threshold: float = 0.1) -> dict:
+def estimations(preds, sample_name: str, inverted_map: dict[str, str], clade: str, determined: str, threshold: float, sampling_number: int) -> dict:
     """
     Does calculation upon number of predicated reads
     Returns a dict and call for plotting results as a barplot
@@ -41,7 +41,7 @@ def estimations(preds, sample_name: str, inverted_map: dict[str, str], clade: st
 
     Path(f"output/{sample_name}").mkdir(parents=True, exist_ok=True)
     reads_species_plotter(preds, sample_name, inverted_map,
-                          clade, determined, threshold)
+                          clade, determined, threshold, sampling_number)
 
     return {**outputs_classif, **outputs_predictions, **outputs_labels}
 
@@ -58,7 +58,7 @@ def save_output(dico: dict, job_name: str) -> None:
         fm.write('\n')
 
 
-def test_model(out_path, job_name, database_name, classif_level, reads_threshold, sp_determined: str | None):
+def test_model(out_path, job_name, database_name, classif_level, reads_threshold, sp_determined: str | None, func):
     """
     Does the testing of our model with the data in /test.
     Will estimate some meaningful estimators and will plot heatmap
@@ -85,7 +85,7 @@ def test_model(out_path, job_name, database_name, classif_level, reads_threshold
 
     my_output_msg("Preds calculation...")
     preds = prediction(dtest, bst, job_name, classif_level,
-                       sp_determined, reads_threshold, False, inverted_map)
+                       sp_determined, reads_threshold, False, inverted_map, func, True)
 
     if sp_determined == None:
         with open(f"{out_path}{database_name}/{classif_level}/data.txt.test", "r") as reader:
@@ -101,7 +101,7 @@ def test_model(out_path, job_name, database_name, classif_level, reads_threshold
     return compare_test(real, preds, inverted_map, job_name, classif_level, sp_determined)
 
 
-def test_unk_sample(out_path, job_name, database_name, classif_level, sp_determined, threshold, reads_threshold, test_status):
+def test_unk_sample(out_path, job_name, database_name, classif_level, sp_determined, threshold, reads_threshold, test_status, sampling_number, func):
     map_sp = load_mapping(out_path, database_name,
                           classif_level, sp_determined)
     inverted_map = {str(v): k for k, v in map_sp.items()}
@@ -118,7 +118,7 @@ def test_unk_sample(out_path, job_name, database_name, classif_level, sp_determi
 
     my_output_msg("Preds calculation...")
     preds = prediction(dunk, bst, job_name, classif_level,
-                       sp_determined, reads_threshold, test_status, inverted_map)
+                       sp_determined, reads_threshold, test_status, inverted_map, func, True)
     preds = [p for p in preds if not isinstance(p, bool)]
 
-    return estimations(preds, job_name, inverted_map, classif_level, sp_determined, threshold)
+    return estimations(preds, job_name, inverted_map, classif_level, sp_determined, threshold, sampling_number)

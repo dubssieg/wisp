@@ -3,69 +3,69 @@
         4,
         10000,
         30,
-        "110011"
+        "1111"
     ],
     "phylum_ref": [
         4,
         10000,
         400,
-        "110011"
+        "1111"
     ],
     "group_ref": [
         4,
         10000,
         300,
-        "110011"
+        "1111"
     ],
     "order_ref": [
         4,
         10000,
         300,
-        "110011"
+        "1111"
     ],
     "family_ref": [
         4,
         10000,
         200,
-        "110011"
+        "1111"
     ],
     "domain_sample": [
         4,
         10000,
         200,
-        "110011"
+        "1111"
     ],
     "phylum_sample": [
         4,
         10000,
         600,
-        "110011"
+        "1111"
     ],
     "group_sample": [
         4,
         10000,
         600,
-        "110011"
+        "1111"
     ],
     "order_sample": [
         4,
         10000,
         600,
-        "110011"
+        "1111"
     ],
     "family_sample": [
         4,
         10000,
         500,
-        "110011"
+        "1111"
     ],
-    "input": "/udd/sidubois/Stage/Genomes/",
+    "input": "/udd/sidubois/Stage/143_Genomes/",
     "output": "data/",
     "threshold": 0.05,
     "nb_boosts": 10,
     "tree_depth": 8,
     "full_test_set": false,
-    "reads_th": 0.0,
-    "selection_mode": "None",
+    "reads_th": 0.25,
+    "selection_mode": "delta_mean",
     "force_model_rebuild": false
 }

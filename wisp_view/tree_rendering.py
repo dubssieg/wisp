@@ -1,3 +1,4 @@
+from graphviz import Source, Graph
 from pygraphviz import AGraph
 from wisp_lib import recode_kmer_4
 
@@ -175,7 +176,9 @@ def unpacking(tree: AGraph, root: list, datas: dict, path: list) -> None:
             pass
 
 
-def mod_to_tree(tree: AGraph, ksize: int) -> None:
+def mod_to_tree(tree, ksize: int, job_name: str, classif_level: str, sp_determined: str) -> None:
+    """
+    tree = Graph(source)
     list_of_nodes = tree.nodes()
     for node in list_of_nodes:
         if not '=' in node:
@@ -186,3 +189,10 @@ def mod_to_tree(tree: AGraph, ksize: int) -> None:
         else:
             tree.add_node(
                 f"{node}", label=f"{round(float(node.split('=')[1]),2)}")
+    tree.layout(prog='dot')
+    tree.draw(
+        f"output/{job_name}/{classif_level}_{sp_determined}_trees_overview")
+    """
+    tree.graph_attr = {'dpi': '400'}
+    tree.render(
+        f"output/{job_name}/{classif_level}_{sp_determined}_trees_overview", format='png')

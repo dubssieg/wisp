@@ -101,9 +101,9 @@ def summary_to_dl(summary_file: str) -> None:
         next(summary_reader)
         next(summary_reader)
         for i, line in enumerate(summary_reader):
-            if i < 10000:
+            if i < 27887:
                 next(summary_reader)
-            elif i >= 10000 and i < 20000:
+            elif i >= 27887 and i < 35000:
                 # accession, https
                 split = line.split()
                 print(f"Resolving entry n°{i} : {split[0]}")
@@ -126,4 +126,5 @@ if __name__ == "__main__":
     # From an assembly_summary.txt downloaded from NCBI (obtained via ftp.ncbi)
     # it downloads all references, renames it according to the WISP file system
     # All you have to do after is to put those files into train folder once process is done
-    summary_to_dl(SUMMARY_FILE)
+    # summary_to_dl(SUMMARY_FILE)
+    rename_genomes()
