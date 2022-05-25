@@ -2,7 +2,7 @@ from sample_class import make_datasets
 from build_softprob import make_model, init_parameters
 from os import listdir
 from python_tools import my_function_timer, my_output_msg, my_logs_global_config, my_logs_clear
-from wisp_lib import load_mapping, load_json, check_if_database_exists, check_if_model_exists
+from wisp_lib import load_mapping, load_json, check_if_database_exists, check_if_merged_model_exists, check_if_model_exists, check_if_merged_database_exists
 from argparse import ArgumentParser
 from constants import FUNC, RATIO, TAXAS_LEVELS
 
@@ -28,6 +28,9 @@ def build_full_db(args) -> None:
         OUTPUT_PATH: str = my_params['output']
         nr = int(my_params['nb_boosts'])
         tree_depth = int(my_params['tree_depth'])
+        force_rebuild = bool(my_params['force_model_rebuild'])
+        KMER_SIZE_MERGED_REF, RS_MERGED_REF, SAMPLING_MERGED_REF, PATTERN_MERGED_REF = my_params[
+            f"merged_ref"]
     # if any error happens
     except:
         raise ValueError(
@@ -67,13 +70,40 @@ def build_full_db(args) -> None:
                     pattern=PATTERN_REF
                 )
 
-            if not check_if_model_exists(DATABASE, OUTPUT_PATH, taxa, parent_level):
+            if force_rebuild or not check_if_model_exists(DATABASE, OUTPUT_PATH, taxa, parent_level):
 
                 map_sp = load_mapping(OUTPUT_PATH, DATABASE,
                                       taxa, parent_level)
 
                 make_model(JOB, OUTPUT_PATH, taxa, DATABASE,
                            parent_level, init_parameters(len(map_sp), tree_depth), number_rounds=nr)
+
+    if not check_if_merged_database_exists(DATABASE, OUTPUT_PATH):
+
+        make_datasets(
+            input_style=False,
+            job_name=JOB,
+            input_dir=INPUT_PATH,
+            path=OUTPUT_PATH,
+            datas=['train', 'test'],
+            db_name=DATABASE,
+            sampling=SAMPLING_MERGED_REF,
+            kmer_size=KMER_SIZE_MERGED_REF,
+            func=FUNC,
+            ratio=RATIO,
+            read_size=RS_MERGED_REF,
+            classif_level='merged',
+            sp_determied='merged',
+            pattern=PATTERN_MERGED_REF
+        )
+
+    map_merged_sp = load_mapping(OUTPUT_PATH, DATABASE,
+                                 'merged', 'merged')
+
+    if not check_if_merged_model_exists(DATABASE, OUTPUT_PATH):
+        # needs to create merged database
+        make_model(JOB, OUTPUT_PATH, 'merged', DATABASE,
+                   'merged', init_parameters(len(map_merged_sp), tree_depth), number_rounds=nr)
 
 
 if __name__ == "__main__":

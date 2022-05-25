@@ -10,7 +10,7 @@ def cute_value(val):
         return val
 
 
-def gen_html_report(params, job_name, dataset, reports, list_clades, test_results, threshold: float, test_status: bool, reads_ratio=None):
+def gen_html_report(params, job_name, dataset, reports, list_clades, test_results, threshold: float, test_status: bool, output_merged_sample, reads_ratio=None):
     doctype: str = "<!DOCTYPE html>"
     dataset = [data for data in dataset]
 
@@ -64,6 +64,17 @@ def gen_html_report(params, job_name, dataset, reports, list_clades, test_result
     def balise(name: str, content: str) -> str:
         return f"<{name}>{content}</{name}>"
 
+    table_global_merged = f"""<div class="column"><h1 style="text-align:center">Parameters</h1></div>
+        <div class="row">
+            <div class="column">
+                {''.join(["<p style='text-align:center'>"+k+"</p>" for k in output_merged_sample.keys()])}
+            </div>
+            <div class="column">
+                {''.join(["<p style='text-align:center'>"+str(v)+"</p>" for v in output_merged_sample.values()])}
+            </div>
+        </div>
+        """
+
     table_params_booster = f"""<div class="column"><h1 style="text-align:center">Parameters</h1></div>
         <div class="row">
             <div class="column">
@@ -100,6 +111,9 @@ def gen_html_report(params, job_name, dataset, reports, list_clades, test_result
         <div class="row">
             <div class="container">
                 <img src="{job_name}_tree.png" class="center">
+            </div>
+            <div class="container">
+                <img src="{job_name}_pie_merge.png" class="center">
             </div>
         </div>
         <p style="text-align:center">{reports["parcimonious_path"]}</p>

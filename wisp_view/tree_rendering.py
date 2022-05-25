@@ -1,6 +1,5 @@
-from graphviz import Source, Graph
 from pygraphviz import AGraph
-from wisp_lib import recode_kmer_4
+from python_tools import entropy
 
 
 def node_childrens(tree: AGraph, name_of_node: str) -> int:
@@ -73,8 +72,8 @@ def branch_score(from_node: str, tree_stats: dict) -> int:
     Returns:
         int: a score, 1 means perfect path, more means less than perfect
     """
-    taxa_level = from_node[-2]
-    taxa_decrease = {
+    taxa_level: str = from_node[-2]
+    taxa_decrease: dict[str, int] = {
         '-': 5,
         'd': 4,
         'p': 3,
@@ -83,6 +82,41 @@ def branch_score(from_node: str, tree_stats: dict) -> int:
         'f': 0
     }
     return tree_stats[from_node] - taxa_decrease[taxa_level]
+
+
+def node_entropy(tree: AGraph, node: str, dict_info: dict) -> float:
+    taxa_shift: dict[str, str] = {
+        '-': 'd',
+        'd': 'p',
+        'p': 'g',
+        'g': 'o',
+        'o': 'f'
+    }
+    try:
+        probas: list = []
+        #taxa: str = taxa_codes[node[-2]]
+
+        list_of_childs: list = dict_info[f"{node[:-4]} diversity"]
+        possibles: int = len(list_of_childs)
+        #intersect_nodes: list = list(set(list_of_possibles) & set(list_of_childs))
+        for p in list_of_childs:
+
+            if f"{p} ({taxa_shift[node[-2]]})" in dict_info.keys():
+
+                probas.append(
+                    float(dict_info[f"{p} ({taxa_shift[node[-2]]})"]))
+            else:
+
+                probas.append(0.0)
+        #probas: list = [float(dict_info[p][:-1]) for p in list_of_childs]
+
+        return entropy(possibles, probas)
+    except:
+        return 0
+
+
+def tree_entropies(tree: AGraph, dict_info: dict) -> dict:
+    return {node: node_entropy(tree, node, dict_info) for node in names_children(tree, "None (-)")}
 
 
 def tree_stats(tree: AGraph) -> dict:
@@ -111,7 +145,7 @@ def final_node_score(tree: AGraph, lon: list) -> dict:
     return {node: sum([my_stats[i] for i in names_predecessors(tree, node) if i != 'None (-)']) for node in lon}
 
 
-def tree_evaluator(tree: AGraph, path: list[str]) -> str:
+def tree_evaluator(tree: AGraph, path: list[str], results: dict) -> str:
     """Main routine : calls calculations upon a tree
 
     Args:
@@ -121,6 +155,8 @@ def tree_evaluator(tree: AGraph, path: list[str]) -> str:
     Returns:
         str: a sentence that resumes the parcimony of the tree
     """
+    entropies = tree_entropies(tree, results)
+    #for n, e in entropies.items(): print(f"Node {n} has an entropy of {e}")
     scores = final_node_score(
         tree, [p for p in names_children(tree, 'None (-)') if p[-2] == 'f'])
     minScore = min(scores.values())
@@ -144,7 +180,7 @@ def tree_render(results: dict, job_name: str, path: list) -> str:
     root = ["None (-)"]
     tree = AGraph(directed=False, strict=True)
     unpacking(tree, root, results, path)
-    eval_results = tree_evaluator(tree, path)
+    eval_results = tree_evaluator(tree, path, results)
     tree.layout(prog='dot')
     tree.draw(f"output/{job_name}/{job_name}_tree.png")
     return eval_results

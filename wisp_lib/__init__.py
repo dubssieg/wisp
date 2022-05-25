@@ -3,6 +3,8 @@ from .data_manipulation import species_map
 from .data_manipulation import load_xgboost_data
 from .data_manipulation import write_xgboost_data
 from .data_manipulation import check_if_database_exists
+from .data_manipulation import check_if_merged_database_exists
+from .data_manipulation import check_if_merged_model_exists
 from .data_manipulation import check_if_model_exists
 from .data_manipulation import load_mapping
 

@@ -72,10 +72,10 @@ def load_xgboost_data(path: str, classif_level: str, suffix: str, db_name: str, 
     * db_name (str) : database we need to search in
     * sp_determined (str | None): upper level we've already determined
     """
-    if sp_determined == None:
-        my_path = f"{path}{db_name}/{classif_level}/data.txt.{suffix}"
-    elif suffix == 'unk':
+    if suffix == 'unk':
         my_path = f"output/{sample_name}/data.txt.{suffix}"
+    elif sp_determined == None:
+        my_path = f"{path}{db_name}/{classif_level}/data.txt.{suffix}"
     else:
         my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_data.txt.{suffix}"
     return DMatrix(my_path)
@@ -93,17 +93,41 @@ def write_xgboost_data(data: list[str], path: str, classif_level: str, suffix: s
     * db_name (str) : database we need to search in
     * sp_determined (str | None): upper level we've already determined
     """
-    if sp_determined == None:
-        Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
-        my_path = f"{path}{db_name}/{classif_level}/data.txt.{suffix}"
-    elif suffix == 'unk':
+    if suffix == 'unk':
         Path(f"output/{sample_name}/").mkdir(parents=True, exist_ok=True)
         my_path = f"output/{sample_name}/data.txt.{suffix}"
+    elif sp_determined == None:
+        Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
+        my_path = f"{path}{db_name}/{classif_level}/data.txt.{suffix}"
     else:
         Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
         my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_data.txt.{suffix}"
     with open(my_path, "w") as writer:
         writer.write('\n'.join(data))
+
+
+def check_if_merged_database_exists(db_name: str, path: str) -> bool:
+    """Checks if train and test files exists for current situation
+
+    Args:
+        db_name (str): name of db, user imput
+        path (str): path to the database, user input from parameters json file
+        taxa_level (str): level we're working at
+        sp_determined (str | None): upper level we've already determined
+
+    Returns:
+        bool: if all files are present in targeted folder
+    """
+    files_to_check = [f"{path}{db_name}/merged/merged_data.txt.train",
+                      f"{path}{db_name}/merged/merged_data.txt.test", f"{path}{db_name}/merged/merged_saved_mapping.json"]
+    all_correct = True
+    for file in files_to_check:
+        if not exists(file):
+            my_output_msg(f"File not existing : {file}")
+            all_correct = False
+        else:
+            my_output_msg(f"File found : {file}")
+    return all_correct
 
 
 def check_if_database_exists(db_name: str, path: str, taxa_level: str, sp_determined: str | None) -> bool:
@@ -144,6 +168,30 @@ def check_if_model_exists(db_name: str, path: str, taxa_level: str, sp_determine
     """
     files_to_check = [f"{path}{db_name}/{taxa_level}/saved_params.json", f"{path}{db_name}/{taxa_level}/saved_model.json"] if sp_determined == None else [
         f"{path}{db_name}/{taxa_level}/{sp_determined}_saved_params.json", f"{path}{db_name}/{taxa_level}/{sp_determined}_saved_model.json"]
+    all_correct = True
+    for file in files_to_check:
+        if not exists(file):
+            my_output_msg(f"File not existing : {file}")
+            all_correct = False
+        else:
+            my_output_msg(f"File found : {file}")
+    return all_correct
+
+
+def check_if_merged_model_exists(db_name: str, path: str) -> bool:
+    """Checks if a XGBoost merged model (whole family collection) as already been build for current situation
+
+    Args:
+        db_name (str): name of db, user imput
+        path (str): path to the database, user input from parameters json file
+        taxa_level (str): level we're working at
+        sp_determined (str | None): upper level we've already determined
+
+    Returns:
+        bool: if all files are present in targeted folder
+    """
+    files_to_check = [f"{path}{db_name}/merged/merged_saved_params.json",
+                      f"{path}{db_name}/merged/merged_saved_model.json"]
     all_correct = True
     for file in files_to_check:
         if not exists(file):

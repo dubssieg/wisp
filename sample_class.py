@@ -201,6 +201,27 @@ def mapping_sp(input_dir: str, path: str, classif_level: str, db_name: str, int_
     return list_sp
 
 
+def mapping_merged_sp(input_dir: str, path: str, db_name: str) -> dict:
+    """Calls for a map of species, saves it, and return map as a dict
+
+    Args:
+        input_dir (str): dir where references genomes are stored
+        path (str): path for database, used to save the map
+        classif_level (str): _description_
+        db_name (str): _description_
+        int_level (int): _description_
+        taxa (str | None): _description_
+
+    Returns:
+        dict: a map of species for gien taxa
+    """
+    list_sp = species_map(input_dir, 4)
+    my_path = f"{path}{db_name}/merged/merged_saved_mapping.json"
+    with open(my_path, 'w') as file_manager:
+        dump(list_sp, file_manager)
+    return list_sp
+
+
 @my_function_timer("Building datasets")
 def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: str, datas: list[str], sampling: int, db_name: str, classif_level: str, func, ratio: float, kmer_size: int, read_size: int, pattern: str,  sp_determied: str | None):
     """
@@ -219,8 +240,11 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
         # safe creation of dir
         Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
         # we re-generate database, so we need to map it out
-        sp_map = mapping_sp(f"{input_dir}train/", path,
-                            classif_level, db_name, taxa[classif_level], sp_determied)
+        if classif_level != 'merged':
+            sp_map = mapping_sp(f"{input_dir}train/", path,
+                                classif_level, db_name, taxa[classif_level], sp_determied)
+        else:
+            sp_map = mapping_merged_sp(f"{input_dir}train/", path, db_name)
     else:
         # database already generated, loading mapping without erasing it
         sp_map = load_mapping(path, db_name,
@@ -228,8 +252,12 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
 
     for type_data in datas:
         if isinstance(input_style, bool):
-            my_sp = list(call_loader(
-                f"{input_dir}train/", kmer_size, taxa[classif_level], sp_determied, type_data, pattern))
+            if classif_level != 'merged':
+                my_sp = list(call_loader(
+                    f"{input_dir}train/", kmer_size, taxa[classif_level], sp_determied, type_data, pattern))
+            else:
+                my_sp = list(call_loader(
+                    f"{input_dir}train/", kmer_size, 4, None, type_data, pattern))
         else:
             fileholder = my_parser(
                 f"{input_dir}{type_data}/{input_style}", True, True, "unk_sample")
@@ -240,15 +268,19 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
             # iterate through all samples and creates subsampling
             if type_data == 'test':
                 my_ssp = overhaul_diversity(
-                    sp, int(sampling/10), kmer_size, read_size)
+                    sp, int(sampling/8), kmer_size, read_size)
             else:
                 my_ssp = overhaul_diversity(sp, sampling, kmer_size, read_size)
             for s in my_ssp:
                 if func != None:
                     s.update_counts(func, ratio)
                 if type_data == 'train' or type_data == 'test':
-                    lines.append(s.encoding_mapping(
-                        sp_map[s.specie.split('_')[taxa[classif_level]]]))
+                    if classif_level != 'merged':
+                        lines.append(s.encoding_mapping(
+                            sp_map[s.specie.split('_')[taxa[classif_level]]]))
+                    else:
+                        lines.append(s.encoding_mapping(
+                            sp_map[s.specie.split('_')[4]]))
                 else:
                     lines.append(s.encoding_mapping(0))
         write_xgboost_data(lines, path,

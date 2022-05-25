@@ -14,3 +14,4 @@ from .my_logs import my_logs_clear
 from .my_coros import my_coro
 from .my_coros import parallelize
 from .my_coros import my_futures_collector
+from .my_maths import entropy

@@ -7,3 +7,4 @@ from .generate_report import gen_html_report
 from .visualisation_tool import plot_boosting
 from .visualisation_tool import plot_features
 from .visualisation_tool import plot_all_reads
+from .visualisation_tool import plot_pie_merge

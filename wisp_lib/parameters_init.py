@@ -24,11 +24,14 @@ def my_params():
     # dict to be converted in .json file to create our parameters set
     params_job: dict = {
         # 'taxa' : [kmer_size, reads_size, subsampling_depth, pattern]
+        # merge mode parameters
+        'merged_ref': [4, 10000, 50, '1111'],
+        'merged_sample': [4, 10000, 200, '1111'],
         # params for your database here
         'domain_ref': [4, 10000, 30, '1111'],
-        'phylum_ref': [4, 10000, 400, '1111'],
-        'group_ref': [4, 10000, 300, '1111'],
-        'order_ref': [4, 10000, 300, '1111'],
+        'phylum_ref': [4, 10000, 600, '1111'],
+        'group_ref': [4, 10000, 600, '1111'],
+        'order_ref': [4, 10000, 400, '1111'],
         'family_ref': [4, 10000, 200, '1111'],
         # params for your sample here
         'domain_sample': [4, 10000, 200, '1111'],
@@ -41,16 +44,19 @@ def my_params():
         # 'output' : output for database
         'output': "data/",
         # parameters for exploration and algorithm
-        'threshold': 0.05,
+        'threshold': 0.10,
         'nb_boosts': 10,
-        'tree_depth': 8,
+        'tree_depth': 10,
         # parameters regarding results
-        'full_test_set': False,
+        'full_test_set': True,
         # parameter for read selection, significance for softprob
-        'reads_th': 0.25,
+        'reads_th': 0.10,
         'selection_mode': 'delta_mean',  # 'min_max','delta_mean','delta_sum'
         # force rebuilding full model, when you re-use a database but you changed model parameters
-        'force_model_rebuild': False
+        'force_model_rebuild': False,  # never set true in multithread mode
+        # tells the software if should consider both orientations or assume it is 3' -> 5' and computes canonical kmers
+        'single_way': True,
+        'targeted_level': 'family'  # domain, phylum, group, order, family
     }
     save_json("wisp_params", params_job)
 

@@ -1,4 +1,16 @@
 {
+    "merged_ref": [
+        4,
+        10000,
+        50,
+        "1111"
+    ],
+    "merged_sample": [
+        4,
+        10000,
+        200,
+        "1111"
+    ],
     "domain_ref": [
         4,
         10000,
@@ -8,19 +20,19 @@
     "phylum_ref": [
         4,
         10000,
-        400,
+        600,
         "1111"
     ],
     "group_ref": [
         4,
         10000,
-        300,
+        600,
         "1111"
     ],
     "order_ref": [
         4,
         10000,
-        300,
+        400,
         "1111"
     ],
     "family_ref": [
@@ -61,11 +73,13 @@
     ],
     "input": "/udd/sidubois/Stage/143_Genomes/",
     "output": "data/",
-    "threshold": 0.05,
+    "threshold": 0.1,
     "nb_boosts": 10,
-    "tree_depth": 8,
-    "full_test_set": false,
-    "reads_th": 0.25,
+    "tree_depth": 10,
+    "full_test_set": true,
+    "reads_th": 0.1,
     "selection_mode": "delta_mean",
-    "force_model_rebuild": false
+    "force_model_rebuild": false,
+    "single_way": true,
+    "targeted_level": "family"
 }

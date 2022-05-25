@@ -4,7 +4,8 @@ from python_tools import my_classification_mapper, my_fetcher
 from os import listdir, rename, system
 import csv
 from Bio import SeqIO
-from constants import ANNOTATE_PATH, SUMMARY_FILE
+from constants import ANNOTATE_PATH, SUMMARY_FILE, UNK_PATH
+from random import random, choice
 
 
 def rename_genomes(path_to_genomes: str = ANNOTATE_PATH) -> None:
@@ -101,9 +102,9 @@ def summary_to_dl(summary_file: str) -> None:
         next(summary_reader)
         next(summary_reader)
         for i, line in enumerate(summary_reader):
-            if i < 27887:
+            if i < 35000:
                 next(summary_reader)
-            elif i >= 27887 and i < 35000:
+            elif i >= 35000 and i < 45000:
                 # accession, https
                 split = line.split()
                 print(f"Resolving entry n°{i} : {split[0]}")
@@ -121,10 +122,26 @@ def summary_to_dl(summary_file: str) -> None:
                 break
 
 
+def destroy_sequence(sequence_path: str, destruction_ratio: float) -> None:
+    for seq in listdir(sequence_path):
+        header, sequence = "", ""
+        with open(f"{sequence_path}{seq}", 'r') as reader:
+            for line in reader:
+                if line[0] == '>':
+                    header = line
+                else:
+                    sequence = f"{sequence}{line}"
+        new_seq = ''.join([base if random() >= destruction_ratio else choice(
+            ['A', 'T', 'C', 'G']) for base in sequence])
+        with open(f"{sequence_path}{seq.split('.')[0]}_destr.fna", 'w') as writer:
+            writer.write(f"{header}\n{new_seq}")
+
+
 if __name__ == "__main__":
     # This class aims to help to generate databases from a set of references.
     # From an assembly_summary.txt downloaded from NCBI (obtained via ftp.ncbi)
     # it downloads all references, renames it according to the WISP file system
     # All you have to do after is to put those files into train folder once process is done
     # summary_to_dl(SUMMARY_FILE)
-    rename_genomes()
+    # rename_genomes()
+    destroy_sequence(UNK_PATH, 0.5)

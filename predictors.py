@@ -8,6 +8,26 @@ from wisp_lib import load_xgboost_data, load_mapping
 from pathlib import Path
 
 
+def estimations_merged(preds, sample_name: str, inverted_map: dict[str, str], clade: str, determined: str, threshold: float, sampling_number: int) -> dict:
+    """
+    Does calculation upon number of predicated reads
+    Returns a dict and call for plotting results as a barplot
+
+    * preds (numpy.array) : contains all teh preds made by the model
+    * sample_name (str) : name of job, used to name plots
+    * inverted_map (dict) : mapping numbers of classes to taxas
+    * clade (str) : level of taxonmy we're looking at
+    * threshold (float) : limits to percentage subclasses we will analyse
+    """
+    sum_preds, sum = Counter(
+        [int(round(predict, 0)) for predict in preds]), len(preds)
+
+    outputs_predictions: dict = {
+        f"{inverted_map[str(k)]}": v/sum for k, v in sum_preds.items() if str(k) in inverted_map.keys()}
+
+    return {**outputs_predictions}
+
+
 def estimations(preds, sample_name: str, inverted_map: dict[str, str], clade: str, determined: str, threshold: float, sampling_number: int) -> dict:
     """
     Does calculation upon number of predicated reads
@@ -121,4 +141,7 @@ def test_unk_sample(out_path, job_name, database_name, classif_level, sp_determi
                        sp_determined, reads_threshold, test_status, inverted_map, func, True)
     preds = [p for p in preds if not isinstance(p, bool)]
 
-    return estimations(preds, job_name, inverted_map, classif_level, sp_determined, threshold, sampling_number)
+    if classif_level != 'merged':
+        return estimations(preds, job_name, inverted_map, classif_level, sp_determined, threshold, sampling_number)
+    else:
+        return estimations_merged(preds, job_name, inverted_map, classif_level, sp_determined, threshold, sampling_number)

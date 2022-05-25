@@ -27,8 +27,12 @@ This way is best suited for huge amounts of genomes computations : it will itera
 Will be later on modified to a bash script in order to add this tool more easily into pipelines.
 
 ```bash
-python wisp.py
+python wisp.py [-t number]
 ```
+
+**Optional arguments :**
+
++ -t, --multithreading > you can imput an int to define the number of parallel processes you want to spawn (recommanded : your number of cores)
 
 # Launching WISP with main.py
 
@@ -143,3 +147,8 @@ Lastly, you get additional plots that are not included inside the .html file but
 
 + Reads porbability repartition
 + Reads selection across functions
+
+# Known errors
+
++ Rare bug where re-running a job will not be procedeed if report is opened in webbrowser and folder was deleted few seconds ago
++ Rare bug in wisp multithreading mode where the sample file would not be created

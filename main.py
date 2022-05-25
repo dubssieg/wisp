@@ -4,8 +4,8 @@ from build_softprob import make_model, init_parameters, make_testing
 from warnings import filterwarnings
 from python_tools import my_logs_global_config
 from datetime import datetime
-from wisp_view import gen_html_report, tree_render, plot_boosting
-from wisp_lib import check_if_database_exists, check_if_model_exists, load_mapping, load_json
+from wisp_view import gen_html_report, tree_render, plot_boosting, plot_pie_merge
+from wisp_lib import check_if_database_exists, check_if_model_exists, check_if_merged_database_exists, load_mapping, load_json, check_if_merged_model_exists
 from predictors import test_unk_sample, save_output, test_model
 from constants import RATIO, FUNC, TAXAS_LEVELS
 from pathlib import Path
@@ -46,6 +46,12 @@ if __name__ == "__main__":
         force_rebuild = bool(my_params['force_model_rebuild'])
         tree_depth = int(my_params['tree_depth'])
         func_reads = str(my_params['selection_mode'])
+        single_way = bool(my_params['single_way'])
+        targeted_level = str(my_params['targeted_level'])
+        KMER_SIZE_MERGED_REF, RS_MERGED_REF, SAMPLING_MERGED_REF, PATTERN_MERGED_REF = my_params[
+            f"merged_ref"]
+        KMER_SIZE_MERGED_SAMPLE, RS_MERGED_SAMPLE, SAMPLING_MERGED_SAMPLE, PATTERN_MERGED_SAMPLE = my_params[
+            f"merged_sample"]
     # if any error happens
     except:
         raise ValueError(
@@ -54,10 +60,13 @@ if __name__ == "__main__":
     # init iterables and memory spaces
     topmost: dict = {}
     test_results: dict = {}
-    output: dict = {'domain': None, 'phylum': None,
-                    'group': None, 'order': None, 'family': None}
     Path(f"output/{JOB}/").mkdir(parents=True, exist_ok=True)
-    for taxa in TAXAS_LEVELS:
+
+    targeted_taxas: list[str] = TAXAS_LEVELS[:TAXAS_LEVELS.index(
+        targeted_level)+1]
+    output: dict = {level: None for level in targeted_taxas}
+
+    for taxa in targeted_taxas:
         KMER_SIZE_REF, RS_REF, SAMPLING_REF, PATTERN_REF = my_params[f"{taxa}_ref"]
         KMER_SIZE_SAMPLE, RS_SAMPLE, SAMPLING_SAMPLE, PATTERN_SAMPLE = my_params[
             f"{taxa}_sample"]
@@ -90,6 +99,8 @@ if __name__ == "__main__":
 
             map_sp = load_mapping(OUTPUT_PATH, DATABASE,
                                   taxa, parent_level)
+
+            output[f"{parent_level} diversity"] = list(map_sp.keys())
 
             if force_rebuild or not check_if_model_exists(DATABASE, OUTPUT_PATH, taxa, parent_level):
 
@@ -134,9 +145,15 @@ if __name__ == "__main__":
             test_results[f"{taxa}_{parent_level}"] = (test_model(
                 OUTPUT_PATH, JOB, DATABASE, taxa, reads_threshold, parent_level, func_reads))
 
-            output_temp = test_unk_sample(
-                OUTPUT_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold, test_state, SAMPLING_SAMPLE, func_reads)
-            topmost[f"{taxa}_{parent_level}"] = output_temp[f"Reads summation {taxa}"]
+            if single_way:
+
+                output_temp = test_unk_sample(
+                    OUTPUT_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold, test_state, SAMPLING_SAMPLE, func_reads)
+                topmost[f"{taxa}_{parent_level}"] = output_temp[f"Reads summation {taxa}"]
+
+            else:
+                # add second call for two ways with reverse comp
+                raise ValueError("Double pass not implemented yet.")
 
             if f"Possible for {taxa}" in output:
                 output[f"Possible for {taxa}"] = [
@@ -144,19 +161,68 @@ if __name__ == "__main__":
 
             output = {**output_temp, **output}
 
-    # extraction of most probable path
-    output["domain"] = topmost[f"domain_None"]
-    output["phylum"] = topmost[f"phylum_{output['domain']}"]
-    output["group"] = topmost[f"group_{output['phylum']}"]
-    output["order"] = topmost[f"order_{output['group']}"]
-    output["family"] = topmost[f"family_{output['order']}"]
+############################################ MERGED STUFF ###############################################
+    if not check_if_merged_database_exists(DATABASE, OUTPUT_PATH):
 
-    path_taxa = [f"{output['domain']} (d)", f"{output['phylum']} (p)",
-                 f"{output['group']} (g)", f"{output['order']} (o)", f"{output['family']} (f)"]
+        make_datasets(
+            input_style=False,
+            job_name=JOB,
+            input_dir=INPUT_PATH,
+            path=OUTPUT_PATH,
+            datas=['train', 'test'],
+            db_name=DATABASE,
+            sampling=SAMPLING_MERGED_REF,
+            kmer_size=KMER_SIZE_MERGED_REF,
+            func=FUNC,
+            ratio=RATIO,
+            read_size=RS_MERGED_REF,
+            classif_level='merged',
+            sp_determied='merged',
+            pattern=PATTERN_MERGED_REF
+        )
+
+    map_merged_sp = load_mapping(OUTPUT_PATH, DATABASE,
+                                 'merged', 'merged')
+
+    if force_rebuild or not check_if_merged_model_exists(DATABASE, OUTPUT_PATH):
+        # needs to create merged database
+        make_model(JOB, OUTPUT_PATH, 'merged', DATABASE,
+                   'merged', init_parameters(len(map_merged_sp), tree_depth), number_rounds=nr)
+
+    # then test in merged mode the sample (sample against all families without splitting steps)
+    make_datasets(
+        input_style=input_file,
+        job_name=JOB,
+        input_dir=INPUT_PATH,
+        path=OUTPUT_PATH,
+        datas=['unk'],
+        db_name=DATABASE,
+        sampling=SAMPLING_MERGED_SAMPLE,
+        kmer_size=KMER_SIZE_MERGED_SAMPLE,
+        func=FUNC,
+        ratio=RATIO,
+        read_size=RS_MERGED_SAMPLE,
+        classif_level='merged',
+        sp_determied='merged',
+        pattern=PATTERN_MERGED_SAMPLE
+    )
+    output_merged_sample = test_unk_sample(
+        OUTPUT_PATH, JOB, DATABASE, 'merged', 'merged', threshold, reads_threshold, test_state, SAMPLING_MERGED_SAMPLE, func_reads)
+
+    plot_pie_merge(output_merged_sample, JOB)
+############################################ END ###############################################
+
+    for i, k in enumerate(targeted_taxas):
+        responses: list[str] = [f"domain_None", f"phylum_{output['domain']}",
+                                f"group_{output['phylum']}", f"order_{output['group']}", f"family_{output['order']}"]
+        output[k] = topmost[responses[i]]
+
+    # extraction of most probable path
+    path_taxa = [f"{output[k]} ({k[0]})" for k in targeted_taxas]
 
     output["parcimonious_path"] = tree_render(output, JOB, path_taxa)
 
     save_output({'Date': f"{datetime.today().strftime('%Y.%m.%d - %H:%M:%S')}", **
                  vars(args), **output}, JOB)
-    gen_html_report(my_params, JOB, [], output, TAXAS_LEVELS,
-                    test_results, threshold, test_state, round(reads_threshold, 2))
+    gen_html_report(my_params, JOB, [], output, targeted_taxas,
+                    test_results, threshold, test_state, output_merged_sample, round(reads_threshold, 2))

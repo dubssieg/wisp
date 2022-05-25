@@ -4,10 +4,9 @@ from wisp_lib import load_xgboost_data, recode_kmer_4
 from wisp_view import compare_test, plot_features, plot_all_reads, mod_to_tree
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-from numpy import argmax, amax, mean, linspace
+from numpy import argmax, amax, mean
 from collections import Counter
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
 import pandas as pd
 
 # consts for test
@@ -210,31 +209,43 @@ def softmax_from_prediction(preds, reads_selection_threshold, func):
 
 
 def softpred_from_prediction(preds, sample_name: str, clade: str, determined: str, inverted_map: dict):
-    lsc = [i for i in range(len(inverted_map))]
+    lsc = [i for i in range(len(inverted_map))] + [len(inverted_map)]
     df = pd.DataFrame(columns=lsc)
-    thsh = [0, 0.25, 0.5]
-    f = plt.figure(figsize=(7, 6))
-    plt.style.use('seaborn-deep')
-    graph = f.add_axes([0.2, 0.2, 0.8, 0.6])
+    thsh = [0.025, 0.05, 0.1]
+    # plt.style.use('seaborn-deep')
+
+    softmax = Counter(a for a in softmax_from_prediction(
+        preds, 0, 'none') if not isinstance(a, bool))
+
+    false_reads = Counter(a for a in softmax_from_prediction(
+        preds, 0, 'none') if isinstance(a, bool))[False]
+    softmax[len(inverted_map)] = false_reads
+
+    ser = pd.Series(data=softmax, index=list(softmax.keys()),
+                    name=f"without filtering")
+
+    df = df.append(ser).fillna(0)
     for t in thsh:
         for func in ['delta_mean', 'min_max', 'delta_sum']:
             softmax = Counter(a for a in softmax_from_prediction(
                 preds, t, func) if not isinstance(a, bool))
-            ser = pd.Series(data=softmax, index=softmax.keys(),
+            false_reads = Counter(a for a in softmax_from_prediction(
+                preds, t, func) if isinstance(a, bool))[False]
+            softmax[len(inverted_map)] = false_reads
+
+            ser = pd.Series(data=softmax, index=list(softmax.keys()),
                             name=f"{func}:{t}")
+
             df = df.append(ser).fillna(0)
-            #softmax = sorted(Counter(a for a in softmax_from_prediction(preds, t, func) if not isinstance(a, bool)).items())
-            #softmax_vals, softmax_keys = [b for (_, b) in softmax], [a for (a, _) in softmax]
-            #plt.scatter(softmax_keys, softmax_vals,label=f"softmax:{func};t={t}")
     df = df.transpose()
-    ax = df.plot(kind='bar')
-    #ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=3)
-    ax.set_xticks([i for i in range(len(inverted_map))])
+    ax = df.plot(kind='bar', figsize=(12, 6),
+                 ylabel='Reads count', rot=90, colormap='cividis')
+    ax.set_xticks([i for i in range(len(inverted_map))]+[len(inverted_map)])
     ax.set_xticklabels([f"{inverted_map[str(i)]}"
-                        for i in range(len(inverted_map))])
-    graph.yaxis.set_major_locator(MaxNLocator(integer=True))  # for int display
-    plt.legend(loc="upper left")
-    plt.savefig(f"output/{sample_name}/{clade}_{determined}_softprob.png")
+                        for i in range(len(inverted_map))] + ['Rejected'])
+    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.13), ncol=5)
+    plt.savefig(
+        f"output/{sample_name}/{clade}_{determined}_softprob.png", bbox_inches='tight')
 
 
 def plot_tree_model(bst: xgb.Booster, job_name: str, classif_level: str, sp_determined: str, ksize: int) -> None:

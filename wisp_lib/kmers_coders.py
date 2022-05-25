@@ -53,6 +53,17 @@ def apply_filter(substring: str, pattern: str) -> str:
         return ''.join([substring[i] for i in range(len(substring)) if pattern[i] == '1'])
 
 
+def kmer_2soluces(entry: str, kmer_size: int, pattern: str, inverted: bool = False):
+    if pattern.count('1') != kmer_size:
+        raise ValueError("Filter does not match ksize.")
+    else:
+        cpl: dict = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}
+        if inverted:
+            entry = ''.join([cpl[base]
+                            for base in reversed(entry)])  # reverse complement
+        return Counter([apply_filter(entry[k:k+len(pattern)], pattern) for k in range(len(entry) - len(pattern) - 1) if apply_filter(entry[k:k+len(pattern)], pattern).isalpha() and not apply_filter(entry[k:k+len(pattern)], pattern) == len(apply_filter(entry[k:k+len(pattern)], pattern)) * apply_filter(entry[k:k+len(pattern)], pattern)[0]])
+
+
 def kmer_indexing(entry: str, kmer_size: int, pattern: str):
     if pattern.count('1') != kmer_size:
         raise ValueError("Filter does not match ksize.")
@@ -61,6 +72,10 @@ def kmer_indexing(entry: str, kmer_size: int, pattern: str):
         nkmers = 4**ksize
         tablesize = nkmers + 10
         cg = Countgraph(ksize, tablesize, 1)
-        for k in range(len(entry) - len(pattern) + 1):
-            cg.count(apply_filter(entry[k:k+len(pattern)], pattern))
+        for k in range(len(entry) - len(pattern) - 1):
+            my_kmer = apply_filter(entry[k:k+len(pattern)], pattern)
+            if my_kmer.isalpha() and not my_kmer == len(my_kmer) * my_kmer[0]:
+                # fixes rare issue where a \n was integrated
+                # and checks for mononucleotid patterns
+                cg.count(my_kmer)
         return Counter({cg.reverse_hash(i): cg.get(i) for i in range(nkmers) if cg.get(i)})

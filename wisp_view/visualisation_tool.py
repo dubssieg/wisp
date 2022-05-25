@@ -25,11 +25,13 @@ def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, cl
     y = array(templist)
     figure = plt.figure(figsize=(9, 6))
     graph = figure.add_axes([0.1, 0.2, 0.8, 0.6])
-    bars = graph.bar(x, y, color='black')
+    colors = ['#454261' if datas[k] != max(
+        [datas[k] for k in keys_sorted]) else '#1c1a2c' for k in keys_sorted] + ['#594966']
+    bars = graph.bar(x, y, color=colors)
     plt.title(
         f"Reads accross {clade} for {sample_name}")
     plt.ylabel("Read counts")
-    plt.xticks(rotation=70, fontsize=6, ha='right')
+    plt.xticks(rotation=70, fontsize=9, ha='right')
     tl = [i for i in range(len(inverted_map))
           ]+[len(inverted_map)]
     graph.set_xticks(tl)
@@ -39,7 +41,8 @@ def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, cl
     graph.bar_label(bars)
     plt.axhline(y=threshold*sampling_number, xmin=0, color="#465065",
                 linestyle='dashed', linewidth=1)
-    plt.savefig(f"output/{sample_name}/{clade}_{determined}_graph_reads.png")
+    plt.savefig(
+        f"output/{sample_name}/{clade}_{determined}_graph_reads.png", bbox_inches='tight')
 
 
 def plot_all_reads(matrix, sample_name: str, inverted_map: dict, clade: str, determined: str) -> None:
@@ -63,7 +66,26 @@ def plot_all_reads(matrix, sample_name: str, inverted_map: dict, clade: str, det
     graph.set_xticks([i for i in range(len(inverted_map))])
     graph.set_xticklabels([f"{inverted_map[str(i)]}"
                           for i in range(len(inverted_map))])
-    plt.savefig(f"output/{sample_name}/{clade}_{determined}_proba_reads.png")
+    plt.savefig(
+        f"output/{sample_name}/{clade}_{determined}_proba_reads.png", bbox_inches='tight')
+
+
+def plot_pie_merge(prediction_reads: dict[str, float], sample_name: str) -> None:
+    values, labels = [], []
+    for k, v in prediction_reads.items():
+        values.append(v)
+        labels.append(k)
+    if sum(values) < 1:
+        values.append(1-sum(values))
+        labels.append('Rejected')
+    figure = plt.figure(figsize=(5, 4))
+    plt.pie(values, labels=labels)  # , rotatelabels=True
+    plt.axis('equal')
+
+    plt.title(
+        f"Raw reads predicitions for {sample_name}")
+    plt.savefig(
+        f"output/{sample_name}/{sample_name}_pie_merge.png", bbox_inches='tight')
 
 
 def compare_test(test_classes, test_preds, inverted_map: dict, sample_name: str, clade: str, determined: str) -> dict:
@@ -157,10 +179,10 @@ def plot_pandas(cm: DataFrame, sample_name: str, clade: str, determined: str, cm
     cm = cm.div(cm.sum(axis=1), axis=0) * 100
     sns.heatmap(cm, annot=True, cmap=cmap,
                 fmt=f".{number_digits}f", linewidths=0.5, ax=ax)
-    plt.yticks(fontsize=5)
-    plt.xticks(fontsize=5)
+    # plt.yticks(fontsize=9)
+    # plt.xticks(fontsize=9)
     plt.savefig(
-        f"output/{sample_name}/{clade}_{determined}_confusion_matrix.png")
+        f"output/{sample_name}/{clade}_{determined}_confusion_matrix.png", bbox_inches='tight')
 
 
 def plot_boosting(df: DataFrame, sample_name: str, clade: str, determined: str, number_rounds: int) -> None:
@@ -194,7 +216,7 @@ def plot_boosting(df: DataFrame, sample_name: str, clade: str, determined: str, 
                   linestyle='dashed', linewidth=1)
     axs[1].legend(loc='upper right')
     plt.savefig(
-        f"output/{sample_name}/{clade}_{determined}_boosting_results.png")
+        f"output/{sample_name}/{clade}_{determined}_boosting_results.png", bbox_inches='tight')
 
 
 def plot_features(datas, job_name: str, classif_level: str, sp_determined: str) -> None:
@@ -222,4 +244,4 @@ def plot_features(datas, job_name: str, classif_level: str, sp_determined: str) 
         plt.title(
             f"Top {nb_features} features for {classif_level}")
     plt.savefig(
-        f"output/{job_name}/{classif_level}_{sp_determined}_feature_importance.png")
+        f"output/{job_name}/{classif_level}_{sp_determined}_feature_importance.png", bbox_inches='tight')
