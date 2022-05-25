@@ -1,7 +1,6 @@
-# WISP
-XGBoost implementation for determining bacteria taxas.
+# WISP : XGBoost implementation for bacteria families identification from long reads
 
-![img](https://github.com/Tharos-ux/wisp/blob/master/preview/preview.png)
+![img](https://github.com/Tharos-ux/wisp/blob/master/preview/Ente_malo.png)
 
 This Python program is meant to determine to which taxa a bacteria is belonginig to, from long reads (>10.000bp), solely based upon alignment-free methods. As of now, the main focus is upon kmers proportions.
 Currently, five levels of taxa are implemented : **domain**, **phylum**, **group**, **order** and **family**.

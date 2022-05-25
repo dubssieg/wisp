@@ -36,9 +36,9 @@ def core_call(multithreading_state: int) -> None:
                 system(
                     f"python main.py {DATABASE} {PARAMS} {PREFIX_JOB}_{file[:-4]} -f {file}")
                 my_output_msg(
-                    f"Sucessfully processed sample {i} out of {len(file_list)}. Results are in output/ folder")
+                    f"Sucessfully processed sample {i+1} out of {len(file_list)}. Results are in output/ folder")
             except:
-                my_output_msg(f"Job failed for sample number {i} ({file})")
+                my_output_msg(f"Job failed for sample number {i+1} ({file})")
 
 
 if __name__ == "__main__":
