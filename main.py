@@ -1,9 +1,11 @@
 from argparse import ArgumentParser
+from traceback import format_exc
 from sample_class import make_datasets
 from build_softprob import make_model, init_parameters, make_testing
 from warnings import filterwarnings
 from python_tools import my_logs_global_config
 from datetime import datetime
+from wisp.python_tools.my_logs import my_output_msg
 from wisp_view import gen_html_report, tree_render, plot_boosting, plot_pie_merge
 from wisp_lib import check_if_database_exists, check_if_model_exists, check_if_merged_database_exists, load_mapping, load_json, check_if_merged_model_exists
 from predictors import test_unk_sample, save_output, test_model
@@ -54,6 +56,7 @@ if __name__ == "__main__":
             f"merged_sample"]
     # if any error happens
     except:
+        my_output_msg(format_exc())
         raise ValueError(
             "Incorrect or missing parameters file ; check path and/or contents of json reference.")
 
@@ -78,6 +81,8 @@ if __name__ == "__main__":
             if isinstance(parent_level, bool):
                 parent_level = None
 
+############################################ DATABASE STUFF ###############################################
+
             if not check_if_database_exists(DATABASE, OUTPUT_PATH, taxa, parent_level):
 
                 make_datasets(
@@ -101,6 +106,8 @@ if __name__ == "__main__":
                                   taxa, parent_level)
 
             output[f"{parent_level} diversity"] = list(map_sp.keys())
+
+############################################ MODEL STUFF ###############################################
 
             if force_rebuild or not check_if_model_exists(DATABASE, OUTPUT_PATH, taxa, parent_level):
 
@@ -141,6 +148,8 @@ if __name__ == "__main__":
                 plot_boosting(successive_boost_results,
                               JOB, taxa, parent_level, nr)
 
+############################################ TEST STUFF ###############################################
+
             # base tests for heatmap and evaluators
             test_results[f"{taxa}_{parent_level}"] = (test_model(
                 OUTPUT_PATH, JOB, DATABASE, taxa, reads_threshold, parent_level, func_reads))
@@ -162,6 +171,7 @@ if __name__ == "__main__":
             output = {**output_temp, **output}
 
 ############################################ MERGED STUFF ###############################################
+
     if not check_if_merged_database_exists(DATABASE, OUTPUT_PATH):
 
         make_datasets(
