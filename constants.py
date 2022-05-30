@@ -10,9 +10,6 @@ UNK_PATH: str = "/udd/sidubois/Stage/143_Genomes/unk/"
 FUNC: str | None = None
 RATIO: float = 1.5
 
-# iterables
-TAXAS_LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
-
 # for wisp.py
 DATABASE: str = "4k_143genomes_1111"
 PARAMS: str = "wisp_params.json"

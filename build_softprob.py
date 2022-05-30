@@ -54,7 +54,7 @@ def tests_with_kfold(cls, xgbMatrix, X, y, class_count, classif_level, inverted_
     xgb.plot_importance(cls)
     plt.figure(figsize=(16, 12))
     plt.savefig(f"{classif_level}_feature_importance.png")
-
+    # here for reads division according to species
     return (accuracy_score(y_test, test_preds), xgb_cv, compare_test(y_test, test_preds, inverted_map, sample, classif_level, sp_determined))
 
 
@@ -292,14 +292,15 @@ def make_testing(size_kmer, job_name, sp_determined, path, db_name, classif_leve
     """_summary_
 
     Args:
-        sp_determined (_type_): _description_
-        suffix (_type_): _description_
-        path (_type_): _description_
-        db_name (_type_): _description_
-        classif_level (_type_): _description_
-        inverted_map (_type_): _description_
-        sample (_type_): _description_
-        class_count (_type_): _description_
+        size_kmer (int): ksize
+        job_name (str): name, for naming purposes
+        sp_determined (str): previous level of classification
+        path (str): path to file
+        db_name (str): path to database
+        classif_level (str): current classification level we're working at
+        class_count (int): number of classes inside current division
+        model_parameters (dict): a set of parameters
+        number_rounds (int): number of boosting rounds for validation
 
     Returns:
         tuple: tuple containing :

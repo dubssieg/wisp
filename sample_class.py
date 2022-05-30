@@ -223,7 +223,7 @@ def mapping_merged_sp(input_dir: str, path: str, db_name: str) -> dict:
 
 
 @my_function_timer("Building datasets")
-def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: str, datas: list[str], sampling: int, db_name: str, classif_level: str, func, ratio: float, kmer_size: int, read_size: int, pattern: str,  sp_determied: str | None):
+def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: str, datas: list[str], sampling: int, db_name: str, classif_level: str, kmer_size: int, read_size: int, pattern: str,  sp_determied: str | None):
     """
     Create the datasets and calls for storage
 
@@ -272,8 +272,6 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
             else:
                 my_ssp = overhaul_diversity(sp, sampling, kmer_size, read_size)
             for s in my_ssp:
-                if func != None:
-                    s.update_counts(func, ratio)
                 if type_data == 'train' or type_data == 'test':
                     if classif_level != 'merged':
                         lines.append(s.encoding_mapping(

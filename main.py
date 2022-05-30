@@ -9,7 +9,7 @@ from wisp.python_tools.my_logs import my_output_msg
 from wisp_view import gen_html_report, tree_render, plot_boosting, plot_pie_merge
 from wisp_lib import check_if_database_exists, check_if_model_exists, check_if_merged_database_exists, load_mapping, load_json, check_if_merged_model_exists
 from predictors import test_unk_sample, save_output, test_model
-from constants import RATIO, FUNC, TAXAS_LEVELS
+from constants import RATIO, FUNC
 from pathlib import Path
 
 if __name__ == "__main__":
@@ -39,6 +39,7 @@ if __name__ == "__main__":
         # storing args
         JOB: str = args.job_name
         DATABASE: str = args.database_name
+        TAXAS_LEVELS: list[str] = my_params['levels_list']
         INPUT_PATH: str = my_params['input']
         OUTPUT_PATH: str = my_params['output']
         nr = int(my_params['nb_boosts'])
@@ -94,8 +95,6 @@ if __name__ == "__main__":
                     db_name=DATABASE,
                     sampling=SAMPLING_REF,
                     kmer_size=KMER_SIZE_REF,
-                    func=FUNC,
-                    ratio=RATIO,
                     read_size=RS_REF,
                     classif_level=taxa,
                     sp_determied=parent_level,
@@ -123,8 +122,6 @@ if __name__ == "__main__":
                 db_name=DATABASE,
                 sampling=SAMPLING_SAMPLE,
                 kmer_size=KMER_SIZE_SAMPLE,
-                func=FUNC,
-                ratio=RATIO,
                 read_size=RS_SAMPLE,
                 classif_level=taxa,
                 sp_determied=parent_level,
@@ -183,8 +180,6 @@ if __name__ == "__main__":
             db_name=DATABASE,
             sampling=SAMPLING_MERGED_REF,
             kmer_size=KMER_SIZE_MERGED_REF,
-            func=FUNC,
-            ratio=RATIO,
             read_size=RS_MERGED_REF,
             classif_level='merged',
             sp_determied='merged',
@@ -209,8 +204,6 @@ if __name__ == "__main__":
         db_name=DATABASE,
         sampling=SAMPLING_MERGED_SAMPLE,
         kmer_size=KMER_SIZE_MERGED_SAMPLE,
-        func=FUNC,
-        ratio=RATIO,
         read_size=RS_MERGED_SAMPLE,
         classif_level='merged',
         sp_determied='merged',

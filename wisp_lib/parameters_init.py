@@ -56,7 +56,8 @@ def my_params():
         'force_model_rebuild': False,  # never set true in multithread mode
         # tells the software if should consider both orientations or assume it is 3' -> 5' and computes canonical kmers
         'single_way': True,
-        'targeted_level': 'family'  # domain, phylum, group, order, family
+        'targeted_level': 'family',  # domain, phylum, group, order, family
+        'levels_list': ['domain', 'phylum', 'group', 'order', 'family']
     }
     save_json("wisp_params", params_job)
 

@@ -4,7 +4,8 @@ from os import listdir
 from python_tools import my_function_timer, my_output_msg, my_logs_global_config, my_logs_clear
 from wisp_lib import load_mapping, load_json, check_if_database_exists, check_if_merged_model_exists, check_if_model_exists, check_if_merged_database_exists
 from argparse import ArgumentParser
-from constants import FUNC, RATIO, TAXAS_LEVELS
+from traceback import format_exc
+from constants import FUNC, RATIO
 
 
 @my_function_timer("Building full database")
@@ -18,7 +19,7 @@ def build_full_db(args) -> None:
         ValueError: _description_
     """
 
-    # we try to load parmas file and gather data from it
+    # we try to load params file and gather data from it
     try:
         my_params: dict = load_json(args.params)
         # storing args
@@ -26,6 +27,7 @@ def build_full_db(args) -> None:
         DATABASE: str = args.database_name
         INPUT_PATH: str = my_params['input']
         OUTPUT_PATH: str = my_params['output']
+        TAXAS_LEVELS: list[str] = my_params['levels_list']
         nr = int(my_params['nb_boosts'])
         tree_depth = int(my_params['tree_depth'])
         force_rebuild = bool(my_params['force_model_rebuild'])
@@ -33,6 +35,7 @@ def build_full_db(args) -> None:
             f"merged_ref"]
     # if any error happens
     except:
+        my_output_msg(format_exc())
         raise ValueError(
             "Incorrect or missing parameters file ; check path and/or contents of json reference.")
 
@@ -62,8 +65,6 @@ def build_full_db(args) -> None:
                     db_name=DATABASE,
                     sampling=SAMPLING_REF,
                     kmer_size=KMER_SIZE_REF,
-                    func=FUNC,
-                    ratio=RATIO,
                     read_size=RS_REF,
                     classif_level=taxa,
                     sp_determied=parent_level,
@@ -89,8 +90,6 @@ def build_full_db(args) -> None:
             db_name=DATABASE,
             sampling=SAMPLING_MERGED_REF,
             kmer_size=KMER_SIZE_MERGED_REF,
-            func=FUNC,
-            ratio=RATIO,
             read_size=RS_MERGED_REF,
             classif_level='merged',
             sp_determied='merged',
