@@ -211,7 +211,7 @@ def softmax_from_prediction(preds, reads_selection_threshold, func):
 def softpred_from_prediction(preds, sample_name: str, clade: str, determined: str, inverted_map: dict):
     lsc = [i for i in range(len(inverted_map))] + [len(inverted_map)]
     df = pd.DataFrame(columns=lsc)
-    thsh = [0.025, 0.05, 0.1]
+    thsh = [0.05, 0.1, 0.25, 0.5]
     # plt.style.use('seaborn-deep')
 
     softmax = Counter(a for a in softmax_from_prediction(
@@ -226,7 +226,7 @@ def softpred_from_prediction(preds, sample_name: str, clade: str, determined: st
 
     df = df.append(ser).fillna(0)
     for t in thsh:
-        for func in ['delta_mean', 'min_max', 'delta_sum']:
+        for func in ['delta_mean']:  # , 'min_max', 'delta_sum'
             softmax = Counter(a for a in softmax_from_prediction(
                 preds, t, func) if not isinstance(a, bool))
             false_reads = Counter(a for a in softmax_from_prediction(
@@ -238,7 +238,7 @@ def softpred_from_prediction(preds, sample_name: str, clade: str, determined: st
 
             df = df.append(ser).fillna(0)
     df = df.transpose()
-    ax = df.plot(kind='bar', figsize=(12, 6),
+    ax = df.plot(kind='bar', figsize=(20, 6),
                  ylabel='Reads count', rot=90, colormap='cividis')
     ax.set_xticks([i for i in range(len(inverted_map))]+[len(inverted_map)])
     ax.set_xticklabels([f"{inverted_map[str(i)]}"

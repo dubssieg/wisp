@@ -1,7 +1,6 @@
 from Bio import SeqIO, Entrez
 from logging import info
 from os import path
-from constants import EMAIL
 
 
 def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_name: str = "Merged") -> dict:
@@ -29,6 +28,20 @@ def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_nam
         return {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(open(filename), 'fasta')}
 
 
+def my_fasta_parser(filename: str) -> dict:
+    """
+    Renvoie un dictionnaire contenant toutes les séquences
+    key : desc de la séquence
+    value : séquence
+
+    * filename le chemin de fichier
+    * clean si le fichier doit être nettoyé de ses N
+    * merge si on merge tous les fasta d'un fichier en une seule chaine
+    """
+    info(f"Loading {filename}")
+    return {fasta.id: str(fasta.seq).replace('N', '') for fasta in SeqIO.parse(open(filename), 'fasta')}
+
+
 def my_pretty_printer(seq_dict: dict, size: int = 10) -> None:
     for key, value in seq_dict.items():
         print(
@@ -36,7 +49,7 @@ def my_pretty_printer(seq_dict: dict, size: int = 10) -> None:
 
 
 def my_classification_mapper(file):
-    Entrez.email = EMAIL
+    Entrez.email = ""  # EMAIL
     # skipping unnecessary calls for already processed files
     if('Bacteria' not in file and 'Archaea' not in file):
         try:

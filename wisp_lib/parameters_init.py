@@ -28,9 +28,9 @@ def my_params():
         'merged_ref': [4, 10000, 50, '1111'],
         'merged_sample': [4, 10000, 200, '1111'],
         # params for your database here
-        'domain_ref': [4, 10000, 30, '1111'],
-        'phylum_ref': [4, 10000, 600, '1111'],
-        'group_ref': [4, 10000, 600, '1111'],
+        'domain_ref': [4, 10000, 50, '1111'],
+        'phylum_ref': [4, 10000, 100, '1111'],
+        'group_ref': [4, 10000, 500, '1111'],
         'order_ref': [4, 10000, 400, '1111'],
         'family_ref': [4, 10000, 200, '1111'],
         # params for your sample here
@@ -50,14 +50,15 @@ def my_params():
         # parameters regarding results
         'full_test_set': True,
         # parameter for read selection, significance for softprob
-        'reads_th': 0.10,
+        'reads_th': 0.25,
         'selection_mode': 'delta_mean',  # 'min_max','delta_mean','delta_sum'
         # force rebuilding full model, when you re-use a database but you changed model parameters
         'force_model_rebuild': False,  # never set true in multithread mode
         # tells the software if should consider both orientations or assume it is 3' -> 5' and computes canonical kmers
         'single_way': True,
         'targeted_level': 'family',  # domain, phylum, group, order, family
-        'levels_list': ['domain', 'phylum', 'group', 'order', 'family']
+        'levels_list': ['domain', 'phylum', 'group', 'order', 'family'],
+        'abundance_threshold': 0.25
     }
     save_json("wisp_params", params_job)
 

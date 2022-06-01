@@ -13,5 +13,7 @@ from .kmers_coders import decode_kmer_4
 from .kmers_coders import recode_kmer_4
 from .kmers_coders import kmer_indexing
 from .kmers_coders import my_encoder_k4
+from .kmers_coders import read_and_its_compl
+from .kmers_coders import optimal_splitting
 
 from .parameters_init import load_json

@@ -14,19 +14,19 @@
     "domain_ref": [
         4,
         10000,
-        30,
+        50,
         "1111"
     ],
     "phylum_ref": [
         4,
         10000,
-        600,
+        100,
         "1111"
     ],
     "group_ref": [
         4,
         10000,
-        600,
+        500,
         "1111"
     ],
     "order_ref": [
@@ -77,9 +77,16 @@
     "nb_boosts": 10,
     "tree_depth": 10,
     "full_test_set": true,
-    "reads_th": 0.1,
+    "reads_th": 0.25,
     "selection_mode": "delta_mean",
     "force_model_rebuild": false,
     "single_way": true,
-    "targeted_level": "family"
+    "targeted_level": "family",
+    "levels_list": [
+        "domain",
+        "phylum",
+        "group",
+        "order",
+        "family"
+    ]
 }

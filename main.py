@@ -3,13 +3,11 @@ from traceback import format_exc
 from sample_class import make_datasets
 from build_softprob import make_model, init_parameters, make_testing
 from warnings import filterwarnings
-from python_tools import my_logs_global_config
+from python_tools import my_logs_global_config, my_output_msg
 from datetime import datetime
-from wisp.python_tools.my_logs import my_output_msg
 from wisp_view import gen_html_report, tree_render, plot_boosting, plot_pie_merge
 from wisp_lib import check_if_database_exists, check_if_model_exists, check_if_merged_database_exists, load_mapping, load_json, check_if_merged_model_exists
 from predictors import test_unk_sample, save_output, test_model
-from constants import RATIO, FUNC
 from pathlib import Path
 
 if __name__ == "__main__":

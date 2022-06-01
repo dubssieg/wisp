@@ -5,7 +5,6 @@ from python_tools import my_function_timer, my_output_msg, my_logs_global_config
 from wisp_lib import load_mapping, load_json, check_if_database_exists, check_if_merged_model_exists, check_if_model_exists, check_if_merged_database_exists
 from argparse import ArgumentParser
 from traceback import format_exc
-from constants import FUNC, RATIO
 
 
 @my_function_timer("Building full database")

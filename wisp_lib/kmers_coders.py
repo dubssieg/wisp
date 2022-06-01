@@ -53,14 +53,52 @@ def apply_filter(substring: str, pattern: str) -> str:
         return ''.join([substring[i] for i in range(len(substring)) if pattern[i] == '1'])
 
 
-def kmer_2soluces(entry: str, kmer_size: int, pattern: str, inverted: bool = False):
+def reverse_comp(seq: str) -> str:
+    cpl: dict = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}
+    return ''.join([cpl[base]for base in reversed(seq)])  # reverse complement
+
+
+def read_and_its_compl(entry: str, kmer_size: int, pattern: str) -> Counter:
+    """Froma read, computes its reverse complement and counts both kmers on read and its reverse
+
+    Args:
+        entry (str): a read to be computed
+        kmer_size (int): size of window we're reading with
+        pattern (str): a seed in format 1:keep and 0:ignore
+
+    Raises:
+        ValueError: If filter is not set accordingly to ksize, we raise an error
+
+    Returns:
+        Counter: sum of kmers from read and its reverse comp
+    """
     if pattern.count('1') != kmer_size:
         raise ValueError("Filter does not match ksize.")
     else:
-        cpl: dict = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}
+        entry_reverse = reverse_comp(entry)
+        return Counter([apply_filter(entry[k:k+len(pattern)], pattern) for k in range(len(entry) - len(pattern) - 1) if apply_filter(entry[k:k+len(pattern)], pattern).isalpha() and not apply_filter(entry[k:k+len(pattern)], pattern) == len(apply_filter(entry[k:k+len(pattern)], pattern)) * apply_filter(entry[k:k+len(pattern)], pattern)[0]]) + Counter([apply_filter(entry_reverse[k:k+len(pattern)], pattern) for k in range(len(entry_reverse) - len(pattern) - 1) if apply_filter(entry_reverse[k:k+len(pattern)], pattern).isalpha() and not apply_filter(entry_reverse[k:k+len(pattern)], pattern) == len(apply_filter(entry_reverse[k:k+len(pattern)], pattern)) * apply_filter(entry_reverse[k:k+len(pattern)], pattern)[0]])
+
+
+def kmer_2soluces(entry: str, kmer_size: int, pattern: str, inverted: bool = False):
+    """Depending of state of bool, counts kmers in 3'->5' or in 5'->3'
+
+    Args:
+        entry (str): a read to be computed
+        kmer_size (int): size of window we're reading with
+        pattern (str): a seed in format 1:keep and 0:ignore
+        inverted (bool, optional): reverse sequence beforehand. Defaults to False.
+
+    Raises:
+        ValueError: If filter is not set accordingly to ksize, we raise an error
+
+    Returns:
+        Counter: sum of kmers from read or its reverse comp
+    """
+    if pattern.count('1') != kmer_size:
+        raise ValueError("Filter does not match ksize.")
+    else:
         if inverted:
-            entry = ''.join([cpl[base]
-                            for base in reversed(entry)])  # reverse complement
+            entry = reverse_comp(entry)
         return Counter([apply_filter(entry[k:k+len(pattern)], pattern) for k in range(len(entry) - len(pattern) - 1) if apply_filter(entry[k:k+len(pattern)], pattern).isalpha() and not apply_filter(entry[k:k+len(pattern)], pattern) == len(apply_filter(entry[k:k+len(pattern)], pattern)) * apply_filter(entry[k:k+len(pattern)], pattern)[0]])
 
 

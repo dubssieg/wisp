@@ -1,14 +1,16 @@
 "This class is about the computing of DNA samples"
 
+from itertools import count
 from typing import Callable
 from python_tools import my_parser, my_function_timer
 from collections import Counter
 from random import randrange
 from functools import reduce
-from wisp_lib import species_map, encode_kmer_4, write_xgboost_data, load_mapping, kmer_indexing
+from wisp_lib import species_map, encode_kmer_4, write_xgboost_data, load_mapping, optimal_splitting, kmer_indexing
 from os import listdir
 from json import dump
 from pathlib import Path
+from constants import COUNT_METHOD
 
 
 class Sample:
@@ -61,10 +63,10 @@ class Sample:
     def counts(self, kmer_counts):
         self.__counts = kmer_counts
 
-    def post_creation_counting(self):
-        self.counts = kmer_indexing(self.seq, self.ksize, self.pattern)
+    def post_creation_counting(self, count_func: Callable = COUNT_METHOD):
+        self.counts = count_func(self.seq, self.ksize, self.pattern)
 
-    def __init__(self, seq_dna: str, kmer_size: int, pattern: str, seq_specie: str | None = None, counting=True):
+    def __init__(self, seq_dna: str, kmer_size: int, pattern: str, seq_specie: str | None = None, counting=True, count_func: Callable = COUNT_METHOD):
         """Inits a new Sample object, container for sequence
 
         Args:
@@ -77,7 +79,7 @@ class Sample:
         self.size = len(seq_dna)  # size of seq
         self.ksize = kmer_size
         self.pattern = pattern
-        self.counts = kmer_indexing(
+        self.counts = count_func(
             seq_dna, kmer_size, pattern) if counting else Counter()  # allows to load a full genome without computing it
 
     def update_counts(self, func: Callable, ratio: float) -> None:
@@ -94,12 +96,7 @@ class Sample:
         """
         Retun an entry for XGBoost formated according to LIBSVS system
         """
-        # TODO better structure if k != 4
-        return str(num_sp) + " " + ' '.join([f"{encode_kmer_4(k)}:{round((v/self.size)*10000,2)}" for k, v in self.counts.items()])
-
-    def __str__(self):
-        # f"Sample {self.id} (from file {self.specie}) -> [{self.seq[:10]} --- {self.seq[-10:]}]"
-        return ""
+        return str(num_sp) + " " + ' '.join([f"{encode_kmer_4(k)}:{v}" for k, v in self.counts.items()])
 
 
 def call_loader(path: str, size_kmer: int, classif_level_int: int, filter: str | None, type_data: str, pattern: str) -> list:
@@ -283,3 +280,24 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
                     lines.append(s.encoding_mapping(0))
         write_xgboost_data(lines, path,
                            classif_level, type_data, db_name, job_name, sp_determied)
+
+
+@my_function_timer("Building datasets")
+def make_unk_datasets(input_sequence: str, job_name: str, input_dir: str, path: str, datas: list[str], sampling: int, db_name: str, classif_level: str, kmer_size: int, read_size: int, pattern: str,  sp_determied: str | None):
+    """
+    Create the datasets and calls for storage
+
+    * input_dir (str) : path to directory with reference genomes
+    * path (str) : location where .txt.train, .txt.unk and .txt.test are stored
+    * job_name (str) : name of job, identificator
+    * classif_level (str) : level of cassification we're working at
+    * db_name (str) : database we need to search in
+    """
+    # TODO testing
+    all_reads = optimal_splitting(input_sequence, read_size, sampling)
+    all_counts = [kmer_indexing(read, kmer_size, pattern)
+                  for read in all_reads]
+    lines = [
+        f"0 {' '.join([str(encode_kmer_4(k))+':'+str(v) for k, v in counts])}" for counts in all_counts]
+    write_xgboost_data(lines, path,
+                       classif_level, 'unk', db_name, job_name, sp_determied)
