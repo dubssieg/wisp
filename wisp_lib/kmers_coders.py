@@ -117,3 +117,23 @@ def kmer_indexing(entry: str, kmer_size: int, pattern: str):
                 # and checks for mononucleotid patterns
                 cg.count(my_kmer)
         return Counter({cg.reverse_hash(i): cg.get(i) for i in range(nkmers) if cg.get(i)})
+
+
+def optimal_splitting(seq: str, window_size: int, max_sampling: int) -> set[str]:
+    """_summary_
+
+    Args:
+        seq (str): _description_
+        window_size (int): _description_
+        max_sampling (int): _description_
+
+    Raises:
+        ValueError: _description_
+
+    Returns:
+        set[str]: unique reads covering sequence
+    """
+    if len(seq) < window_size:
+        raise ValueError("Read is too short.")
+    shift: int = int((len(seq)-window_size)/max_sampling)
+    return set([seq[shift*i:shift*i+window_size] for i in range(max_sampling)])

@@ -29,14 +29,13 @@ def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_nam
 
 
 def my_fasta_parser(filename: str) -> dict:
-    """
-    Renvoie un dictionnaire contenant toutes les séquences
-    key : desc de la séquence
-    value : séquence
+    """Loads fasta files
 
-    * filename le chemin de fichier
-    * clean si le fichier doit être nettoyé de ses N
-    * merge si on merge tous les fasta d'un fichier en une seule chaine
+    Args:
+        filename (str): path to file
+
+    Returns:
+        dict: all sequences inside fasta file
     """
     info(f"Loading {filename}")
     return {fasta.id: str(fasta.seq).replace('N', '') for fasta in SeqIO.parse(open(filename), 'fasta')}

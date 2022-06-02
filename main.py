@@ -3,9 +3,9 @@ from traceback import format_exc
 from sample_class import make_datasets
 from build_softprob import make_model, init_parameters, make_testing
 from warnings import filterwarnings
-from python_tools import my_logs_global_config, my_output_msg
+from python_tools import my_logs_global_config, my_output_msg, my_fasta_parser
 from datetime import datetime
-from wisp_view import gen_html_report, tree_render, plot_boosting, plot_pie_merge
+from wisp_view import gen_html_report, tree_render, plot_boosting, plot_pie_merge, make_doc
 from wisp_lib import check_if_database_exists, check_if_model_exists, check_if_merged_database_exists, load_mapping, load_json, check_if_merged_model_exists
 from predictors import test_unk_sample, save_output, test_model
 from pathlib import Path
@@ -29,7 +29,12 @@ if __name__ == "__main__":
     # executing args
     args = parser.parse_args()
 
+############################################ LOADING STUFF ###############################################
+
+    # parameter for filepath
     input_file: str | bool = args.file if args.file != None else False
+
+    # fasta_reads: set[str] = my_fasta_parser(input_file) # TODO file location error
 
     # we try to load parmas file and gather data from it
     try:
@@ -225,5 +230,6 @@ if __name__ == "__main__":
 
     save_output({'Date': f"{datetime.today().strftime('%Y.%m.%d - %H:%M:%S')}", **
                  vars(args), **output}, JOB)
-    gen_html_report(my_params, JOB, [], output, targeted_taxas,
-                    test_results, threshold, test_state, output_merged_sample, round(reads_threshold, 2))
+    #gen_html_report(my_params, JOB, [], output, targeted_taxas,test_results, threshold, test_state, output_merged_sample, round(reads_threshold, 2))
+    make_doc(JOB, my_params, TAXAS_LEVELS, output, test_results,
+             test_state, threshold, reads_threshold)

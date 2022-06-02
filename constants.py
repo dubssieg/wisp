@@ -14,7 +14,7 @@ UNK_PATH: str = "/udd/sidubois/Stage/143_Genomes/unk/"
 DATABASE: str = "4k_143genomes_reversecomp"
 PARAMS: str = "wisp_params.json"
 SAMPLE_PATH: str = "/udd/sidubois/Stage/143_Genomes/unk/"
-PREFIX_JOB: str = "rc2"
+PREFIX_JOB: str = "tex"
 
 # for sample_class.py
 COUNT_METHOD: Callable = kmer_indexing

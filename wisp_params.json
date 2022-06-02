@@ -88,5 +88,6 @@
         "group",
         "order",
         "family"
-    ]
+    ],
+    "abundance_threshold": 0.25
 }
