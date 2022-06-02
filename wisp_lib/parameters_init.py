@@ -48,7 +48,7 @@ def my_params():
         'nb_boosts': 10,
         'tree_depth': 10,
         # parameters regarding results
-        'full_test_set': True,
+        'full_test_set': False,
         # parameter for read selection, significance for softprob
         'reads_th': 0.25,
         'selection_mode': 'delta_mean',  # 'min_max','delta_mean','delta_sum'

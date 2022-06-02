@@ -34,9 +34,9 @@ if __name__ == "__main__":
     # parameter for filepath
     input_file: str | bool = args.file if args.file != None else False
 
-    # fasta_reads: set[str] = my_fasta_parser(input_file) # TODO file location error
+    # fasta_reads: set[str] = my_fasta_parser(f"{INPUT_PATH}{input_file}") # TODO file location error
 
-    # we try to load parmas file and gather data from it
+    # we try to load params file and gather data from it
     try:
         my_params: dict = load_json(args.params)
         # storing args

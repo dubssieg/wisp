@@ -210,7 +210,7 @@ def mapping_merged_sp(input_dir: str, path: str, db_name: str) -> dict:
         taxa (str | None): _description_
 
     Returns:
-        dict: a map of species for gien taxa
+        dict: a map of species for given taxa
     """
     list_sp = species_map(input_dir, 4)
     my_path = f"{path}{db_name}/merged/merged_saved_mapping.json"

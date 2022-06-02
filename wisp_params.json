@@ -76,7 +76,7 @@
     "threshold": 0.1,
     "nb_boosts": 10,
     "tree_depth": 10,
-    "full_test_set": true,
+    "full_test_set": false,
     "reads_th": 0.25,
     "selection_mode": "delta_mean",
     "force_model_rebuild": false,

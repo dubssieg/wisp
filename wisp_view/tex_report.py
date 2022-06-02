@@ -26,7 +26,7 @@ def tex_properties(name_of_sample: str) -> str:
     """
     vars_title: list[str] = [Template('\\title{JOB : $name}').substitute(
         name=name_of_sample), Template('\\date{$day}').substitute(day=date.today())]
-    return Template('\\documentclass[12pt]{article}\n\\usepackage[a4paper, total={6in, 8in}]{geometry}\n\\usepackage[utf8]{inputenc}\n\\usepackage{graphicx}\n\\usepackage{caption}\n\\usepackage{hyperref}\n$ref').substitute(ref='\n'.join(vars_title))
+    return Template('\\documentclass[12pt]{article}\n\\usepackage[a4paper, total={6in, 8in}]{geometry}\n\\usepackage[utf8]{inputenc}\n\\usepackage{graphicx}\n\\usepackage{caption}\n\\usepackage{float}\n\\usepackage{flafter}\n\\usepackage{hyperref}\n$ref').substitute(ref='\n'.join(vars_title))
 
 
 def header(job_name: str, threshold: float, reads_ratio: float) -> str:
@@ -44,7 +44,7 @@ def header(job_name: str, threshold: float, reads_ratio: float) -> str:
         percentage=int(threshold*100), ratio=reads_ratio, version=0.1)
     figs: str = subfigure([f"{job_name}_pie_merge.png",
                           f"{job_name}_tree.png"], f"Global data for {job_name}")
-    return Template('\\begin{abstract}\n$abstract\n\\end{abstract}$figures').substitute(abstract=abstract, figures=figs)
+    return Template('\\begin{abstract}\n\\begin{sloppypar}\n$abstract\n\\end{sloppypar}\n\\end{abstract}$figures').substitute(abstract=abstract, figures=figs)
 
 
 def tex_closure() -> str:
@@ -89,7 +89,7 @@ def table(list_of_elements: list[list], caption: str) -> str:
         return ""
     linear_table = ' \\\\\n'.join(
         [' & '.join([str(e) for e in elt]) for elt in list_of_elements])
-    return Template('\\begin{table}[]\n\\begin{tabular}{$size}\n$contents\n\\end{tabular}\n\\caption*{$label}\n\\end{table}').substitute(label=caption, contents=linear_table, size=''.join(['l' for _ in range(len(list_of_elements[0]))]))
+    return Template('\\begin{table}[htp]\n\\begin{tabular}{$size}\n$contents\n\\end{tabular}\n\\caption*{$label}\n\\end{table}').substitute(label=caption, contents=linear_table, size=''.join(['l' for _ in range(len(list_of_elements[0]))]))
 
 
 def render_output(texfile: str):
@@ -194,4 +194,4 @@ def generate_core_tex(params: dict, taxas_levels: list[str], reports: dict, test
             levels_estimators.append(table(table_res, f"Estimators for {h}"))
     core_results: str = '\n'.join(
         [f"{page_break()}\n{make_title(titles[i])}\n{fig}\n{levels_estimators[i]}\n{supplementary_figures[i]}\n{supplementary_figures_2[i]}" for i, fig in enumerate(levels_figures)])
-    return '\n'.join([table_params, page_break(), core_results])
+    return '\n'.join([table_params, core_results])
