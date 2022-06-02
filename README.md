@@ -1,4 +1,4 @@
-# WISP : XGBoost implementation for bacteria families identification from long reads
+# WISP : Bacterial families identification from long reads : machine learning with XGBoost
 
 ![img](https://github.com/Tharos-ux/wisp/blob/master/preview/Ente_malo.png)
 
@@ -65,33 +65,43 @@ Code and comments are self explanatory enough, so see this snippet of code for d
 
 ```python
 params_job: dict = {
-        # 'taxa' : [kmer_size, reads_size, subsampling_depth]
+        # 'taxa' : [kmer_size, reads_size, subsampling_depth, pattern]
+        # merge mode parameters
+        'merged_ref': [4, 10000, 50, '1111'],
+        'merged_sample': [4, 10000, 200, '1111'],
         # params for your database here
-        'domain_ref': [4, 10000, 50],
-        'phylum_ref': [4, 10000, 250],
-        'group_ref': [4, 10000, 375],
-        'order_ref': [4, 10000, 375],
-        'family_ref': [4, 10000, 250],
+        'domain_ref': [4, 10000, 50, '1111'],
+        'phylum_ref': [4, 10000, 100, '1111'],
+        'group_ref': [4, 10000, 500, '1111'],
+        'order_ref': [4, 10000, 400, '1111'],
+        'family_ref': [4, 10000, 200, '1111'],
         # params for your sample here
-        'domain_sample': [4, 10000, 500],
-        'phylum_sample': [4, 10000, 750],
-        'group_sample': [4, 10000, 750],
-        'order_sample': [4, 10000, 750],
-        'family_sample': [4, 10000, 500],
+        'domain_sample': [4, 10000, 200, '1111'],
+        'phylum_sample': [4, 10000, 600, '1111'],
+        'group_sample': [4, 10000, 600, '1111'],
+        'order_sample': [4, 10000, 600, '1111'],
+        'family_sample': [4, 10000, 500, '1111'],
         # 'input' : location of genomes
-        'input': "/udd/sidubois/Stage/Genomes/",
+        'input': "/udd/sidubois/Stage/143_Genomes/",
         # 'output' : output for database
         'output': "data/",
         # parameters for exploration and algorithm
-        'threshold': 0.2,
-        'nb_boosts': 12,
+        'threshold': 0.10,
+        'nb_boosts': 10,
+        'tree_depth': 10,
         # parameters regarding results
-        'full_test_set': False,
-        # parameter for read selection, signifiance for softprob
+        'full_test_set': True,
+        # parameter for read selection, significance for softprob
         'reads_th': 0.25,
+        'selection_mode': 'delta_mean',  # 'min_max','delta_mean','delta_sum'
         # force rebuilding full model, when you re-use a database but you changed model parameters
-        'force_model_rebuild': True
-    }
+        'force_model_rebuild': False,  # never set true in multithread mode
+        # tells the software if should consider both orientations or assume it is 3' -> 5' and computes canonical kmers
+        'single_way': True,
+        'targeted_level': 'family',  # domain, phylum, group, order, family
+        'levels_list': ['domain', 'phylum', 'group', 'order', 'family'],
+        'abundance_threshold': 0.25
+}
 ```
 
 You can modify the raw .json file, or update the dict contained in script *wisp_lib/parameters_init.py* and re-generate the file with :
