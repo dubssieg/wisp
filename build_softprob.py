@@ -38,7 +38,7 @@ def init_parameters(class_count: int, depth: int = DEPTH, eta: float = ETA):
 #################### VALIDATION ####################
 
 
-def tests_with_kfold(cls, xgbMatrix, X, y, class_count, classif_level, inverted_map, sample, sp_determined):
+def tests_with_kfold(path_to_save, cls, xgbMatrix, X, y, class_count, classif_level, inverted_map, sample, sp_determined):
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=0)
 
@@ -55,7 +55,7 @@ def tests_with_kfold(cls, xgbMatrix, X, y, class_count, classif_level, inverted_
     plt.figure(figsize=(16, 12))
     plt.savefig(f"{classif_level}_feature_importance.png")
     # here for reads division according to species
-    return (accuracy_score(y_test, test_preds), xgb_cv, compare_test(y_test, test_preds, inverted_map, sample, classif_level, sp_determined))
+    return (accuracy_score(y_test, test_preds), xgb_cv, compare_test(path_to_save, y_test, test_preds, inverted_map, sample, classif_level, sp_determined))
 
 
 #################### SAVE AND LOAD ####################
@@ -288,7 +288,7 @@ def make_model(job_name: str, path: str, classif_level: str, db_name: str, sp_de
 
 
 @my_function_timer("Plotting feature importance")
-def make_testing(size_kmer, job_name, sp_determined, path, db_name, classif_level, class_count, model_parameters, number_rounds) -> tuple:
+def make_testing(path_to_save, size_kmer, job_name, sp_determined, path, db_name, classif_level, class_count, model_parameters, number_rounds) -> tuple:
     """_summary_
 
     Args:
@@ -318,6 +318,7 @@ def make_testing(size_kmer, job_name, sp_determined, path, db_name, classif_leve
     mapped = {
         f"{recode_kmer_4(str(k[1:]),size_kmer)}": v for k, v in bst.get_score(importance_type='gain').items()}
     if mapped != {}:
-        plot_features(mapped, job_name, classif_level, sp_determined)
+        plot_features(path_to_save, mapped, job_name,
+                      classif_level, sp_determined)
     plot_tree_model(bst, job_name, classif_level, sp_determined, size_kmer)
     return xgb_cv

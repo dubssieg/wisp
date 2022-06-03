@@ -1,3 +1,4 @@
+from pathlib import Path
 import setuptools
 import versioneer
 
@@ -24,3 +25,8 @@ setuptools.setup(
     python_requires='>=3.10',
     install_requires=requirements,
 )
+
+# creating env path
+Path(f"genomes/").mkdir(parents=True, exist_ok=True)
+Path(f"genomes/train/").mkdir(parents=True, exist_ok=True)
+Path(f"genomes/unk/").mkdir(parents=True, exist_ok=True)

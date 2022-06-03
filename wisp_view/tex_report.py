@@ -29,7 +29,7 @@ def tex_properties(name_of_sample: str, name_of_read: str) -> str:
     return Template('\\documentclass[12pt]{article}\n\\usepackage[a4paper, total={6in, 8in}]{geometry}\n\\usepackage[utf8]{inputenc}\n\\usepackage{graphicx}\n\\usepackage{caption}\n\\usepackage{float}\n\\usepackage{flafter}\n\\usepackage{hyperref}\n$ref').substitute(ref='\n'.join(vars_title))
 
 
-def header(job_name: str, threshold: float, reads_ratio: float, number_subreads: int) -> str:
+def header(job_name: str, threshold: float, reads_ratio: float, number_subreads: int, version: str, nb_bp: int) -> str:
     """creates head of doc (abstract and global results)
 
     Args:
@@ -40,8 +40,8 @@ def header(job_name: str, threshold: float, reads_ratio: float, number_subreads:
     Returns:
         str: header for doc in TeX
     """
-    abstract = Template('Sample has been splitted in $number distinct lectures.\\\\\nExplored hypothesis are all above $percentage percent of attributed reads.\\\\\nAll explorations have been made within a significance range of [0, $ratio[.\\\\\nThis report was produced with WISP version $version. \\\\\nYou may get source code from \\url{https://github.com/Tharos-ux/wisp}').substitute(
-        percentage=int(threshold*100), ratio=reads_ratio, number=number_subreads, version=0.1)
+    abstract = Template('Sample has been splitted in $number distinct lectures over $nucleotids sequenced nucleotides.\\\\\nExplored hypothesis are all above $percentage percent of attributed reads.\\\\\nAll explorations have been made within a significance range of [0, $ratio[.\\\\\nThis report was produced with WISP version $version. \\\\\nYou may get source code from \\url{https://github.com/Tharos-ux/wisp}').substitute(
+        percentage=int(threshold*100), ratio=reads_ratio, number=number_subreads, version=version, nucleotids=nb_bp)
     figs: str = subfigure([f"{job_name}_pie_merge.png",
                           f"{job_name}_tree.png"], f"Global data for {job_name}")
     return Template('\\begin{abstract}\n\\begin{sloppypar}\n$abstract\n\\end{sloppypar}\n\\end{abstract}$figures').substitute(abstract=abstract, figures=figs)
@@ -114,7 +114,7 @@ def save_tex_file(data: str, path: str) -> None:
         writer.write(data)
 
 
-def make_doc(job_name: str, params: dict, taxas_levels: list[str], reports: dict, test_results: dict, test_mode: bool, threshold: float, reads_ratio: float, number_subreads: int, name_of_read: str) -> None:
+def make_doc(path_for_read: str, job_name: str, params: dict, taxas_levels: list[str], reports: dict, test_results: dict, test_mode: bool, threshold: float, reads_ratio: float, number_subreads: int, name_of_read: str, version, nb_bp: int) -> None:
     """Command to create and save the report
 
     Args:
@@ -128,8 +128,9 @@ def make_doc(job_name: str, params: dict, taxas_levels: list[str], reports: dict
         reads_ratio (float): _description_
     """
     tex_string: str = teXstr(Template('$header\n\\begin{document}\n\\maketitle\n$head\n$docstring\n$footer').substitute(header=tex_properties(job_name, name_of_read), head=header(
-        job_name, threshold, reads_ratio, number_subreads), docstring=generate_core_tex(params, taxas_levels, reports, test_results, test_mode), footer=tex_closure()))
-    save_tex_file(tex_string, f"output/{job_name}/{job_name}")
+        job_name, threshold, reads_ratio, number_subreads, version, nb_bp), docstring=generate_core_tex(params, taxas_levels, reports, test_results, test_mode), footer=tex_closure()))
+    save_tex_file(
+        tex_string, f"{path_for_read}{job_name}_{name_of_read.replace(' ','')}")
     # render_output(path) # bugged for now ; render error with /tmp
 
 
@@ -152,6 +153,17 @@ def make_title(text: str) -> str:
         str: a section type TeX title
     """
     return Template('\\section*{$title}').substitute(title=text)
+
+
+def global_sample_report(global_path: str, job_name: str, results: dict) -> None:
+    tex_string: str = teXstr(Template('$header\n\\begin{document}\n\\maketitle\n$docstring\n$footer').substitute(
+        header=tex_properties(job_name, "results_all_reads"), docstring=generate_core_global(results), footer=tex_closure()))
+    save_tex_file(
+        tex_string, f"{global_path}{job_name}")
+
+
+def generate_core_global(results):
+    return table([[k, v] for k, v in results.items()], f"Individual reads results listing")
 
 
 def generate_core_tex(params: dict, taxas_levels: list[str], reports: dict, test_results: dict, enlable_supplementary_estimators: bool) -> str:

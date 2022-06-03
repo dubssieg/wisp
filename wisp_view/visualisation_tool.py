@@ -6,7 +6,7 @@ import seaborn as sns
 from pandas import DataFrame, Series, crosstab
 
 
-def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, clade: str, determined: str, threshold: float, sampling_number) -> None:
+def reads_species_plotter(path_to_save: str, predicitions, sample_name: str, inverted_map: dict, clade: str, determined: str, threshold: float, sampling_number) -> None:
     """Plots out reads repartition
 
     Args:
@@ -42,7 +42,7 @@ def reads_species_plotter(predicitions, sample_name: str, inverted_map: dict, cl
     plt.axhline(y=threshold*sampling_number, xmin=0, color="#465065",
                 linestyle='dashed', linewidth=1)
     plt.savefig(
-        f"output/{sample_name}/{clade}_{determined}_graph_reads.png", bbox_inches='tight')
+        f"{path_to_save}{clade}_{determined}_graph_reads.png", bbox_inches='tight')
 
 
 def plot_all_reads(matrix, sample_name: str, inverted_map: dict, clade: str, determined: str) -> None:
@@ -70,7 +70,7 @@ def plot_all_reads(matrix, sample_name: str, inverted_map: dict, clade: str, det
         f"output/{sample_name}/{clade}_{determined}_proba_reads.png", bbox_inches='tight')
 
 
-def plot_pie_merge(prediction_reads: dict[str, float], sample_name: str) -> None:
+def plot_pie_merge(path_to_save: str, prediction_reads: dict[str, float], sample_name: str) -> None:
     values, labels = [], []
     for k, v in prediction_reads.items():
         values.append(v)
@@ -85,10 +85,10 @@ def plot_pie_merge(prediction_reads: dict[str, float], sample_name: str) -> None
     plt.title(
         f"Raw reads predicitions for {sample_name}")
     plt.savefig(
-        f"output/{sample_name}/{sample_name}_pie_merge.png", bbox_inches='tight')
+        f"{path_to_save}{sample_name}_pie_merge.png", bbox_inches='tight')
 
 
-def compare_test(test_classes, test_preds, inverted_map: dict, sample_name: str, clade: str, determined: str) -> dict:
+def compare_test(path_to_save: str, test_classes, test_preds, inverted_map: dict, sample_name: str, clade: str, determined: str) -> dict:
     """Calling for estimators and plotting of confusion matrix
 
     Args:
@@ -105,7 +105,7 @@ def compare_test(test_classes, test_preds, inverted_map: dict, sample_name: str,
     test_preds = [t for t in test_preds]
     cm = pandas_confusion(test_classes, test_preds,
                           inverted_map)
-    plot_pandas(cm, sample_name, clade, determined)
+    plot_pandas(path_to_save, cm, sample_name, clade, determined)
     return text_classification_report(test_classes, test_preds, inverted_map)
 
 
@@ -154,7 +154,7 @@ def pandas_confusion(test_classes, test_preds, inverted_map: dict) -> DataFrame:
         'Actual'], colnames=['Predicted'])
 
 
-def plot_pandas(cm: DataFrame, sample_name: str, clade: str, determined: str, cmap: str = 'bone') -> None:
+def plot_pandas(path_to_save: str, cm: DataFrame, sample_name: str, clade: str, determined: str, cmap: str = 'bone') -> None:
     """Plots the confusion matrix for test data at given level
 
     Args:
@@ -182,7 +182,7 @@ def plot_pandas(cm: DataFrame, sample_name: str, clade: str, determined: str, cm
     # plt.yticks(fontsize=9)
     # plt.xticks(fontsize=9)
     plt.savefig(
-        f"output/{sample_name}/{clade}_{determined}_confusion_matrix.png", bbox_inches='tight')
+        f"{path_to_save}{clade}_{determined}_confusion_matrix.png", bbox_inches='tight')
 
 
 def plot_boosting(df: DataFrame, sample_name: str, clade: str, determined: str, number_rounds: int) -> None:
@@ -219,7 +219,7 @@ def plot_boosting(df: DataFrame, sample_name: str, clade: str, determined: str, 
         f"output/{sample_name}/{clade}_{determined}_boosting_results.png", bbox_inches='tight')
 
 
-def plot_features(datas, job_name: str, classif_level: str, sp_determined: str) -> None:
+def plot_features(path_to_save: str, datas, job_name: str, classif_level: str, sp_determined: str) -> None:
     """Plots the repartition of features in gain mode which were used in our model
 
     Args:
@@ -244,4 +244,4 @@ def plot_features(datas, job_name: str, classif_level: str, sp_determined: str) 
         plt.title(
             f"Top {nb_features} features for {classif_level}")
     plt.savefig(
-        f"output/{job_name}/{classif_level}_{sp_determined}_feature_importance.png", bbox_inches='tight')
+        f"{path_to_save}{classif_level}_{sp_determined}_feature_importance.png", bbox_inches='tight')

@@ -1,6 +1,4 @@
 "This class is about the computing of DNA samples"
-
-from itertools import count
 from typing import Callable
 from python_tools import my_parser, my_function_timer
 from collections import Counter

@@ -169,7 +169,7 @@ def tree_evaluator(tree: AGraph, path: list[str], results: dict) -> str:
         return f"Though is it not the final guess, path(s) leading to {[x[:-4] for x,y in scores.items() if y==minScore]} is the most parsimonious."
 
 
-def tree_render(results: dict, job_name: str, path: list) -> str:
+def tree_render(path_for_read: str, results: dict, job_name: str, path: list) -> str:
     """Renders a classification tree with pygraphviz engine
 
     Args:
@@ -182,7 +182,7 @@ def tree_render(results: dict, job_name: str, path: list) -> str:
     unpacking(tree, root, results, path)
     eval_results = tree_evaluator(tree, path, results)
     tree.layout(prog='dot')
-    tree.draw(f"output/{job_name}/{job_name}_tree.png")
+    tree.draw(f"{path_for_read}{job_name}_tree.png")
     return eval_results
 
 

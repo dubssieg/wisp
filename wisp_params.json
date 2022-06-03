@@ -55,8 +55,10 @@
         4,
         "1111"
     ],
-    "input": "/udd/sidubois/Stage/143_Genomes/",
-    "output": "data/",
+    "input_train": "genomes/train/",
+    "input_unk": "genomes/unk/",
+    "database_output": "data/",
+    "reports_output": "output/",
     "threshold": 0.1,
     "nb_boosts": 10,
     "tree_depth": 10,

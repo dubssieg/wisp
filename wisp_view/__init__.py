@@ -8,3 +8,4 @@ from .visualisation_tool import plot_features
 from .visualisation_tool import plot_all_reads
 from .visualisation_tool import plot_pie_merge
 from .tex_report import make_doc
+from .tex_report import global_sample_report

@@ -5,7 +5,6 @@ from python_tools import my_output_msg
 from collections import Counter
 from wisp_view import reads_species_plotter, compare_test
 from wisp_lib import load_xgboost_data, load_mapping
-from pathlib import Path
 
 
 def estimations_merged(preds, sample_name: str, inverted_map: dict[str, str], clade: str, determined: str, threshold: float, sampling_number: int) -> dict:
@@ -28,7 +27,7 @@ def estimations_merged(preds, sample_name: str, inverted_map: dict[str, str], cl
     return {**outputs_predictions}
 
 
-def estimations(preds, sample_name: str, inverted_map: dict[str, str], clade: str, determined: str, threshold: float, sampling_number: int) -> dict:
+def estimations(path_to_save, preds, sample_name: str, inverted_map: dict[str, str], clade: str, determined: str, threshold: float, sampling_number: int) -> dict:
     """
     Does calculation upon number of predicated reads
     Returns a dict and call for plotting results as a barplot
@@ -58,27 +57,25 @@ def estimations(preds, sample_name: str, inverted_map: dict[str, str], clade: st
         k)] for k, v in sum_preds.items() if float(v) > float(threshold * sum)]
     outputs_classif[f"Tree {determined} ({map_clade[map_clade.index(clade[0])-1]})"] = [
         f"{inverted_map[str(k)]} ({clade[0]})" for k, v in sum_preds.items() if float(v) > float(threshold * sum)]
-
-    Path(f"output/{sample_name}").mkdir(parents=True, exist_ok=True)
-    reads_species_plotter(preds, sample_name, inverted_map,
+    reads_species_plotter(path_to_save, preds, sample_name, inverted_map,
                           clade, determined, threshold, sampling_number)
 
     return {**outputs_classif, **outputs_predictions, **outputs_labels}
 
 
-def save_output(dico: dict, job_name: str) -> None:
+def save_output(dico: dict, job_name: str, path_for_read: str) -> None:
     """
     Saves a dict as a .json file
 
     * dico (dict) : dictionnary to store
     * job_name (str) : name of current job, creates output path
     """
-    with open(f"output/{job_name}/{job_name}_results.json", "a") as fm:
+    with open(f"{path_for_read}{job_name}_results.json", "a") as fm:
         dump(dico, fm)
         fm.write('\n')
 
 
-def test_model(out_path, job_name, database_name, classif_level, reads_threshold, sp_determined: str | None, func):
+def test_model(path_to_save: str, out_path, job_name, database_name, classif_level, reads_threshold, sp_determined: str | None, func):
     """
     Does the testing of our model with the data in /test.
     Will estimate some meaningful estimators and will plot heatmap
@@ -118,10 +115,10 @@ def test_model(out_path, job_name, database_name, classif_level, reads_threshold
     real = [p for i, p in enumerate(real) if not isinstance(preds[i], bool)]
     preds = [p for p in preds if not isinstance(p, bool)]
 
-    return compare_test(real, preds, inverted_map, job_name, classif_level, sp_determined)
+    return compare_test(path_to_save, real, preds, inverted_map, job_name, classif_level, sp_determined)
 
 
-def test_unk_sample(out_path, job_name, database_name, classif_level, sp_determined, threshold, reads_threshold, test_status, sampling_number, func):
+def test_unk_sample(path_to_save, out_path, job_name, database_name, classif_level, sp_determined, threshold, reads_threshold, test_status, sampling_number, func):
     map_sp = load_mapping(out_path, database_name,
                           classif_level, sp_determined)
     inverted_map = {str(v): k for k, v in map_sp.items()}
@@ -142,6 +139,6 @@ def test_unk_sample(out_path, job_name, database_name, classif_level, sp_determi
     preds = [p for p in preds if not isinstance(p, bool)]
 
     if classif_level != 'merged':
-        return estimations(preds, job_name, inverted_map, classif_level, sp_determined, threshold, sampling_number)
+        return estimations(path_to_save, preds, job_name, inverted_map, classif_level, sp_determined, threshold, sampling_number)
     else:
         return estimations_merged(preds, job_name, inverted_map, classif_level, sp_determined, threshold, sampling_number)

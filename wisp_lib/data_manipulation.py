@@ -73,7 +73,7 @@ def load_xgboost_data(path: str, classif_level: str, suffix: str, db_name: str, 
     * sp_determined (str | None): upper level we've already determined
     """
     if suffix == 'unk':
-        my_path = f"output/{sample_name}/data.txt.{suffix}"
+        my_path = f"{path}data.txt.{suffix}"
     elif sp_determined == None:
         my_path = f"{path}{db_name}/{classif_level}/data.txt.{suffix}"
     else:
@@ -94,8 +94,8 @@ def write_xgboost_data(data: list[str], path: str, classif_level: str, suffix: s
     * sp_determined (str | None): upper level we've already determined
     """
     if suffix == 'unk':
-        Path(f"output/{sample_name}/").mkdir(parents=True, exist_ok=True)
-        my_path = f"output/{sample_name}/data.txt.{suffix}"
+        Path(f"{path}").mkdir(parents=True, exist_ok=True)
+        my_path = f"{path}data.txt.{suffix}"
     elif sp_determined == None:
         Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
         my_path = f"{path}{db_name}/{classif_level}/data.txt.{suffix}"

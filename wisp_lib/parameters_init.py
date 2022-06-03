@@ -40,10 +40,13 @@ def my_params():
         'order_sample': [4, '1111'],
         'family_sample': [4, '1111'],
         'merged_sample': [4, '1111'],
-        # 'input' : location of genomes
-        'input': "/udd/sidubois/Stage/143_Genomes/",
+        # 'input' : location of reference genomes
+        'input_train': "genomes/train/",
+        # 'input_unk' : location of unk genomes
+        'input_unk': "genomes/unk/",
         # 'output' : output for database
-        'output': "data/",
+        'database_output': "data/",
+        'reports_output': "output/",
         # parameters for exploration and algorithm
         'threshold': 0.10,
         'nb_boosts': 10,
