@@ -135,7 +135,7 @@ def load_and_compute_one_genome(path: str, elt: str, size_kmer: int, pattern: st
     return [Sample(
         seq_dna=value,
         kmer_size=size_kmer,
-        seq_specie=p,
+        seq_specie=elt.split('/')[-1],
         counting=False,
         pattern=pattern
     ) for p, value in parsed.items()]

@@ -27,6 +27,7 @@ setuptools.setup(
 )
 
 # creating env path
+Path(f"output/").mkdir(parents=True, exist_ok=True)
 Path(f"genomes/").mkdir(parents=True, exist_ok=True)
 Path(f"genomes/train/").mkdir(parents=True, exist_ok=True)
 Path(f"genomes/unk/").mkdir(parents=True, exist_ok=True)
