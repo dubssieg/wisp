@@ -1,5 +1,6 @@
 "Aim of this module is to do comparaisons between sets of parameters, assuming the same series were run multiple times with different parameters"
 
+from collections import Counter
 from os import listdir
 from json import load
 from pandas import DataFrame
@@ -32,4 +33,17 @@ def compare():
     df.to_csv("output/mass_report.csv")
 
 
-compare()
+PATH_TRAIN: str = "genomes/train/"
+LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
+
+
+def number_of_classes():
+    all_genomes: list[list] = [
+        [e.split('_')[i] for e in listdir(PATH_TRAIN)] for i in range(len(LEVELS))]
+    for i, level in enumerate(all_genomes):
+        print(f"{LEVELS[i]} : {len(Counter(level))} classes")
+
+
+# compare()
+
+number_of_classes()
