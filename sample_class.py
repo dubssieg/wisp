@@ -283,7 +283,7 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
 
 
 @my_function_timer("Building datasets")
-def make_unk_datasets(input_sequence: str, job_name: str, input_dir: str, path: str, datas: list[str], sampling: int, db_name: str, classif_level: str, kmer_size: int, read_size: int, pattern: str,  sp_determied: str | None):
+def make_unk_datasets(all_reads, job_name: str, path: str, db_name: str, classif_level: str, kmer_size: int, pattern: str,  sp_determied: str | None):
     """
     Create the datasets and calls for storage
 
@@ -292,12 +292,13 @@ def make_unk_datasets(input_sequence: str, job_name: str, input_dir: str, path: 
     * job_name (str) : name of job, identificator
     * classif_level (str) : level of cassification we're working at
     * db_name (str) : database we need to search in
+
+    Returns number of subreads in dataset
     """
     # TODO testing
-    all_reads = optimal_splitting(input_sequence, read_size, sampling)
     all_counts = [kmer_indexing(read, kmer_size, pattern)
                   for read in all_reads]
     lines = [
-        f"0 {' '.join([str(encode_kmer_4(k))+':'+str(v) for k, v in counts])}" for counts in all_counts]
+        f"0 {' '.join([str(encode_kmer_4(k))+':'+str(v) for k, v in counts.items()])}" for counts in all_counts]
     write_xgboost_data(lines, path,
                        classif_level, 'unk', db_name, job_name, sp_determied)

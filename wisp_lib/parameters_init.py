@@ -23,22 +23,23 @@ def save_json(json_file: str, dico_save: dict) -> None:
 def my_params():
     # dict to be converted in .json file to create our parameters set
     params_job: dict = {
-        # 'taxa' : [kmer_size, reads_size, subsampling_depth, pattern]
-        # merge mode parameters
-        'merged_ref': [4, 10000, 50, '1111'],
-        'merged_sample': [4, 10000, 200, '1111'],
-        # params for your database here
-        'domain_ref': [4, 10000, 50, '1111'],
-        'phylum_ref': [4, 10000, 100, '1111'],
-        'group_ref': [4, 10000, 500, '1111'],
-        'order_ref': [4, 10000, 400, '1111'],
-        'family_ref': [4, 10000, 200, '1111'],
-        # params for your sample here
-        'domain_sample': [4, 10000, 200, '1111'],
-        'phylum_sample': [4, 10000, 600, '1111'],
-        'group_sample': [4, 10000, 600, '1111'],
-        'order_sample': [4, 10000, 600, '1111'],
-        'family_sample': [4, 10000, 500, '1111'],
+        # subreads size and max. of reads in sample
+        'window_size': 10000,
+        'sampling_objective': 500,
+        # params for your database here [kmer_size, subsampling_depth, pattern]
+        'domain_ref': [4, 50, '1111'],
+        'phylum_ref': [4, 100, '1111'],
+        'group_ref': [4, 500, '1111'],
+        'order_ref': [4, 400, '1111'],
+        'family_ref': [4, 200, '1111'],
+        'merged_ref': [4, 50, '1111'],
+        # params for your sample here [kmer_size, pattern]
+        'domain_sample': [4, '1111'],
+        'phylum_sample': [4, '1111'],
+        'group_sample': [4, '1111'],
+        'order_sample': [4, '1111'],
+        'family_sample': [4, '1111'],
+        'merged_sample': [4, '1111'],
         # 'input' : location of genomes
         'input': "/udd/sidubois/Stage/143_Genomes/",
         # 'output' : output for database
@@ -50,7 +51,7 @@ def my_params():
         # parameters regarding results
         'full_test_set': False,
         # parameter for read selection, significance for softprob
-        'reads_th': 0.25,
+        'reads_th': 0.1,
         'selection_mode': 'delta_mean',  # 'min_max','delta_mean','delta_sum'
         # force rebuilding full model, when you re-use a database but you changed model parameters
         'force_model_rebuild': False,  # never set true in multithread mode

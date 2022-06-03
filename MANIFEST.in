@@ -1,0 +1,30 @@
+include README.md
+include LICENSE
+include requirements.txt
+graft wisp
+recursive-exclude * *.py[co]
+include _version.py
+include build_softprob.py
+include constants.py
+include force_build.py
+include predictors.py
+include sample_class.py
+include setup.py
+include utilities.py
+include versioneer.py
+include python_tools/__init__.py
+include python_tools/my_checker.py
+include python_tools/my_coros.py
+include python_tools/my_fasta.py
+include python_tools/my_logs.py
+include python_tools/my_maths.py
+include wisp_lib/__init__.py
+include wisp_lib/data_manipulation.py
+include wisp_lib/kmers_coders.py
+include wisp_lib/parameters_init.py
+include wisp_view/__init__.py
+include wisp_view/mass_analysis.py
+include wisp_view/tex_report.py
+include wisp_view/tree_rendering.py
+include wisp_view/visulaisation_tool.py
+

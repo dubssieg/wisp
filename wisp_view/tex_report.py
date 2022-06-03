@@ -15,7 +15,7 @@ def teXstr(entry: str) -> str:
     return str(entry).replace('_', '\\_')
 
 
-def tex_properties(name_of_sample: str) -> str:
+def tex_properties(name_of_sample: str, name_of_read: str) -> str:
     """head of TeX doc (packages and title of doc)
 
     Args:
@@ -24,12 +24,12 @@ def tex_properties(name_of_sample: str) -> str:
     Returns:
         str: head and properties + packages used
     """
-    vars_title: list[str] = [Template('\\title{JOB : $name}').substitute(
-        name=name_of_sample), Template('\\date{$day}').substitute(day=date.today())]
+    vars_title: list[str] = [Template('\\title{JOB : $name\\\\[0.2em]\\smaller{}READ ID : $readname}').substitute(
+        name=name_of_sample, readname=name_of_read), Template('\\date{$day}').substitute(day=date.today())]
     return Template('\\documentclass[12pt]{article}\n\\usepackage[a4paper, total={6in, 8in}]{geometry}\n\\usepackage[utf8]{inputenc}\n\\usepackage{graphicx}\n\\usepackage{caption}\n\\usepackage{float}\n\\usepackage{flafter}\n\\usepackage{hyperref}\n$ref').substitute(ref='\n'.join(vars_title))
 
 
-def header(job_name: str, threshold: float, reads_ratio: float) -> str:
+def header(job_name: str, threshold: float, reads_ratio: float, number_subreads: int) -> str:
     """creates head of doc (abstract and global results)
 
     Args:
@@ -40,8 +40,8 @@ def header(job_name: str, threshold: float, reads_ratio: float) -> str:
     Returns:
         str: header for doc in TeX
     """
-    abstract = Template('Explored hypothesis are all above $percentage percent of attributed reads\\\\\nAll explorations have been made within a significance range of [0, $ratio[.\\\\\nThis report was produced with WISP version $version. \\\\\nYou may get source code from \\url{https://github.com/Tharos-ux/wisp}').substitute(
-        percentage=int(threshold*100), ratio=reads_ratio, version=0.1)
+    abstract = Template('Sample has been splitted in $number distinct lectures.\\\\\nExplored hypothesis are all above $percentage percent of attributed reads.\\\\\nAll explorations have been made within a significance range of [0, $ratio[.\\\\\nThis report was produced with WISP version $version. \\\\\nYou may get source code from \\url{https://github.com/Tharos-ux/wisp}').substitute(
+        percentage=int(threshold*100), ratio=reads_ratio, number=number_subreads, version=0.1)
     figs: str = subfigure([f"{job_name}_pie_merge.png",
                           f"{job_name}_tree.png"], f"Global data for {job_name}")
     return Template('\\begin{abstract}\n\\begin{sloppypar}\n$abstract\n\\end{sloppypar}\n\\end{abstract}$figures').substitute(abstract=abstract, figures=figs)
@@ -114,7 +114,7 @@ def save_tex_file(data: str, path: str) -> None:
         writer.write(data)
 
 
-def make_doc(job_name: str, params: dict, taxas_levels: list[str], reports: dict, test_results: dict, test_mode: bool, threshold: float, reads_ratio: float) -> None:
+def make_doc(job_name: str, params: dict, taxas_levels: list[str], reports: dict, test_results: dict, test_mode: bool, threshold: float, reads_ratio: float, number_subreads: int, name_of_read: str) -> None:
     """Command to create and save the report
 
     Args:
@@ -127,8 +127,8 @@ def make_doc(job_name: str, params: dict, taxas_levels: list[str], reports: dict
         threshold (float): _description_
         reads_ratio (float): _description_
     """
-    tex_string: str = teXstr(Template('$header\n\\begin{document}\n\\maketitle\n$head\n$docstring\n$footer').substitute(header=tex_properties(
-        (job_name)), head=header(job_name, threshold, reads_ratio), docstring=generate_core_tex(params, taxas_levels, reports, test_results, test_mode), footer=tex_closure()))
+    tex_string: str = teXstr(Template('$header\n\\begin{document}\n\\maketitle\n$head\n$docstring\n$footer').substitute(header=tex_properties(job_name, name_of_read), head=header(
+        job_name, threshold, reads_ratio, number_subreads), docstring=generate_core_tex(params, taxas_levels, reports, test_results, test_mode), footer=tex_closure()))
     save_tex_file(tex_string, f"output/{job_name}/{job_name}")
     # render_output(path) # bugged for now ; render error with /tmp
 

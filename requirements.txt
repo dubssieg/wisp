@@ -1,0 +1,11 @@
+xgboost
+matplotlib
+numpy
+scipy
+scikit-learn
+seaborn
+pygraviz
+khmer
+biopython
+pdflatex
+versioneer
