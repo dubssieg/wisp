@@ -120,7 +120,7 @@ def call_loader(path: str, size_kmer: int, classif_level_int: int, filter: str |
     #my_futures_collector(load_and_compute_one_genome, lst_sequences, 10)
 
 
-def load_and_compute_one_genome(path: str, elt: str, size_kmer: int, pattern: str) -> Sample:
+def load_and_compute_one_genome(path: str, elt: str, size_kmer: int, pattern: str) -> list[Sample]:
     """Generate sample for one genome
 
     Args:
@@ -131,14 +131,14 @@ def load_and_compute_one_genome(path: str, elt: str, size_kmer: int, pattern: st
     Returns:
         Sample: a sample which merges all sequences from the file
     """
-    parsed = my_parser(f"{path}{elt}", clean=True, merge=True, merge_name=elt)
-    return Sample(
-        seq_dna=parsed[elt],
+    parsed = my_parser(f"{path}{elt}", clean=True, merge=False, merge_name=elt)
+    return [Sample(
+        seq_dna=value,
         kmer_size=size_kmer,
-        seq_specie=elt.split('/')[-1],
+        seq_specie=p,
         counting=False,
         pattern=pattern
-    )
+    ) for p, value in parsed.items()]
 
 
 def generate_diversity(spl: Sample, sample_number: int, size_kmer: int, size_read: int) -> list[Sample]:
@@ -236,46 +236,63 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
         Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
         # we re-generate database, so we need to map it out
         if classif_level != 'merged':
-            sp_map = mapping_sp(f"{input_dir}train/", path,
+            sp_map = mapping_sp(f"{input_dir}", path,
                                 classif_level, db_name, taxa[classif_level], sp_determied)
         else:
-            sp_map = mapping_merged_sp(f"{input_dir}train/", path, db_name)
+            sp_map = mapping_merged_sp(f"{input_dir}", path, db_name)
     else:
         # database already generated, loading mapping without erasing it
         sp_map = load_mapping(path, db_name,
                               classif_level, sp_determied)
 
     for type_data in datas:
-        if isinstance(input_style, bool):
-            if classif_level != 'merged':
-                my_sp = list(call_loader(
-                    f"{input_dir}train/", kmer_size, taxa[classif_level], sp_determied, type_data, pattern))
-            else:
-                my_sp = list(call_loader(
-                    f"{input_dir}train/", kmer_size, 4, None, type_data, pattern))
+        # if isinstance(input_style, bool):
+        if classif_level != 'merged':
+            my_sp = list(call_loader(
+                f"{input_dir}", kmer_size, taxa[classif_level], sp_determied, type_data, pattern))
+        else:
+            my_sp = list(call_loader(
+                f"{input_dir}", kmer_size, 4, None, type_data, pattern))
+        """
         else:
             fileholder = my_parser(
                 f"{input_dir}{type_data}/{input_style}", True, True, "unk_sample")
             my_sp = [Sample(fileholder['unk_sample'],
                             kmer_size, counting=False, pattern=pattern)]
+        """
         lines = []
-        for sp in my_sp:
-            # iterate through all samples and creates subsampling
-            if type_data == 'test':
-                my_ssp = overhaul_diversity(
-                    sp, int(sampling/8), kmer_size, read_size)
-            else:
-                my_ssp = overhaul_diversity(sp, sampling, kmer_size, read_size)
-            for s in my_ssp:
-                if type_data == 'train' or type_data == 'test':
-                    if classif_level != 'merged':
-                        lines.append(s.encoding_mapping(
-                            sp_map[s.specie.split('_')[taxa[classif_level]]]))
-                    else:
-                        lines.append(s.encoding_mapping(
-                            sp_map[s.specie.split('_')[4]]))
+        for genome in my_sp:
+            for sp in genome:
+                # we create optimal list of reads
+                if type_data == 'test':
+                    all_reads = optimal_splitting(
+                        sp.seq, sp.size, int(sampling/8))
                 else:
-                    lines.append(s.encoding_mapping(0))
+                    all_reads = optimal_splitting(sp.seq, sp.size, sampling)
+                # then, we calculate
+                all_counts = [kmer_indexing(read, kmer_size, pattern)
+                              for read in all_reads]
+                lines = lines + \
+                    [f"{sp.encoding_mapping(sp_map[sp.specie.split('_')[taxa[classif_level]]])} {' '.join([str(encode_kmer_4(k))+':'+str(v) for k, v in counts.items()])}" for counts in all_counts]
+
+                """
+                # iterate through all samples and creates subsampling
+                if type_data == 'test':
+                    my_ssp = overhaul_diversity(
+                        sp, int(sampling/8), kmer_size, read_size)
+                else:
+                    my_ssp = overhaul_diversity(sp, sampling, kmer_size, read_size)
+                for s in my_ssp:
+                    if type_data == 'train' or type_data == 'test':
+                        if classif_level != 'merged':
+                            lines.append(s.encoding_mapping(
+                                sp_map[s.specie.split('_')[taxa[classif_level]]]))
+                        else:
+                            lines.append(s.encoding_mapping(
+                                sp_map[s.specie.split('_')[4]]))
+                    else:
+                        lines.append(s.encoding_mapping(0))
+                """
         write_xgboost_data(lines, path,
                            classif_level, type_data, db_name, job_name, sp_determied)
 
