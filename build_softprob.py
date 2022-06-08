@@ -1,7 +1,7 @@
 import xgboost as xgb
 from python_tools import my_output_msg, my_function_timer
 from wisp_lib import load_xgboost_data, recode_kmer_4
-from wisp_view import compare_test, plot_features, plot_all_reads, mod_to_tree
+from wisp_view import compare_test, plot_features, plot_all_reads
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 from numpy import argmax, amax, mean
@@ -258,7 +258,7 @@ def plot_tree_model(bst: xgb.Booster, job_name: str, classif_level: str, sp_dete
         sp_determined (str): previous level we've determined
     """
     tree = xgb.to_graphviz(bst)
-    mod_to_tree(tree, ksize, job_name, classif_level, sp_determined)
+    #mod_to_tree(tree, ksize, job_name, classif_level, sp_determined)
 
 
 #################### CORE ####################
