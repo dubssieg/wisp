@@ -41,7 +41,7 @@ def my_params():
         'family_sample': [4, '1111'],
         'merged_sample': [4, '1111'],
         # 'input' : location of reference genomes
-        'input_train': "genomes/train/",
+        'input_train': "genomes/sampled/",
         # 'input_unk' : location of unk genomes
         'input_unk': "genomes/unk/",
         # 'output' : output for database
@@ -52,7 +52,7 @@ def my_params():
         'nb_boosts': 10,
         'tree_depth': 10,
         # parameters regarding results
-        'full_test_set': False,
+        'test_mode': 'no_test',  # 'no_test', 'min_set', 'verbose'
         # parameter for read selection, significance for softprob
         'reads_th': 0.1,
         'selection_mode': 'delta_mean',  # 'min_max','delta_mean','delta_sum'

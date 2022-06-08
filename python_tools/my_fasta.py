@@ -13,7 +13,7 @@ def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_nam
     * clean si le fichier doit être nettoyé de ses N
     * merge si on merge tous les fasta d'un fichier en une seule chaine
     """
-    info(f"Loading {filename} under label {merge_name}")
+    info(f"Loading {filename}...")
     if clean and merge:
         loading = {fasta.id: str(fasta.seq).replace('N', '')
                    for fasta in SeqIO.parse(open(filename), 'fasta')}

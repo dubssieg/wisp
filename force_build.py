@@ -42,19 +42,46 @@ def build_full_db(args) -> None:
     list_of_genomes = [genome.split('.')[0]
                        for genome in listdir(f"{TRAIN_PATH}")]
     for taxa in TAXAS_LEVELS:
-        KMER_SIZE_REF, SAMPLING_REF, PATTERN_REF = my_params[f"{taxa}_ref"]
+        if taxa != 'merged':
+            KMER_SIZE_REF, SAMPLING_REF, PATTERN_REF = my_params[f"{taxa}_ref"]
 
-        list_parent_level = [i for i in set([e.split('_')[TAXAS_LEVELS.index(
-            taxa)-1] for e in list_of_genomes])] if taxa != 'domain' else [False]
+            list_parent_level = [i for i in set([e.split('_')[TAXAS_LEVELS.index(
+                taxa)-1] for e in list_of_genomes])] if taxa != 'domain' else [False]
 
-        for parent_level in list_parent_level:
-            if isinstance(parent_level, bool):
-                parent_level = None
+            for parent_level in list_parent_level:
+                if isinstance(parent_level, bool):
+                    parent_level = None
 
-            if not check_if_database_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
+                if not check_if_database_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
 
-                my_output_msg(
-                    f"Building dataset at level {taxa} for parent level {parent_level}")
+                    my_output_msg(
+                        f"Building dataset at level {taxa} for parent level {parent_level}")
+
+                    make_datasets(
+                        input_style=False,
+                        job_name=JOB,
+                        input_dir=TRAIN_PATH,
+                        path=DATABASE_PATH,
+                        datas=['train', 'test'],
+                        db_name=DATABASE,
+                        sampling=SAMPLING_REF,
+                        kmer_size=KMER_SIZE_REF,
+                        read_size=WINDOW,
+                        classif_level=taxa,
+                        sp_determied=parent_level,
+                        pattern=PATTERN_REF
+                    )
+
+                if force_rebuild or not check_if_model_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
+
+                    map_sp = load_mapping(DATABASE_PATH, DATABASE,
+                                          taxa, parent_level)
+
+                    make_model(JOB, DATABASE_PATH, taxa, DATABASE,
+                               parent_level, init_parameters(len(map_sp), tree_depth), number_rounds=nr)
+        else:
+
+            if not check_if_merged_database_exists(DATABASE, DATABASE_PATH):
 
                 make_datasets(
                     input_style=False,
@@ -63,46 +90,21 @@ def build_full_db(args) -> None:
                     path=DATABASE_PATH,
                     datas=['train', 'test'],
                     db_name=DATABASE,
-                    sampling=SAMPLING_REF,
-                    kmer_size=KMER_SIZE_REF,
+                    sampling=SAMPLING_MERGED_REF,
+                    kmer_size=KMER_SIZE_MERGED_REF,
                     read_size=WINDOW,
-                    classif_level=taxa,
-                    sp_determied=parent_level,
-                    pattern=PATTERN_REF
+                    classif_level='merged',
+                    sp_determied='merged',
+                    pattern=PATTERN_MERGED_REF
                 )
 
-            if force_rebuild or not check_if_model_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
+            map_merged_sp = load_mapping(DATABASE_PATH, DATABASE,
+                                         'merged', 'merged')
 
-                map_sp = load_mapping(DATABASE_PATH, DATABASE,
-                                      taxa, parent_level)
-
-                make_model(JOB, DATABASE_PATH, taxa, DATABASE,
-                           parent_level, init_parameters(len(map_sp), tree_depth), number_rounds=nr)
-
-    if not check_if_merged_database_exists(DATABASE, DATABASE_PATH):
-
-        make_datasets(
-            input_style=False,
-            job_name=JOB,
-            input_dir=TRAIN_PATH,
-            path=DATABASE_PATH,
-            datas=['train', 'test'],
-            db_name=DATABASE,
-            sampling=SAMPLING_MERGED_REF,
-            kmer_size=KMER_SIZE_MERGED_REF,
-            read_size=WINDOW,
-            classif_level='merged',
-            sp_determied='merged',
-            pattern=PATTERN_MERGED_REF
-        )
-
-    map_merged_sp = load_mapping(DATABASE_PATH, DATABASE,
-                                 'merged', 'merged')
-
-    if not check_if_merged_model_exists(DATABASE, DATABASE_PATH):
-        # needs to create merged database
-        make_model(JOB, DATABASE_PATH, 'merged', DATABASE,
-                   'merged', init_parameters(len(map_merged_sp), tree_depth), number_rounds=nr)
+            if not check_if_merged_model_exists(DATABASE, DATABASE_PATH):
+                # needs to create merged database
+                make_model(JOB, DATABASE_PATH, 'merged', DATABASE,
+                           'merged', init_parameters(len(map_merged_sp), tree_depth), number_rounds=nr)
 
 
 if __name__ == "__main__":
@@ -116,6 +118,8 @@ if __name__ == "__main__":
         "database_name", help="name of database, builded if not exists", type=str)
     parser.add_argument(
         "params", help="path to a params .json file", type=str)
+    parser.add_argument(
+        "-l", "--levels", help="specific level(s) to build", type=list, default=['domain', 'phylum', 'group', 'order', 'family', 'merged'])
 
     # executing args
     args = parser.parse_args()

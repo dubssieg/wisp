@@ -125,13 +125,15 @@ def test_unk_sample(path_to_save, out_path, job_name, database_name, classif_lev
 
     bst = xgb.Booster()
 
-    my_output_msg("Data loading...")
-    dunk = load_xgboost_data(
-        out_path, classif_level, 'unk', database_name, sp_determined, job_name)
-
     my_output_msg("Model loading...")
     load_model(bst, out_path, classif_level, database_name, sp_determined)
     load_params(bst, out_path, classif_level, database_name, sp_determined)
+
+    # loop over all data to exit model re-loading at each step?
+
+    my_output_msg("Data loading...")
+    dunk = load_xgboost_data(
+        out_path, classif_level, 'unk', database_name, sp_determined, job_name)
 
     my_output_msg("Preds calculation...")
     preds = prediction(dunk, bst, job_name, classif_level,
@@ -142,3 +144,5 @@ def test_unk_sample(path_to_save, out_path, job_name, database_name, classif_lev
         return estimations(path_to_save, preds, job_name, inverted_map, classif_level, sp_determined, threshold, sampling_number)
     else:
         return estimations_merged(preds, job_name, inverted_map, classif_level, sp_determined, threshold, sampling_number)
+
+    # end loop

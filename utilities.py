@@ -102,9 +102,9 @@ def summary_to_dl(summary_file: str) -> None:
         next(summary_reader)
         next(summary_reader)
         for i, line in enumerate(summary_reader):
-            if i < 45000:
+            if i < 57222:
                 next(summary_reader)
-            elif i >= 45000 and i < 55000:
+            elif i >= 57222 and i < 60000:
                 # accession, https
                 split = line.split()
                 print(f"Resolving entry n°{i} : {split[0]}")

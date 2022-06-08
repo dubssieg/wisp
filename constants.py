@@ -2,7 +2,6 @@
 
 # for utilities.py
 from typing import Callable
-from wisp_lib import kmer_indexing, read_and_its_compl
 
 
 EMAIL: str = 'siegfried.dubois@inria.fr'
@@ -15,6 +14,7 @@ DATABASE: str = "4k_400genomes_1111"
 PARAMS: str = "wisp_params.json"
 SAMPLE_PATH: str = "genomes/unk/"
 PREFIX_JOB: str = "tex"
+LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family', 'merged']
 
-# for sample_class.py
-COUNT_METHOD: Callable = kmer_indexing
+# for plotters.py
+OUTPUT_PATH: str = "output/figures/"

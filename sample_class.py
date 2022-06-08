@@ -4,11 +4,10 @@ from python_tools import my_parser, my_function_timer
 from collections import Counter
 from random import randrange
 from functools import reduce
-from wisp_lib import species_map, encode_kmer_4, write_xgboost_data, load_mapping, optimal_splitting, kmer_indexing
+from wisp_lib import species_map, encode_kmer_4, write_xgboost_data, load_mapping, optimal_splitting, kmer_indexing_canonical
 from os import listdir
 from json import dump
 from pathlib import Path
-from constants import COUNT_METHOD
 
 
 class Sample:
@@ -60,11 +59,12 @@ class Sample:
     @counts.setter
     def counts(self, kmer_counts):
         self.__counts = kmer_counts
-
+    """
     def post_creation_counting(self, count_func: Callable = COUNT_METHOD):
         self.counts = count_func(self.seq, self.ksize, self.pattern)
+    """
 
-    def __init__(self, seq_dna: str, kmer_size: int, pattern: str, seq_specie: str | None = None, counting=True, count_func: Callable = COUNT_METHOD):
+    def __init__(self, seq_dna: str, kmer_size: int, pattern: str, count_func: Callable | None, seq_specie: str | None = None, counting=True):
         """Inits a new Sample object, container for sequence
 
         Args:
@@ -137,10 +137,12 @@ def load_and_compute_one_genome(path: str, elt: str, size_kmer: int, pattern: st
         kmer_size=size_kmer,
         seq_specie=elt.split('/')[-1],
         counting=False,
-        pattern=pattern
+        pattern=pattern,
+        count_func=None
     ) for p, value in parsed.items()]
 
 
+"""
 def generate_diversity(spl: Sample, sample_number: int, size_kmer: int, size_read: int) -> list[Sample]:
     if size_read > spl.size:
         # if we cant etablsih subread, we do it anyways
@@ -153,14 +155,16 @@ def generate_diversity(spl: Sample, sample_number: int, size_kmer: int, size_rea
         spl_list.append(
             Sample(subread, size_kmer, spl.specie))
     return spl_list
+"""
 
-
+"""
 def overhaul_diversity(spl: Sample, sample_number: int, size_kmer: int, size_read: int) -> list[Sample]:
     try:
         return [Sample(spl.seq[x:x+size_read+len(spl.pattern)], size_kmer, spl.pattern, spl.specie) for x in [randrange(0, spl.size-size_read-size_kmer) for _ in range(sample_number)]]
     except:
         spl.post_creation_counting()
         return [spl]
+"""
 
 
 def print_sample_list(spl: list[Sample]) -> None:
@@ -246,59 +250,38 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
                               classif_level, sp_determied)
 
     for type_data in datas:
-        # if isinstance(input_style, bool):
-        if classif_level != 'merged':
-            my_sp = list(call_loader(
-                f"{input_dir}", kmer_size, taxa[classif_level], sp_determied, type_data, pattern))
+        if classif_level == 'domain' or classif_level == 'merged':
+            lst_sequences = [l for l in listdir(input_dir)]
         else:
-            my_sp = list(call_loader(
-                f"{input_dir}", kmer_size, 4, None, type_data, pattern))
-        """
-        else:
-            fileholder = my_parser(
-                f"{input_dir}{type_data}/{input_style}", True, True, "unk_sample")
-            my_sp = [Sample(fileholder['unk_sample'],
-                            kmer_size, counting=False, pattern=pattern)]
-        """
-        lines = []
-        for genome in my_sp:
-            for sp in genome:
-                # we create optimal list of reads
-                if type_data == 'test':
-                    all_reads = optimal_splitting(
-                        sp.seq, sp.size, int(sampling/8))
-                else:
-                    all_reads = optimal_splitting(sp.seq, sp.size, sampling)
-                # then, we calculate
-                all_counts = [kmer_indexing(read, kmer_size, pattern)
-                              for read in all_reads]
-                lines = lines + \
-                    [f"{sp.encoding_mapping(sp_map[sp.specie.split('_')[taxa[classif_level]]])} {' '.join([str(encode_kmer_4(k))+':'+str(v) for k, v in counts.items()])}" for counts in all_counts]
-
-                """
-                # iterate through all samples and creates subsampling
-                if type_data == 'test':
-                    my_ssp = overhaul_diversity(
-                        sp, int(sampling/8), kmer_size, read_size)
-                else:
-                    my_ssp = overhaul_diversity(sp, sampling, kmer_size, read_size)
-                for s in my_ssp:
-                    if type_data == 'train' or type_data == 'test':
-                        if classif_level != 'merged':
-                            lines.append(s.encoding_mapping(
-                                sp_map[s.specie.split('_')[taxa[classif_level]]]))
-                        else:
-                            lines.append(s.encoding_mapping(
-                                sp_map[s.specie.split('_')[4]]))
+            lst_sequences = [l for l in listdir(
+                input_dir) if l.split('_')[taxa[classif_level]-1] == sp_determied]
+        lst_sequences = [elt for elt in lst_sequences]
+        for e in lst_sequences:
+            my_sp = load_and_compute_one_genome(
+                input_dir, e, kmer_size, pattern)
+            lines = []
+            for sp in my_sp:
+                try:
+                    # we create optimal list of reads
+                    if type_data == 'test':
+                        all_reads = optimal_splitting(
+                            sp.seq, sp.size, int(sampling/8))
                     else:
-                        lines.append(s.encoding_mapping(0))
-                """
-        write_xgboost_data(lines, path,
-                           classif_level, type_data, db_name, job_name, sp_determied)
+                        all_reads = optimal_splitting(
+                            sp.seq, read_size, sampling)
+                    # then, we calculate
+                    all_counts = [kmer_indexing_canonical(read, kmer_size, pattern)
+                                  for read in all_reads]
+                    lines = lines + \
+                        [f"{sp.encoding_mapping(sp_map[sp.specie.split('_')[taxa[classif_level]]])} {' '.join([str(encode_kmer_4(k))+':'+str(v) for k, v in counts.items()])}" for counts in all_counts]
+                except:
+                    pass
+            write_xgboost_data(lines, path,
+                               classif_level, type_data, db_name, job_name, sp_determied)
 
 
 @my_function_timer("Building datasets")
-def make_unk_datasets(all_reads, job_name: str, path: str, db_name: str, classif_level: str, kmer_size: int, pattern: str,  sp_determied: str | None):
+def make_unk_datasets(all_reads, job_name: str, path: str, db_name: str, classif_level: str, kmer_size: int, pattern: str,  sp_determied: str | None, func: Callable):
     """
     Create the datasets and calls for storage
 
@@ -311,7 +294,7 @@ def make_unk_datasets(all_reads, job_name: str, path: str, db_name: str, classif
     Returns number of subreads in dataset
     """
     # TODO testing
-    all_counts = [kmer_indexing(read, kmer_size, pattern)
+    all_counts = [func(read, kmer_size, pattern)
                   for read in all_reads]
     lines = [
         f"0 {' '.join([str(encode_kmer_4(k))+':'+str(v) for k, v in counts.items()])}" for counts in all_counts]

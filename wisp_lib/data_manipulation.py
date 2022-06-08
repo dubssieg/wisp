@@ -1,7 +1,7 @@
 "Functions to manipulate data such as JSON, LIBSVM..."
 
 from xgboost import DMatrix
-from os import listdir
+from os import listdir, path
 from pathlib import Path
 from os.path import exists
 from json import load
@@ -81,7 +81,7 @@ def load_xgboost_data(path: str, classif_level: str, suffix: str, db_name: str, 
     return DMatrix(my_path)
 
 
-def write_xgboost_data(data: list[str], path: str, classif_level: str, suffix: str, db_name: str, sample_name: str, sp_determined: str | None) -> None:
+def write_xgboost_data(data: list[str], dpath: str, classif_level: str, suffix: str, db_name: str, sample_name: str, sp_determined: str | None) -> None:
     """
     Writes out the xgboost data
 
@@ -94,16 +94,20 @@ def write_xgboost_data(data: list[str], path: str, classif_level: str, suffix: s
     * sp_determined (str | None): upper level we've already determined
     """
     if suffix == 'unk':
-        Path(f"{path}").mkdir(parents=True, exist_ok=True)
-        my_path = f"{path}data.txt.{suffix}"
+        Path(f"{dpath}").mkdir(parents=True, exist_ok=True)
+        my_path = f"{dpath}data.txt.{suffix}"
     elif sp_determined == None:
-        Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
-        my_path = f"{path}{db_name}/{classif_level}/data.txt.{suffix}"
+        Path(f"{dpath}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
+        my_path = f"{dpath}{db_name}/{classif_level}/data.txt.{suffix}"
     else:
-        Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
-        my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_data.txt.{suffix}"
-    with open(my_path, "w") as writer:
-        writer.write('\n'.join(data))
+        Path(f"{dpath}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
+        my_path = f"{dpath}{db_name}/{classif_level}/{sp_determined}_data.txt.{suffix}"
+    if path.exists(my_path):
+        mode = 'a'
+    else:
+        mode = 'w'
+    with open(my_path, mode) as writer:
+        writer.write('\n'.join(data)+'\n')
 
 
 def check_if_merged_database_exists(db_name: str, path: str) -> bool:
