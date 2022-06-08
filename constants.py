@@ -5,8 +5,8 @@ from typing import Callable
 
 
 EMAIL: str = 'siegfried.dubois@inria.fr'
-ANNOTATE_PATH: str = "/udd/sidubois/Stage/Genomes/to_annotate"
-SUMMARY_FILE: str = "/udd/sidubois/Stage/assembly_summary.txt"
+ANNOTATE_PATH: str = "genomes/to_annotate"
+SUMMARY_FILE: str = "genomes/assembly_summary.txt"
 UNK_PATH: str = "genomes/unk/"
 
 # for wisp.py
