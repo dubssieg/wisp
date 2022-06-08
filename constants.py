@@ -10,7 +10,7 @@ SUMMARY_FILE: str = "/udd/sidubois/Stage/assembly_summary.txt"
 UNK_PATH: str = "genomes/unk/"
 
 # for wisp.py
-DATABASE: str = "4k_400genomes_1111"
+DATABASE: str = "129genomes"
 PARAMS: str = "wisp_params.json"
 SAMPLE_PATH: str = "genomes/unk/"
 PREFIX_JOB: str = "tex"
