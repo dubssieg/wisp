@@ -5,6 +5,7 @@ import pandas as pd
 from wisp_lib import kmer_indexing_brut
 from python_tools import my_parser
 from constants import OUTPUT_PATH
+from collections import Counter
 
 
 def plot_repartition_top_kmers(number_to_plot: int, sequence: str, pattern: str, ksize: int) -> None:
@@ -31,7 +32,13 @@ def plot_repartition_top_kmers(number_to_plot: int, sequence: str, pattern: str,
 def delta_sequence(seq1: str, seq2: str, pattern: str, ksize: int) -> None:
     counts_1, counts_2 = kmer_indexing_brut(
         seq1, ksize, pattern), kmer_indexing_brut(seq2, ksize, pattern)
-    plt.plot(counts_1.subtract(counts_2))
+    counts_1, counts_2 = Counter({k: v/len(seq1) for k, v in counts_1.items()}), Counter({
+        k: v/len(seq2) for k, v in counts_2.items()})
+    counts_1.subtract(counts_2)
+    figure = plt.figure(figsize=(7, 20))
+    plt.plot(counts_1.values(), counts_1.keys())
+    plt.xticks(fontsize=5)
+    plt.yticks(fontsize=5)
     plt.savefig(f"{OUTPUT_PATH}delta_kmers", bbox_inches='tight')
 
 
