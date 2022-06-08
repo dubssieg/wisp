@@ -56,7 +56,7 @@ if __name__ == "__main__":
     my_logs_global_config("LOG_wisp")
     parser = ArgumentParser()
     parser.add_argument(
-        "-b", "--build", help="Calls for database building instead of prediciton", store=True)
+        "-b", "--build", help="Calls for database building instead of prediciton", action='store_true')
     parser.add_argument(
         "-t", "--multithreading", type=int, default=1, help="Gives a thread number for WISP")
     args = parser.parse_args()
