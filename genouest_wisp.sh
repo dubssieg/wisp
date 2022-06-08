@@ -2,6 +2,13 @@
 #SBATCH --job-name=wisp
 . /local/env/envconda.sh
 
+# create mandatory dirs if not exist
+mkdir -p genomes/unk
+mkdir -p genomes/train
+mkdir -p data
+mkdir -p output
+
+# use conda env
 conda activate $1
 
 ##########################
@@ -11,15 +18,15 @@ conda activate $1
 ##########################
 
 # calling build
-# python wisp.py -b -t 8
+# wisp.py -b -t 8
 
 # calling dl
-# python utilities.py
+# utilities.py
 
 # calling prediction
-# python wisp.py -t 8
+# wisp.py -t 8
 
-$2
+python $2
 
 conda deactivate
 
