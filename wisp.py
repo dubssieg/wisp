@@ -1,5 +1,5 @@
+#!/usr/bin/env python3.10
 "This scripts aims to call for command line WISP over a set of files"
-
 ###########################################################################################
 # This is your main interface. Or rather the call path to your main interface.
 # If you want to change any parameter as of database name and such
