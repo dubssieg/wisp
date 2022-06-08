@@ -1,10 +1,10 @@
 "This script is rather a set of tools for downloading references ganomes and renaming those"
 
-from python_tools import my_classification_mapper, my_fetcher
+from python_tools import my_classification_mapper, my_fetcher, my_parser
 from os import listdir, rename, system
 import csv
 from Bio import SeqIO
-from constants import ANNOTATE_PATH, SUMMARY_FILE, UNK_PATH
+from constants import ANNOTATE_PATH, SUMMARY_FILE, UNK_PATH, TRAIN_PATH
 from random import random, choice
 
 
@@ -137,11 +137,22 @@ def destroy_sequence(sequence_path: str, destruction_ratio: float) -> None:
             writer.write(f"{header}\n{new_seq}")
 
 
+def read_generator():
+    files = listdir(TRAIN_PATH)
+    lectures = {file: my_parser(f"{TRAIN_PATH}/{file}", True, True, file)[file]
+                for file in files}
+    reads = {k: v[int(len(v)/12):int(len(v)/12)+20000]
+             for k, v in lectures.items()}
+    with open("sequences.fna", "w")as writer:
+        writer.write('\n'.join(['> '+k+'\n'+v for k, v in reads.items()]))
+
+
 if __name__ == "__main__":
     # This class aims to help to generate databases from a set of references.
     # From an assembly_summary.txt downloaded from NCBI (obtained via ftp.ncbi)
     # it downloads all references, renames it according to the WISP file system
     # All you have to do after is to put those files into train folder once process is done
-    summary_to_dl(SUMMARY_FILE)
+    # summary_to_dl(SUMMARY_FILE)
     # rename_genomes()
     # destroy_sequence(UNK_PATH, 0.5)
+    read_generator()
