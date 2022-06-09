@@ -195,7 +195,7 @@ if __name__ == "__main__":
                                                                                  DATABASE_PATH, JOB, DATABASE, taxa, reads_threshold, parent_level, func_reads))
 
                         output_temp = test_unk_sample(path_for_read,
-                                                      DATABASE_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold, test_state, len(all_reads[i]), func_reads)
+                                                      DATABASE_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold, test_state, len(all_reads[i]), func_reads, test_state)
                         topmost[f"{taxa}_{parent_level}"] = output_temp[f"Reads summation {taxa}"]
 
                         if f"Possible for {taxa}" in output:
@@ -246,7 +246,7 @@ if __name__ == "__main__":
 
                 if test_state != 'no_test':
                     output_merged_sample = test_unk_sample(path_for_read,
-                                                           DATABASE_PATH, JOB, DATABASE, 'merged', 'merged', threshold, reads_threshold, test_state, len(all_reads[i]), func_reads)
+                                                           DATABASE_PATH, JOB, DATABASE, 'merged', 'merged', threshold, reads_threshold, test_state, len(all_reads[i]), func_reads, test_state)
                     plot_pie_merge(path_for_read[i], output_merged_sample, JOB)
             ############################################ END ###############################################
 

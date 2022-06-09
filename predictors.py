@@ -27,7 +27,7 @@ def estimations_merged(preds, sample_name: str, inverted_map: dict[str, str], cl
     return {**outputs_predictions}
 
 
-def estimations(path_to_save, preds, sample_name: str, inverted_map: dict[str, str], clade: str, determined: str, threshold: float, sampling_number: int) -> dict:
+def estimations(path_to_save, preds, sample_name: str, inverted_map: dict[str, str], clade: str, determined: str, threshold: float, sampling_number: int, test_state: str) -> dict:
     """
     Does calculation upon number of predicated reads
     Returns a dict and call for plotting results as a barplot
@@ -57,8 +57,9 @@ def estimations(path_to_save, preds, sample_name: str, inverted_map: dict[str, s
         k)] for k, v in sum_preds.items() if float(v) > float(threshold * sum)]
     outputs_classif[f"Tree {determined} ({map_clade[map_clade.index(clade[0])-1]})"] = [
         f"{inverted_map[str(k)]} ({clade[0]})" for k, v in sum_preds.items() if float(v) > float(threshold * sum)]
-    reads_species_plotter(path_to_save, preds, sample_name, inverted_map,
-                          clade, determined, threshold, sampling_number)
+    if test_state == 'min_set' or test_state == 'verbose':
+        reads_species_plotter(path_to_save, preds, sample_name, inverted_map,
+                              clade, determined, threshold, sampling_number)
 
     return {**outputs_classif, **outputs_predictions, **outputs_labels}
 
@@ -118,7 +119,7 @@ def test_model(path_to_save: str, out_path, job_name, database_name, classif_lev
     return compare_test(path_to_save, real, preds, inverted_map, job_name, classif_level, sp_determined)
 
 
-def test_unk_sample(path_to_save, out_path, job_name, database_name, classif_level, sp_determined, threshold, reads_threshold, test_status, sampling_number, func):
+def test_unk_sample(path_to_save, out_path, job_name, database_name, classif_level, sp_determined, threshold, reads_threshold, test_status, sampling_number, func, test_state):
     map_sp = load_mapping(out_path, database_name,
                           classif_level, sp_determined)
     inverted_map = {str(v): k for k, v in map_sp.items()}
@@ -141,7 +142,7 @@ def test_unk_sample(path_to_save, out_path, job_name, database_name, classif_lev
     preds = [p for p in preds if not isinstance(p, bool)]
 
     if classif_level != 'merged':
-        return estimations(path_to_save, preds, job_name, inverted_map, classif_level, sp_determined, threshold, sampling_number)
+        return estimations(path_to_save, preds, job_name, inverted_map, classif_level, sp_determined, threshold, sampling_number, test_state)
     else:
         return estimations_merged(preds, job_name, inverted_map, classif_level, sp_determined, threshold, sampling_number)
 
