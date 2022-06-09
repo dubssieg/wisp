@@ -31,7 +31,7 @@ Also requires a Graphviz installation in order to perform trees rendering (curre
 To easier the process of using the environment, disconecting from it and such, a bash file allows you to simply 
 
 ```bash
-sbatch --cpus-per-task=8 --mem=50G genouest_wisp.sh ENV_PATH INTERFACE
+sbatch --cpus-per-task=8 --mem=50G wisp.sh ENV_PATH INTERFACE
 ```
 
 + ENVPATH is the path to your previously created conda environment
