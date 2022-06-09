@@ -1,5 +1,6 @@
 #!/bin/sh
 #SBATCH --job-name=wisp
+#SBATCH --output=LOG_job.log
 . /local/env/envconda.sh
 
 # create mandatory dirs if not exist

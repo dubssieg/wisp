@@ -146,7 +146,7 @@ def modelisation(dtrain, params: dict, num_round: int):
     return xgb.train(params, dtrain, num_round)
 
 
-def prediction(data, model, sample_name, clade, determined, reads_threshold, with_intensive_test, inverted_map, func, with_softmax_norm):
+def prediction(data, model, sample_name, clade, determined, reads_threshold, test_state, inverted_map, func, with_softmax_norm):
     """
     Does the calculation given a model and a dataset of catergories of this dataset
     Return predictions
@@ -156,7 +156,7 @@ def prediction(data, model, sample_name, clade, determined, reads_threshold, wit
     """
     preds = model.predict(data)
     res = softmax_from_prediction(preds, reads_threshold, func)
-    if with_intensive_test == 'verbose':
+    if test_state == 'verbose':
         softpred_from_prediction(
             preds, sample_name, clade, determined, inverted_map)
         plot_all_reads(preds, sample_name, inverted_map, clade, determined)

@@ -1,8 +1,8 @@
-# WISP : Bacterial families identification from long reads : machine learning with XGBoost
+# WISP : Bacterial families identification from long reads, machine learning with XGBoost
 
 ![img](https://github.com/Tharos-ux/wisp/blob/master/preview/Ente_malo.png)
 
-This Python program is meant to determine to which taxa a bacteria is belonginig to, from long reads (>10.000bp), solely based upon alignment-free methods. As of now, the main focus is upon kmers proportions.
+This Python program is meant to determine to which taxa a bacteria is belonginig to, from long reads (>10.000bp), solely based upon alignment-free methods. As of now, the main focus is upon kmers proportions. It aims to do binning over a collection of samples, giving a probable class to each read.
 Currently, five levels of taxa are implemented : **domain**, **phylum**, **group**, **order** and **family**.
 This tool is requiring some reference genomes, which it will index, to create a XGBoost model.
 It has been trained in its initial state over the 143 genomes assembly (see https://espace.library.uq.edu.au/view/UQ:411283)
