@@ -90,6 +90,7 @@ if __name__ == "__main__":
                     f"{REPORTS_PATH}{input_file}/{job}/" for job in jobs]
                 all_reads = [optimal_splitting(
                     read, WINDOW, SAMPLING_OBJECTIVE)]
+                print(len(all_reads[0]))
                 count_func = kmer_indexing_canonical
             else:
                 my_output_msg(

@@ -14,7 +14,7 @@ TRAIN_PATH: str = "genomes/train"
 DATABASE: str = "129genomes"
 PARAMS: str = "wisp_params.json"
 SAMPLE_PATH: str = "genomes/unk/"
-PREFIX_JOB: str = "tex"
+PREFIX_JOB: str = "l"
 LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family', 'merged']
 
 # for plotters.py

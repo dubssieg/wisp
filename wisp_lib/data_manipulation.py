@@ -62,7 +62,7 @@ def species_map(input_dir: str, int_level: int, filter: str | None = None) -> di
     return {species_listed[i]: i for i in range(len(species_listed))}
 
 
-def load_xgboost_data(path: str, classif_level: str, suffix: str, db_name: str, sp_determined: str | None, sample_name: str):
+def load_xgboost_data(dpath: str, classif_level: str, suffix: str, db_name: str, sp_determined: str | None, sample_name: str):
     """
     Return the target dataframe
 
@@ -73,11 +73,11 @@ def load_xgboost_data(path: str, classif_level: str, suffix: str, db_name: str, 
     * sp_determined (str | None): upper level we've already determined
     """
     if suffix == 'unk':
-        my_path = f"{path}data.txt.{suffix}"
-    elif sp_determined == None:
-        my_path = f"{path}{db_name}/{classif_level}/data.txt.{suffix}"
+        my_path = f"{dpath}data.txt.{suffix}"
+    elif sp_determined is None:
+        my_path = f"{dpath}{db_name}/{classif_level}/data.txt.{suffix}"
     else:
-        my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_data.txt.{suffix}"
+        my_path = f"{dpath}{db_name}/{classif_level}/{sp_determined}_data.txt.{suffix}"
     return DMatrix(my_path)
 
 
@@ -96,13 +96,13 @@ def write_xgboost_data(data: list[str], dpath: str, classif_level: str, suffix: 
     if suffix == 'unk':
         Path(f"{dpath}").mkdir(parents=True, exist_ok=True)
         my_path = f"{dpath}data.txt.{suffix}"
-    elif sp_determined == None:
+    elif sp_determined is None:
         Path(f"{dpath}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
         my_path = f"{dpath}{db_name}/{classif_level}/data.txt.{suffix}"
     else:
         Path(f"{dpath}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
         my_path = f"{dpath}{db_name}/{classif_level}/{sp_determined}_data.txt.{suffix}"
-    if path.exists(my_path):
+    if path.exists(my_path) and not suffix == 'unk':
         mode = 'a'
     else:
         mode = 'w'
