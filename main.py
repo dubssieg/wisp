@@ -205,7 +205,7 @@ if __name__ == "__main__":
                         output = {**output_temp, **output}
 
             ############################################ MERGED STUFF ###############################################
-
+                """ Currently bugged
                 if not check_if_merged_database_exists(DATABASE, DATABASE_PATH):
 
                     make_datasets(
@@ -248,6 +248,7 @@ if __name__ == "__main__":
                     output_merged_sample = test_unk_sample(path_for_read[i],
                                                            DATABASE_PATH, JOB, DATABASE, 'merged', 'merged', threshold, reads_threshold, test_state, len(all_reads[i]), func_reads, test_state)
                     plot_pie_merge(path_for_read[i], output_merged_sample, JOB)
+                """
             ############################################ END ###############################################
 
                 for i, k in enumerate(targeted_taxas):

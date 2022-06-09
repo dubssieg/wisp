@@ -245,7 +245,7 @@ def softpred_from_prediction(preds, sample_name: str, clade: str, determined: st
                         for i in range(len(inverted_map))] + ['Rejected'])
     plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.13), ncol=5)
     plt.savefig(
-        f"output/{sample_name}/{clade}_{determined}_softprob.png", bbox_inches='tight')
+        f"output/{sample_name}/{clade}_{determined}_softprob.svg", bbox_inches='tight')
 
 
 def plot_tree_model(bst: xgb.Booster, job_name: str, classif_level: str, sp_determined: str, ksize: int) -> None:
