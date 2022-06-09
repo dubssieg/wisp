@@ -265,7 +265,6 @@ if __name__ == "__main__":
 
                 save_output({'Date': f"{datetime.today().strftime('%Y.%m.%d - %H:%M:%S')}", **
                             vars(args), **output}, JOB, path_for_read[i])
-                #gen_html_report(my_params, JOB, [], output, targeted_taxas,test_results, threshold, test_state, output_merged_sample, round(reads_threshold, 2))
                 if test_state != 'no_test':
                     mts = True if test_state == 'verbose' else False
                     make_doc(path_for_read[i], JOB, my_params, TAXAS_LEVELS, output, test_results,

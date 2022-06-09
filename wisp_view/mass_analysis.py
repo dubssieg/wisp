@@ -57,7 +57,7 @@ def extract_families_with_enough_representatives(t: int):
     print(f"Database contains {len(all_genomes)} reference genomes")
     selected = [f for f, v in Counter(all_genomes).items() if v >= t]
     print(f"Len: {len(selected)} -> {selected}")
-    extraction(selected)
+    # extraction(selected)
 
 
 def extraction(selected):
