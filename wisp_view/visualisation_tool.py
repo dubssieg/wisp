@@ -42,7 +42,7 @@ def reads_species_plotter(path_to_save: str, predicitions, sample_name: str, inv
     plt.axhline(y=threshold*sampling_number, xmin=0, color="#465065",
                 linestyle='dashed', linewidth=1)
     plt.savefig(
-        f"{path_to_save}{clade}_{determined}_graph_reads.png", bbox_inches='tight')
+        f"{path_to_save}{clade}_{determined}_graph_reads.svg", bbox_inches='tight')
 
 
 def plot_all_reads(matrix, sample_name: str, inverted_map: dict, clade: str, determined: str) -> None:

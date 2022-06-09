@@ -251,10 +251,10 @@ if __name__ == "__main__":
                 """
             ############################################ END ###############################################
 
-                for i, k in enumerate(targeted_taxas):
+                for ib, k in enumerate(targeted_taxas):
                     responses: list[str] = [f"domain_None", f"phylum_{output['domain']}",
                                             f"group_{output['phylum']}", f"order_{output['group']}", f"family_{output['order']}"]
-                    output[k] = topmost[responses[i]]
+                    output[k] = topmost[responses[ib]]
 
                 # extraction of most probable path
                 path_taxa = [f"{output[k]} ({k[0]})" for k in targeted_taxas]
