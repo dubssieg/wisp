@@ -27,21 +27,21 @@ def my_params():
         'window_size': 10000,
         'sampling_objective': 500,
         # params for your database here [kmer_size, subsampling_depth, pattern]
-        'domain_ref': [4, 50, '1111'],
-        'phylum_ref': [4, 100, '1111'],
+        'domain_ref': [5, 100, '11111'],
+        'phylum_ref': [5, 150, '11111'],
         'group_ref': [4, 500, '1111'],
         'order_ref': [4, 400, '1111'],
         'family_ref': [4, 200, '1111'],
-        'merged_ref': [4, 50, '1111'],
+        'merged_ref': [4, 100, '11011'],
         # params for your sample here [kmer_size, pattern]
-        'domain_sample': [4, '1111'],
-        'phylum_sample': [4, '1111'],
+        'domain_sample': [5, '11111'],
+        'phylum_sample': [5, '11111'],
         'group_sample': [4, '1111'],
         'order_sample': [4, '1111'],
         'family_sample': [4, '1111'],
-        'merged_sample': [4, '1111'],
+        'merged_sample': [4, '11011'],
         # 'input' : location of reference genomes
-        'input_train': "genomes/sampled/",
+        'input_train': "genomes/train/",
         # 'input_unk' : location of unk genomes
         'input_unk': "genomes/unk/",
         # 'output' : output for database

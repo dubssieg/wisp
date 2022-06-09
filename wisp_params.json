@@ -2,14 +2,14 @@
     "window_size": 10000,
     "sampling_objective": 500,
     "domain_ref": [
-        4,
-        50,
-        "1111"
+        5,
+        100,
+        "11111"
     ],
     "phylum_ref": [
-        4,
-        100,
-        "1111"
+        5,
+        150,
+        "11111"
     ],
     "group_ref": [
         4,
@@ -28,16 +28,16 @@
     ],
     "merged_ref": [
         4,
-        50,
-        "1111"
+        100,
+        "11011"
     ],
     "domain_sample": [
-        4,
-        "1111"
+        5,
+        "11111"
     ],
     "phylum_sample": [
-        4,
-        "1111"
+        5,
+        "11111"
     ],
     "group_sample": [
         4,
@@ -53,7 +53,7 @@
     ],
     "merged_sample": [
         4,
-        "1111"
+        "11011"
     ],
     "input_train": "genomes/sampled/",
     "input_unk": "genomes/unk/",

@@ -26,7 +26,7 @@ def tex_properties(name_of_sample: str, name_of_read: str) -> str:
     """
     vars_title: list[str] = [Template('\\title{JOB : $name\\\\[0.2em]\\smaller{}READ ID : $readname}').substitute(
         name=name_of_sample, readname=name_of_read), Template('\\date{$day}').substitute(day=date.today())]
-    return Template('\\documentclass[12pt]{article}\n\\usepackage[a4paper, total={6in, 8in}]{geometry}\n\\usepackage[utf8]{inputenc}\n\\usepackage{graphicx}\n\\usepackage{caption}\n\\usepackage{float}\n\\usepackage{flafter}\n\\usepackage{hyperref}\n$ref').substitute(ref='\n'.join(vars_title))
+    return Template('\\documentclass[12pt]{article}\n\\usepackage[a4paper, total={6in, 8in}]{geometry}\n\\usepackage[utf8]{inputenc}\n\\usepackage[clean]{svg}\n\\usepackage{graphicx}\n\\usepackage{caption}\n\\usepackage{float}\n\\usepackage{flafter}\n\\usepackage{hyperref}\n$ref').substitute(ref='\n'.join(vars_title))
 
 
 def header(job_name: str, threshold: float, reads_ratio: float, number_subreads: int, version: str, nb_bp: int) -> str:
@@ -42,8 +42,8 @@ def header(job_name: str, threshold: float, reads_ratio: float, number_subreads:
     """
     abstract = Template('Sample has been splitted in $number distinct lectures over $nucleotids sequenced nucleotides.\\\\\nExplored hypothesis are all above $percentage percent of attributed reads.\\\\\nAll explorations have been made within a significance range of [0, $ratio[.\\\\\nThis report was produced with WISP version $version. \\\\\nYou may get source code from \\url{https://github.com/Tharos-ux/wisp}').substitute(
         percentage=int(threshold*100), ratio=reads_ratio, number=number_subreads, version=version, nucleotids=nb_bp)
-    figs: str = subfigure([f"{job_name}_pie_merge.png",
-                          f"{job_name}_tree.png"], f"Global data for {job_name}")
+    figs: str = subfigure([f"{job_name}_pie_merge.svg",
+                          f"{job_name}_tree.svg"], f"Global data for {job_name}")
     return Template('\\begin{abstract}\n\\begin{sloppypar}\n$abstract\n\\end{sloppypar}\n\\end{abstract}$figures').substitute(abstract=abstract, figures=figs)
 
 
@@ -67,7 +67,7 @@ def subfigure(list_of_figures: list[str], caption: str) -> str:
         str: a LaTeX string with all figures
     """
     subfigure: Template = Template(
-        '\\includegraphics[width=0.8\\textwidth]{$graph}')
+        '\\includesvg[width=0.8\\textwidth]{$graph}')
     figure: Template = Template(
         '\\begin{figure}[h]\n\\centering\n$allfigures\n\\caption{$legend}\n\\label{$label}\n\\end{figure}')
     subfigures_collection: str = '\n'.join(
@@ -193,12 +193,12 @@ def generate_core_tex(params: dict, taxas_levels: list[str], reports: dict, test
                       reports['Possible for group'], reports['Possible for order'], reports['Possible for family']]
     for i, clade in enumerate(taxas_levels):
         for h in all_hypothesis[i]:
-            levels_figures.append(subfigure([f"{clade}_{h}_confusion_matrix.png", f"{clade}_{h}_graph_reads.png"],
+            levels_figures.append(subfigure([f"{clade}_{h}_confusion_matrix.svg", f"{clade}_{h}_graph_reads.svg"],
                                   f"Level {clade} for hypothesis {h}" if h != 'None' else f"Level {clade}"))
             supplementary_figures.append(
-                subfigure([f"{clade}_{h}_boosting_results.png", f"{clade}_{h}_feature_importance.png"], f"Supplementary material for {h}") if enlable_supplementary_estimators else '\n')
+                subfigure([f"{clade}_{h}_boosting_results.svg", f"{clade}_{h}_feature_importance.svg"], f"Supplementary material for {h}") if enlable_supplementary_estimators else '\n')
             supplementary_figures_2.append(
-                subfigure([f"{clade}_{h}_softprob.png", f"{clade}_{h}_proba_reads.png"], f"Supplementary material for {h}") if enlable_supplementary_estimators else '\n')
+                subfigure([f"{clade}_{h}_softprob.svg", f"{clade}_{h}_proba_reads.svg"], f"Supplementary material for {h}") if enlable_supplementary_estimators else '\n')
             table_res = [[str(k)+' : '+str(v)]
                          for k, v in test_results[f"{clade}_{h}"].items()]
             titles.append(

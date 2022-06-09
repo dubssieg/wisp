@@ -265,7 +265,7 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
                     # we create optimal list of reads
                     if type_data == 'test':
                         all_reads = optimal_splitting(
-                            sp.seq, sp.size, int(sampling/8))
+                            sp.seq, sp.size, int(sampling/3))
                     else:
                         all_reads = optimal_splitting(
                             sp.seq, read_size, sampling)

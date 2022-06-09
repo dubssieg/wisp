@@ -90,7 +90,6 @@ if __name__ == "__main__":
                     f"{REPORTS_PATH}{input_file}/{job}/" for job in jobs]
                 all_reads = [optimal_splitting(
                     read, WINDOW, SAMPLING_OBJECTIVE)]
-                print(len(all_reads[0]))
                 count_func = kmer_indexing_canonical
             else:
                 my_output_msg(
@@ -276,3 +275,7 @@ if __name__ == "__main__":
     save_output({'Date': f"{datetime.today().strftime('%Y.%m.%d - %H:%M:%S')}",
                 'Job': input_file, **all_reads_report}, input_file, global_reports_path)
     global_sample_report(global_reports_path, input_file, all_reads_report)
+
+    with open(f"{global_reports_path}{input_file}.txt", 'w') as writer:
+        writer.write(
+            '\n'.join([f"{k}:{v}" for k, v in all_reads_report.items()]))
