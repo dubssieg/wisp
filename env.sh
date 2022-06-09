@@ -3,7 +3,7 @@
 . /local/env/envconda.sh
 
 # init env
-conda create wisp_env python
+conda create -p wisp_env python3.10
 
 conda activate wisp_env
 
