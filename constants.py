@@ -11,7 +11,7 @@ UNK_PATH: str = "genomes/unk/"
 TRAIN_PATH: str = "genomes/train"
 
 # for wisp.py
-DATABASE: str = "129genomes"
+DATABASE: str = "full"
 PARAMS: str = "wisp_params.json"
 SAMPLE_PATH: str = "genomes/unk/"
 PREFIX_JOB: str = "l"
