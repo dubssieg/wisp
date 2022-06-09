@@ -173,7 +173,7 @@ if __name__ == "__main__":
                         # full test set, takes time, but gives info on structure
                         if test_state == 'verbose':
                             successive_boost_results = make_testing(
-                                path_to_save=path_for_read,
+                                path_to_save=path_for_read[i],
                                 size_kmer=KMER_SIZE_REF,
                                 job_name=JOB,
                                 sp_determined=parent_level,
@@ -194,7 +194,7 @@ if __name__ == "__main__":
                             test_results[f"{taxa}_{parent_level}"] = (test_model(path_for_read[i],
                                                                                  DATABASE_PATH, JOB, DATABASE, taxa, reads_threshold, parent_level, func_reads))
 
-                        output_temp = test_unk_sample(path_for_read,
+                        output_temp = test_unk_sample(path_for_read[i],
                                                       DATABASE_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold, test_state, len(all_reads[i]), func_reads, test_state)
                         topmost[f"{taxa}_{parent_level}"] = output_temp[f"Reads summation {taxa}"]
 
@@ -245,7 +245,7 @@ if __name__ == "__main__":
                 )
 
                 if test_state != 'no_test':
-                    output_merged_sample = test_unk_sample(path_for_read,
+                    output_merged_sample = test_unk_sample(path_for_read[i],
                                                            DATABASE_PATH, JOB, DATABASE, 'merged', 'merged', threshold, reads_threshold, test_state, len(all_reads[i]), func_reads, test_state)
                     plot_pie_merge(path_for_read[i], output_merged_sample, JOB)
             ############################################ END ###############################################
