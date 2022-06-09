@@ -156,9 +156,10 @@ def prediction(data, model, sample_name, clade, determined, reads_threshold, wit
     """
     preds = model.predict(data)
     res = softmax_from_prediction(preds, reads_threshold, func)
-    if with_intensive_test:
+    if with_intensive_test == 'verbose':
         softpred_from_prediction(
             preds, sample_name, clade, determined, inverted_map)
+    if with_intensive_test == 'min_set' or with_intensive_test == 'verbose':
         plot_all_reads(preds, sample_name, inverted_map, clade, determined)
     return res if with_softmax_norm else preds
 

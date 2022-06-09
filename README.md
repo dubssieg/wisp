@@ -9,16 +9,34 @@ It has been trained in its initial state over the 143 genomes assembly (see http
 Once a model finished at a given taxa level, it aims to do another iteration from previous results, excluding non-matching reference genomes.
 The core functionnalities relies on a class probabiliy attribution to discriminate reads that might not be good indicators for our specie to be determined. As many other options, you can choose the ratio and the selection function to suit best your biological context.
 
-# Requirements
+# Installation
 
-Requires a Python 3.10 version, and all packages listed in the *requirements.txt* file.
-Once your python envrionnement or installation is up, you can install quickly all dependencies with :
+The easiest way to install and use WISP is through conda. A script to create the conda venv is included in this repo ; sipmly run the command and you will get a clean environnment for WISP, with all its dependencies :
 
 ```bash
-pip install -r build/requirements.txt
+bash env.sh
 ```
 
-Also requires a Graphviz installation in order to perform trees rendering.
+If you don't want to use conda, you can do a raw install of WISP dependencies : it requires a Python 3.10 version, and all packages listed in the *requirements.txt* file. Once your python envrionnement or installation is up, you can install quickly all dependencies with :
+
+```bash
+pip install -r requirements.txt
+```
+
+Also requires a Graphviz installation in order to perform trees rendering (currently disabled because of package issue with python 3.10.4).
+
+# Submitting a job through conda
+
+To easier the process of using the environment, disconecting from it and such, a bash file allows you to simply 
+
+```bash
+sbatch --cpus-per-task=8 --mem=50G genouest_wisp.sh ENV_PATH INTERFACE
+```
+
++ ENVPATH is the path to your previously created conda environment
++ INTERFACE is the main call to a WISP subprogram, with its parameters
+
+The next lines will describe interfaces you can call, with their parameters.
 
 # Launching WISP with wisp.py
 
@@ -26,12 +44,13 @@ This way is best suited for huge amounts of genomes computations : it will itera
 Will be later on modified to a bash script in order to add this tool more easily into pipelines.
 
 ```bash
-python wisp.py [-t number]
+wisp.py [-b] [-t number]
 ```
 
 **Optional arguments :**
 
 + -t, --multithreading > you can imput an int to define the number of parallel processes you want to spawn (recommanded : your number of cores)
++ -b, --build > tells WISP to build a full database instead of doing a prediction
 
 # Launching WISP with main.py
 
@@ -41,7 +60,7 @@ From command line, main class can be used with the following arguments :
 **Required arguments :**
 
 ```bash
-python main.py db_name wisp_params.json my_sample_job
+main.py db_name wisp_params.json my_sample_job
 ```
 
 + "db_name" > Name of database, will buid it if ont exists (type=str)
@@ -55,7 +74,7 @@ python main.py db_name wisp_params.json my_sample_job
 In result, you can call the file alternatively with :
 
 ```bash
-python main.py db_name wisp_params.json my_sample_job -f myfnafile.fna
+main.py db_name wisp_params.json my_sample_job -f myfnafile.fna
 ```
 
 **Exploration of parameters :**
@@ -107,7 +126,7 @@ params_job: dict = {
 You can modify the raw .json file, or update the dict contained in script *wisp_lib/parameters_init.py* and re-generate the file with :
 
 ```bash
-python wisp_lib/parameters_init.py
+wisp_lib/parameters_init.py
 ```
 
 # Force database building
@@ -116,7 +135,7 @@ One can enforce full database building (all levels and all branches) to generate
 It aims to allow people to index huge databases on reliable machines, then loading it on another less powerfull computer.
 
 ```bash
-python force_build.py db_name params.json 
+force_build.py db_name params.json 
 ```
 
 + "db_name" > Name of database, will buid it if ont exists (type=str)
