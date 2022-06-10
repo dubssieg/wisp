@@ -43,7 +43,7 @@ def header(job_name: str, threshold: float, reads_ratio: float, number_subreads:
     abstract = Template('Sample has been splitted in $number distinct lectures over $nucleotids sequenced nucleotides.\\\\\nExplored hypothesis are all above $percentage percent of attributed reads.\\\\\nAll explorations have been made within a significance range of [0, $ratio[.\\\\\nThis report was produced with WISP version $version. \\\\\nYou may get source code from \\url{https://github.com/Tharos-ux/wisp}').substitute(
         percentage=int(threshold*100), ratio=reads_ratio, number=number_subreads, version=version, nucleotids=nb_bp)
     figs: str = subfigure([f"{job_name}_pie_merge.svg",
-                          f"{job_name}_tree.svg"], f"Global data for {job_name}")
+                          f"{job_name}_tree.svg"], f"Global data for {job_name}", 0.4)
     return Template('\\begin{abstract}\n\\begin{sloppypar}\n$abstract\n\\end{sloppypar}\n\\end{abstract}$figures').substitute(abstract=abstract, figures=figs)
 
 
@@ -56,7 +56,7 @@ def tex_closure() -> str:
     return Template('\\end{document}').substitute()
 
 
-def subfigure(list_of_figures: list[str], caption: str) -> str:
+def subfigure(list_of_figures: list[str], caption: str, w: float) -> str:
     """Creates some LaTeX subfigures with all the plots required
 
     Args:
@@ -67,11 +67,11 @@ def subfigure(list_of_figures: list[str], caption: str) -> str:
         str: a LaTeX string with all figures
     """
     subfigure: Template = Template(
-        '\\includesvg[width=0.8\\textwidth]{$graph}')
+        '\\includesvg[width=$width\\textwidth]{$graph}')
     figure: Template = Template(
         '\\begin{figure}[h]\n\\centering\n$allfigures\n\\caption{$legend}\n\\label{$label}\n\\end{figure}')
     subfigures_collection: str = '\n'.join(
-        [subfigure.substitute(graph=f) for f in list_of_figures])
+        [subfigure.substitute(graph=f, width=w) for f in list_of_figures])
     return figure.substitute(allfigures=subfigures_collection, legend=caption, label=f"f-{caption}")
 
 
@@ -194,11 +194,11 @@ def generate_core_tex(params: dict, taxas_levels: list[str], reports: dict, test
     for i, clade in enumerate(taxas_levels):
         for h in all_hypothesis[i]:
             levels_figures.append(subfigure([f"{clade}_{h}_confusion_matrix.svg", f"{clade}_{h}_graph_reads.svg"],
-                                  f"Level {clade} for hypothesis {h}" if h != 'None' else f"Level {clade}"))
+                                  f"Level {clade} for hypothesis {h}" if h != 'None' else f"Level {clade}", 0.8))
             supplementary_figures.append(
-                subfigure([f"{clade}_{h}_boosting_results.svg", f"{clade}_{h}_feature_importance.svg"], f"Supplementary material for {h}") if enlable_supplementary_estimators else '\n')
+                subfigure([f"{clade}_{h}_boosting_results.svg", f"{clade}_{h}_feature_importance.svg"], f"Supplementary material for {h}", 0.8) if enlable_supplementary_estimators else '\n')
             supplementary_figures_2.append(
-                subfigure([f"{clade}_{h}_softprob.svg", f"{clade}_{h}_proba_reads.svg"], f"Supplementary material for {h}") if enlable_supplementary_estimators else '\n')
+                subfigure([f"{clade}_{h}_softprob.svg", f"{clade}_{h}_proba_reads.svg"], f"Supplementary material for {h}", 0.8) if enlable_supplementary_estimators else '\n')
             table_res = [[str(k)+' : '+str(v)]
                          for k, v in test_results[f"{clade}_{h}"].items()]
             titles.append(

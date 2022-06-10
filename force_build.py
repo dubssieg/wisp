@@ -3,16 +3,16 @@ from build_softprob import make_model, init_parameters
 from os import listdir
 from python_tools import my_function_timer, my_output_msg, my_logs_global_config, my_logs_clear
 from wisp_lib import load_mapping, load_json, check_if_database_exists, check_if_merged_model_exists, check_if_model_exists, check_if_merged_database_exists
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from traceback import format_exc
 
 
 @my_function_timer("Building full database")
-def build_full_db(args) -> None:
-    """For export or pre-processing purposes
+def build_full_db(args: Namespace) -> None:
+    """Builds full database, step by step, with all its models.
 
     Args:
-        db_name (str): _description_
+        args (Namespace): args of call
 
     Raises:
         ValueError: _description_

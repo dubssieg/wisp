@@ -1,8 +1,12 @@
 "Functions to encode and decode kmers"
 
 from functools import cache
+from typing import Generator
 from khmer import Countgraph
 from collections import Counter
+from time import monotonic
+from random import choice
+from itertools import product
 
 
 def recode_kmer_4(input: str, target_len: int):
@@ -144,3 +148,141 @@ def optimal_splitting(seq: str, window_size: int, max_sampling: int) -> set[str]
         raise ValueError("Read is too short.")
     shift: int = int((len(seq)-window_size)/max_sampling)
     return set([seq[shift*i:shift*i+window_size] for i in range(max_sampling)])
+
+
+def counter_fast(entry: str, kmer_size: int, pattern: str):
+    all_kmers: list = [entry[i:i+len(pattern)]
+                       for i in range(len(entry)-len(pattern)-1)]
+    if pattern != len(pattern) * '1':
+        all_kmers = [apply_filter(kmer, pattern) for kmer in all_kmers]
+    filtering = [alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']]
+    return Counter(x for x in all_kmers if x not in filtering)
+
+
+def apply_filter_fast(substring: str, pattern: str) -> str:
+    """From a set of chars, filter those which are discriminated by pattern
+
+    Args:
+        substring (str): set of chars we need to expurge chars from
+        pattern (str): pattern to select chars
+
+    Returns:
+        str: epurged str
+    """
+    # function that takes most of the time
+    return ''.join([c for i, c in enumerate(substring) if pattern[i] == '1'])
+
+####################################################################################
+
+
+def counter_ultrafast(entry: str, kmer_size: int, pattern: list) -> Counter:
+    """Counts all kmers and filter non-needed ones
+
+    Args:
+        entry (str): a subread
+        kmer_size (int): k size
+        pattern (str): 110110... pattern, to select specific chars in kmer
+
+    Returns:
+        Counter: counts of kmers inside subread
+    """
+    all_kmers = (entry[i:i+len(pattern)]
+                 for i in range(len(entry)-len(pattern)-1))
+    counts = Counter(all_kmers)
+    if pattern != len(pattern) * '1':
+        counts = Counter({ultrafast_filter(k, pattern): v for k, v in counts.items()})
+    for f in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
+        del counts[f]
+    return counts
+
+
+def ultrafast_filter(substring: str, pattern: list) -> str:
+    """Applies a positional filter over a string (! NEEDS REFINING)
+
+    Args:
+        substring (str): substring to clean
+        pattern (list): integers to be multiplied by
+
+    Returns:
+        str: a cleaned kmer
+    """
+    return ''.join([char * pattern[i] for i, char in enumerate(substring)])
+
+
+def splitting_generator(seq: str, window_size: int, max_sampling: int) -> Generator:
+    """Splits a lecture into subreads
+
+    Args:
+        seq (str): a DNA sequence
+        window_size (int): size of splits
+        max_sampling (int): maximum number of samples inside lecture
+
+    Raises:
+        ValueError: if read is too short
+
+    Yields:
+        Generator: subreads collection
+    """
+    if len(seq) < window_size:
+        raise ValueError("Read is too short.")
+    shift: int = int((len(seq)-window_size)/max_sampling)
+    for i in range(max_sampling):
+        yield seq[shift*i:shift*i+window_size]
+
+
+def encoder(ksize: int) -> dict:
+    """Generates a dict of codes for kmers
+
+    Args:
+        ksize (int): length of kmer
+
+    Returns:
+        dict: kmer:code
+    """
+    return {code: encode_kmer_4(code) for code in map(''.join, product('ATCG', repeat=ksize))}
+
+####################################################################################
+
+
+seq = ''.join([choice(['A', 'T', 'C', 'G']) for _ in range(1000000)])
+my_encoder = encoder(5)
+
+
+base = monotonic()
+
+splits = splitting_generator(seq, 10000, 500)
+counters = [counter_ultrafast(split, 5, [1, 1, 1, 0, 1, 1])
+            for split in splits]
+
+print(f"counter_ultrafast:generator en : {monotonic()-base}")
+base = monotonic()
+
+encoded = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
+
+#print(f"encode:generator en : {monotonic()-base}")
+base = monotonic()
+
+encoded = [{encode_kmer_4(k): v for k, v in cts.items()} for cts in counters]
+
+#print(f"encode:regular en : {monotonic()-base}")
+base = monotonic()
+
+splits = optimal_splitting(seq, 10000, 500)
+[counter_ultrafast(split, 5, [1, 1, 1, 0, 1, 1]) for split in splits]
+
+print(f"counter_ultrafast:regular en : {monotonic()-base}")
+
+base = monotonic()
+
+splits = optimal_splitting(seq, 10000, 500)
+[counter_fast(split, 5, '111011') for split in splits]
+
+print(f"counter_fast en : {monotonic()-base}")
+
+base = monotonic()
+
+splits = optimal_splitting(seq, 10000, 500)
+[kmer_indexing_brut(split, 5, '111011') for split in splits]
+
+
+print(f"kmer_indexing_brut en : {monotonic()-base}")
