@@ -119,7 +119,7 @@
             1
         ]
     ],
-    "input_train": "genomes/Lacto/",
+    "input_train": "genomes/train/",
     "input_unk": "genomes/unk/",
     "database_output": "data/",
     "reports_output": "output/",

@@ -41,7 +41,7 @@ def my_params():
         'family_sample': [4, [1, 1, 1, 1]],
         'merged_sample': [4, [1, 1, 1, 1]],
         # 'input' : location of reference genomes
-        'input_train': "genomes/Lacto/",
+        'input_train': "genomes/train/",
         # 'input_unk' : location of unk genomes
         'input_unk': "genomes/unk/",
         # 'output' : output for database
