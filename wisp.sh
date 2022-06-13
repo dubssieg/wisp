@@ -32,4 +32,5 @@ python $2
 conda deactivate
 
 # example use:
-# sbatch --cpus-per-task=8 --mem=50G wisp.sh "/home/genouest/genscale/sdubois/wisp-env" "wisp.py -b"
+# sbatch --cpus-per-task=8 --mem=50G wisp.sh "/home/genouest/genscale/sdubois/wisp-env" "wisp.py -b -t 8"
+# sbatch --cpus-per-task=8 --mem=50G wisp.sh "/home/genouest/genscale/sdubois/wisp-env" "wisp.py -t 8"
