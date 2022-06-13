@@ -189,8 +189,10 @@ def counter_ultrafast(entry: str, kmer_size: int, pattern: list) -> Counter:
     all_kmers = (entry[i:i+len(pattern)]
                  for i in range(len(entry)-len(pattern)-1))
     counts = Counter(all_kmers)
+    counts_reverse = Counter({reverse_comp(k): v for k, v in counts.items()})
+    all_counts = counts + counts_reverse
     if pattern != len(pattern) * '1':
-        counts = Counter({ultrafast_filter(k, pattern): v for k, v in counts.items()})
+        counts = Counter({ultrafast_filter(k, pattern)                         : v for k, v in all_counts.items()})
     for f in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
         del counts[f]
     return counts
@@ -244,45 +246,52 @@ def encoder(ksize: int) -> dict:
 ####################################################################################
 
 
-seq = ''.join([choice(['A', 'T', 'C', 'G']) for _ in range(1000000)])
-my_encoder = encoder(5)
+if __name__ == "__main__":
+    seq = ''.join([choice(['A', 'T', 'C', 'G']) for _ in range(1000000)])
+    my_encoder = encoder(5)
 
+    base = monotonic()
 
-base = monotonic()
+    splits = splitting_generator(seq, 10000, 500)
+    counters = [kmer_indexing_canonical(split, 5, "111011")
+                for split in splits]
 
-splits = splitting_generator(seq, 10000, 500)
-counters = [counter_ultrafast(split, 5, [1, 1, 1, 0, 1, 1])
-            for split in splits]
+    print(f"kmer_canonique:generator en : {monotonic()-base}")
+    base = monotonic()
 
-print(f"counter_ultrafast:generator en : {monotonic()-base}")
-base = monotonic()
+    splits = splitting_generator(seq, 10000, 500)
+    counters = [counter_ultrafast(split, 5, [1, 1, 1, 0, 1, 1])
+                for split in splits]
 
-encoded = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
+    print(f"counter_ultrafast:generator en : {monotonic()-base}")
+    base = monotonic()
 
-#print(f"encode:generator en : {monotonic()-base}")
-base = monotonic()
+    encoded = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
 
-encoded = [{encode_kmer_4(k): v for k, v in cts.items()} for cts in counters]
+    #print(f"encode:generator en : {monotonic()-base}")
+    base = monotonic()
 
-#print(f"encode:regular en : {monotonic()-base}")
-base = monotonic()
+    encoded = [{encode_kmer_4(k): v for k, v in cts.items()}
+               for cts in counters]
 
-splits = optimal_splitting(seq, 10000, 500)
-[counter_ultrafast(split, 5, [1, 1, 1, 0, 1, 1]) for split in splits]
+    #print(f"encode:regular en : {monotonic()-base}")
+    base = monotonic()
 
-print(f"counter_ultrafast:regular en : {monotonic()-base}")
+    splits = optimal_splitting(seq, 10000, 500)
+    [counter_ultrafast(split, 5, [1, 1, 1, 0, 1, 1]) for split in splits]
 
-base = monotonic()
+    print(f"counter_ultrafast:regular en : {monotonic()-base}")
 
-splits = optimal_splitting(seq, 10000, 500)
-[counter_fast(split, 5, '111011') for split in splits]
+    base = monotonic()
 
-print(f"counter_fast en : {monotonic()-base}")
+    splits = optimal_splitting(seq, 10000, 500)
+    [counter_fast(split, 5, '111011') for split in splits]
 
-base = monotonic()
+    print(f"counter_fast en : {monotonic()-base}")
 
-splits = optimal_splitting(seq, 10000, 500)
-[kmer_indexing_brut(split, 5, '111011') for split in splits]
+    base = monotonic()
 
+    splits = optimal_splitting(seq, 10000, 500)
+    [kmer_indexing_brut(split, 5, '111011') for split in splits]
 
-print(f"kmer_indexing_brut en : {monotonic()-base}")
+    print(f"kmer_indexing_brut en : {monotonic()-base}")

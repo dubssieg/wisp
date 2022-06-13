@@ -17,7 +17,6 @@ def build_full_db(args: Namespace) -> None:
     Raises:
         ValueError: _description_
     """
-
     # we try to load params file and gather data from it
     try:
         my_params: dict = load_json(args.params)
@@ -26,7 +25,9 @@ def build_full_db(args: Namespace) -> None:
         DATABASE: str = args.database_name
         TRAIN_PATH: str = my_params['input_train']
         DATABASE_PATH: str = my_params['database_output']
-        TAXAS_LEVELS: list[str] = my_params['levels_list']
+        TAXAS_LEVELS: list[str] = [
+            t for t in my_params['levels_list'] if t in args.levels]
+        GLOBAL_TAXAS_LEVELS: list[str] = my_params['levels_list']
         nr = int(my_params['nb_boosts'])
         tree_depth = int(my_params['tree_depth'])
         force_rebuild = bool(my_params['force_model_rebuild'])
@@ -34,10 +35,10 @@ def build_full_db(args: Namespace) -> None:
         KMER_SIZE_MERGED_REF, SAMPLING_MERGED_REF, PATTERN_MERGED_REF = my_params[
             f"merged_ref"]
     # if any error happens
-    except:
+    except Exception as exc:
         my_output_msg(format_exc())
         raise ValueError(
-            "Incorrect or missing parameters file ; check path and/or contents of json reference.")
+            "Incorrect or missing parameters file ; check path and/or contents of json reference.") from exc
 
     list_of_genomes = [genome.split('.')[0]
                        for genome in listdir(f"{TRAIN_PATH}")]
@@ -45,7 +46,7 @@ def build_full_db(args: Namespace) -> None:
         if taxa != 'merged':
             KMER_SIZE_REF, SAMPLING_REF, PATTERN_REF = my_params[f"{taxa}_ref"]
 
-            list_parent_level = [i for i in set([e.split('_')[TAXAS_LEVELS.index(
+            list_parent_level = [i for i in set([e.split('_')[GLOBAL_TAXAS_LEVELS.index(
                 taxa)-1] for e in list_of_genomes])] if taxa != 'domain' else [False]
 
             for parent_level in list_parent_level:
@@ -119,7 +120,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "params", help="path to a params .json file", type=str)
     parser.add_argument(
-        "-l", "--levels", help="specific level(s) to build", type=list, default=['domain', 'phylum', 'group', 'order', 'family', 'merged'])
+        "-l", "--levels", help="specific level(s) to build", default=['domain', 'phylum', 'group', 'order', 'family', 'merged'])
 
     # executing args
     args = parser.parse_args()

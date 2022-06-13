@@ -4,7 +4,7 @@ from python_tools import my_parser, my_function_timer
 from collections import Counter
 from random import randrange
 from functools import reduce
-from wisp_lib import species_map, encode_kmer_4, write_xgboost_data, load_mapping, optimal_splitting, kmer_indexing_canonical
+from wisp_lib import species_map, encode_kmer_4, write_xgboost_data, load_mapping, splitting_generator, kmer_indexing_canonical, counter_ultrafast
 from os import listdir
 from json import dump
 from pathlib import Path
@@ -64,7 +64,7 @@ class Sample:
         self.counts = count_func(self.seq, self.ksize, self.pattern)
     """
 
-    def __init__(self, seq_dna: str, kmer_size: int, pattern: str, count_func: Callable | None, seq_specie: str | None = None, counting=True):
+    def __init__(self, seq_dna: str, kmer_size: int, pattern: list, count_func: Callable | None, seq_specie: str | None = None, counting=True):
         """Inits a new Sample object, container for sequence
 
         Args:
@@ -97,7 +97,7 @@ class Sample:
         return str(num_sp) + " " + ' '.join([f"{encode_kmer_4(k)}:{v}" for k, v in self.counts.items()])
 
 
-def call_loader(path: str, size_kmer: int, classif_level_int: int, filter: str | None, type_data: str, pattern: str) -> list:
+def call_loader(path: str, size_kmer: int, classif_level_int: int, filter: str | None, type_data: str, pattern: list) -> list:
     """Calls concurentially genomes loading inside sample objects
 
     Args:
@@ -120,7 +120,7 @@ def call_loader(path: str, size_kmer: int, classif_level_int: int, filter: str |
     #my_futures_collector(load_and_compute_one_genome, lst_sequences, 10)
 
 
-def load_and_compute_one_genome(path: str, elt: str, size_kmer: int, pattern: str) -> list[Sample]:
+def load_and_compute_one_genome(path: str, elt: str, size_kmer: int, pattern: list) -> list[Sample]:
     """Generate sample for one genome
 
     Args:
@@ -222,7 +222,7 @@ def mapping_merged_sp(input_dir: str, path: str, db_name: str) -> dict:
 
 
 @my_function_timer("Building datasets")
-def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: str, datas: list[str], sampling: int, db_name: str, classif_level: str, kmer_size: int, read_size: int, pattern: str,  sp_determied: str | None):
+def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: str, datas: list[str], sampling: int, db_name: str, classif_level: str, kmer_size: int, read_size: int, pattern: list,  sp_determied: str | None):
     """
     Create the datasets and calls for storage
 
@@ -264,13 +264,13 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
                 try:
                     # we create optimal list of reads
                     if type_data == 'test':
-                        all_reads = optimal_splitting(
+                        all_reads = splitting_generator(
                             sp.seq, sp.size, int(sampling/3))
                     else:
-                        all_reads = optimal_splitting(
+                        all_reads = splitting_generator(
                             sp.seq, read_size, sampling)
                     # then, we calculate
-                    all_counts = [kmer_indexing_canonical(read, kmer_size, pattern)
+                    all_counts = [counter_ultrafast(read, kmer_size, pattern)
                                   for read in all_reads]
                     lines = lines + \
                         [f"{sp.encoding_mapping(sp_map[sp.specie.split('_')[taxa[classif_level]]])} {' '.join([str(encode_kmer_4(k))+':'+str(v) for k, v in counts.items()])}" for counts in all_counts]

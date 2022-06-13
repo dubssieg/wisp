@@ -3,59 +3,123 @@
     "sampling_objective": 500,
     "domain_ref": [
         5,
-        100,
-        "11111"
+        20,
+        [
+            1,
+            1,
+            1,
+            1,
+            1
+        ]
     ],
     "phylum_ref": [
         5,
-        150,
-        "11111"
+        50,
+        [
+            1,
+            1,
+            1,
+            1,
+            1
+        ]
     ],
     "group_ref": [
         4,
-        500,
-        "1111"
+        100,
+        [
+            1,
+            1,
+            1,
+            1
+        ]
     ],
     "order_ref": [
         4,
-        400,
-        "1111"
+        100,
+        [
+            1,
+            1,
+            1,
+            1
+        ]
     ],
     "family_ref": [
         4,
-        200,
-        "1111"
+        100,
+        [
+            1,
+            1,
+            1,
+            1
+        ]
     ],
     "merged_ref": [
         4,
-        100,
-        "11011"
+        50,
+        [
+            1,
+            1,
+            1,
+            1
+        ]
     ],
     "domain_sample": [
         5,
-        "11111"
+        [
+            1,
+            1,
+            1,
+            1,
+            1
+        ]
     ],
     "phylum_sample": [
         5,
-        "11111"
+        [
+            1,
+            1,
+            1,
+            1,
+            1
+        ]
     ],
     "group_sample": [
         4,
-        "1111"
+        [
+            1,
+            1,
+            1,
+            1
+        ]
     ],
     "order_sample": [
         4,
-        "1111"
+        [
+            1,
+            1,
+            1,
+            1
+        ]
     ],
     "family_sample": [
         4,
-        "1111"
+        [
+            1,
+            1,
+            1,
+            1
+        ]
     ],
     "merged_sample": [
         4,
-        "11011"
+        [
+            1,
+            1,
+            1,
+            1
+        ]
     ],
-    "input_train": "genomes/train/",
+    "input_train": "genomes/Lacto/",
     "input_unk": "genomes/unk/",
     "database_output": "data/",
     "reports_output": "output/",

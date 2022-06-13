@@ -12,7 +12,7 @@
 
 from constants import DATABASE, PARAMS, SAMPLE_PATH, PREFIX_JOB, LEVELS
 from os import listdir, system
-from python_tools import my_output_msg, my_function_timer, my_logs_clear, my_logs_global_config, my_futures_collector
+from python_tools import my_output_msg, my_function_timer, my_logs_global_config, my_futures_collector
 from argparse import ArgumentParser
 
 # constants ; change those to select database and such
@@ -30,7 +30,7 @@ def core_call(multithreading_state: int, building_state: bool) -> None:
     if building_state:
         if multithreading_state > 1:
             my_futures_collector(system, [
-                                 [f"python force_build.py {DATABASE} {PARAMS} {level}"] for level in LEVELS], multithreading_state)
+                                 [f"python force_build.py {DATABASE} {PARAMS} -l {[level]}"] for level in LEVELS], multithreading_state)
         else:
             system(f"python force_build.py {DATABASE} {PARAMS}")
     else:
@@ -44,15 +44,14 @@ def core_call(multithreading_state: int, building_state: bool) -> None:
                         f"python main.py {DATABASE} {PARAMS} {PREFIX_JOB}_{file[:-4]} -f {file}")
                     my_output_msg(
                         f"Sucessfully processed sample {i+1} out of {len(file_list)}. Results are in output/ folder")
-                except:
-                    my_output_msg(
-                        f"Job failed for sample number {i+1} ({file})")
+                except Exception as exc:
+                    raise ValueError(
+                        f"Job failed for sample number {i+1} ({file})") from exc
 
 
 if __name__ == "__main__":
     "Executes main procedure"
     # we clean log before entering loop, might be enormous
-    my_logs_clear("LOG_wisp.log")
     my_logs_global_config("LOG_wisp")
     parser = ArgumentParser()
     parser.add_argument(

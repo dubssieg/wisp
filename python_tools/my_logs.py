@@ -18,6 +18,8 @@ def my_logs_clear(filepath: str):
 
 
 def my_logs_global_config(filepath: str):
+    "Clears log and defines logging info"
+    my_logs_clear(f"{filepath}.log")
     basicConfig(format='%(asctime)s %(message)s', datefmt='[%m/%d/%Y %I:%M:%S %p]', filename=f"{filepath}.log",
                 encoding='utf-8', level=INFO)
 

@@ -4,10 +4,10 @@ from traceback import format_exc
 from sample_class import make_datasets, make_unk_datasets
 from build_softprob import make_model, init_parameters, make_testing
 from warnings import filterwarnings
-from python_tools import my_logs_global_config, my_output_msg, my_fasta_parser
+from python_tools import my_output_msg, my_fasta_parser
 from datetime import datetime
-from wisp_view import plot_boosting, plot_pie_merge, make_doc, global_sample_report
-from wisp_lib import kmer_indexing_brut, kmer_indexing_canonical, reverse_comp, optimal_splitting, check_if_database_exists, check_if_model_exists, check_if_merged_database_exists, load_mapping, load_json, check_if_merged_model_exists
+from wisp_view import plot_boosting, make_doc, global_sample_report
+from wisp_lib import counter_ultrafast, kmer_indexing_canonical, reverse_comp, splitting_generator, check_if_database_exists, check_if_model_exists, check_if_merged_database_exists, load_mapping, load_json, check_if_merged_model_exists
 from predictors import test_unk_sample, save_output, test_model
 from pathlib import Path
 from _version import get_versions
@@ -18,7 +18,6 @@ if __name__ == "__main__":
     ############################################ ARGPARSE ###############################################
 
     filterwarnings('ignore')  # to ignore xgboost warnnings
-    my_logs_global_config("LOG_wisp")
 
     parser = ArgumentParser()
 
@@ -64,10 +63,10 @@ if __name__ == "__main__":
         KMER_SIZE_MERGED_SAMPLE, PATTERN_MERGED_SAMPLE = my_params[
             f"merged_sample"]
     # if any error happens
-    except:
+    except Exception as exc:
         my_output_msg(format_exc())
         raise ValueError(
-            "Incorrect or missing parameters file ; check path and/or contents of json reference.")
+            "Incorrect or missing parameters file ; check path and/or contents of json reference.") from exc
 
     input_file: str = f"{args.file}"
     fasta_reads: dict = my_fasta_parser(
@@ -88,7 +87,7 @@ if __name__ == "__main__":
                 jobs: list[str] = [f"{args.job_name}_read_{i}"]
                 path_for_read: list[str] = [
                     f"{REPORTS_PATH}{input_file}/{job}/" for job in jobs]
-                all_reads = [optimal_splitting(
+                all_reads = [splitting_generator(
                     read, WINDOW, SAMPLING_OBJECTIVE)]
                 count_func = kmer_indexing_canonical
             else:
@@ -99,9 +98,9 @@ if __name__ == "__main__":
                 path_for_read: list[str] = [
                     f"{REPORTS_PATH}{input_file}/{job}/" for job in jobs]
                 rds = [read, reverse_comp(read)]
-                all_reads = [optimal_splitting(
+                all_reads = [splitting_generator(
                     read, WINDOW, SAMPLING_OBJECTIVE) for read in rds]
-                count_func = kmer_indexing_brut
+                count_func = counter_ultrafast
             for path in path_for_read:
                 Path(path).mkdir(parents=True, exist_ok=True)
 
