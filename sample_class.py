@@ -4,7 +4,7 @@ from python_tools import my_parser, my_function_timer
 from collections import Counter
 from random import randrange
 from functools import reduce
-from wisp_lib import species_map, encode_kmer_4, write_xgboost_data, load_mapping, splitting_generator, kmer_indexing_canonical, counter_ultrafast
+from wisp_lib import species_map, encoder, encode_kmer_4, write_xgboost_data, load_mapping, splitting_generator, kmer_indexing_canonical, counter_ultrafast
 from os import listdir
 from json import dump
 from pathlib import Path
@@ -281,7 +281,7 @@ def make_datasets(input_style: bool | str, job_name: str, input_dir: str, path: 
 
 
 @my_function_timer("Building datasets")
-def make_unk_datasets(all_reads, job_name: str, path: str, db_name: str, classif_level: str, kmer_size: int, pattern: str,  sp_determied: str | None, func: Callable):
+def make_unk_datasets(all_reads, job_name: str, path: str, db_name: str, classif_level: str, kmer_size: int, pattern: list,  sp_determied: str | None, func: Callable) -> int:
     """
     Create the datasets and calls for storage
 
@@ -293,10 +293,12 @@ def make_unk_datasets(all_reads, job_name: str, path: str, db_name: str, classif
 
     Returns number of subreads in dataset
     """
-    # TODO testing
-    all_counts = [func(read, kmer_size, pattern)
-                  for read in all_reads]
+    my_encoder = encoder(kmer_size)
+    counters = [counter_ultrafast(split, kmer_size, pattern)
+                for split in all_reads]
+    encoded = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
     lines = [
-        f"0 {' '.join([str(encode_kmer_4(k))+':'+str(v) for k, v in counts.items()])}" for counts in all_counts]
+        f"0 {' '.join([str(k)+':'+str(v) for k, v in counts.items()])}" for counts in encoded]
     write_xgboost_data(lines, path,
                        classif_level, 'unk', db_name, job_name, sp_determied)
+    return len(lines)

@@ -7,14 +7,14 @@ from typing import Callable
 EMAIL: str = 'siegfried.dubois@inria.fr'
 ANNOTATE_PATH: str = "genomes/to_annotate"
 SUMMARY_FILE: str = "genomes/assembly_summary.txt"
-UNK_PATH: str = "genomes/unk/"
-TRAIN_PATH: str = "genomes/train"
+UNK_PATH: str = "genomes/unk_small/"
+TRAIN_PATH: str = "genomes/train_small"
 
 # for wisp.py
-DATABASE: str = "143_genomes"
-PARAMS: str = "wisp_params_143genomes.json"
-SAMPLE_PATH: str = "genomes/unk/"
-PREFIX_JOB: str = "l"
+DATABASE: str = "tmp_database"
+PARAMS: str = "wisp_params_pipeline.json"
+SAMPLE_PATH: str = "genomes/unk_small/"
+PREFIX_JOB: str = "onevsall"
 LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family', 'merged']
 
 # for plotters.py

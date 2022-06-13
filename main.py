@@ -87,9 +87,9 @@ if __name__ == "__main__":
                 jobs: list[str] = [f"{args.job_name}_read_{i}"]
                 path_for_read: list[str] = [
                     f"{REPORTS_PATH}{input_file}/{job}/" for job in jobs]
-                all_reads = [splitting_generator(
+                all_reads = [read for read in splitting_generator(
                     read, WINDOW, SAMPLING_OBJECTIVE)]
-                count_func = kmer_indexing_canonical
+                count_func = counter_ultrafast
             else:
                 my_output_msg(
                     f"Processing read {i+1} out of {len(fasta_reads)}...")
@@ -157,9 +157,9 @@ if __name__ == "__main__":
                             make_model(JOB, DATABASE_PATH, taxa, DATABASE,
                                        parent_level, init_parameters(len(map_sp), tree_depth), number_rounds=nr)
 
-                        make_unk_datasets(
+                        number_of_reads = make_unk_datasets(
                             func=count_func,
-                            all_reads=all_reads[i],
+                            all_reads=all_reads,
                             job_name=JOB,
                             path=DATABASE_PATH,
                             db_name=DATABASE,
@@ -194,7 +194,7 @@ if __name__ == "__main__":
                                                                                  DATABASE_PATH, JOB, DATABASE, taxa, reads_threshold, parent_level, func_reads))
 
                         output_temp = test_unk_sample(path_for_read[i],
-                                                      DATABASE_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold, test_state, len(all_reads[i]), func_reads, test_state)
+                                                      DATABASE_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold, test_state, number_of_reads, func_reads, test_state)
                         topmost[f"{taxa}_{parent_level}"] = output_temp[f"Reads summation {taxa}"]
 
                         if f"Possible for {taxa}" in output:

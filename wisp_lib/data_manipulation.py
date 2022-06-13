@@ -106,8 +106,9 @@ def write_xgboost_data(data: list[str], dpath: str, classif_level: str, suffix: 
         mode = 'a'
     else:
         mode = 'w'
-    with open(my_path, mode) as writer:
-        writer.write('\n'.join(data)+'\n')
+    if data != []:
+        with open(my_path, mode) as writer:
+            writer.write('\n'.join(data)+'\n')
 
 
 def check_if_merged_database_exists(db_name: str, path: str) -> bool:

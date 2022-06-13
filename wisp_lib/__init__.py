@@ -19,5 +19,6 @@ from .kmers_coders import optimal_splitting
 from .kmers_coders import reverse_comp
 from .kmers_coders import splitting_generator
 from .kmers_coders import counter_ultrafast
+from .kmers_coders import encoder
 
 from .parameters_init import load_json
