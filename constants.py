@@ -11,8 +11,8 @@ UNK_PATH: str = "genomes/unk/"
 TRAIN_PATH: str = "genomes/train"
 
 # for wisp.py
-DATABASE: str = "1024_genomes"
-PARAMS: str = "wisp_params.json"
+DATABASE: str = "143_genomes"
+PARAMS: str = "wisp_params_143genomes.json"
 SAMPLE_PATH: str = "genomes/unk/"
 PREFIX_JOB: str = "l"
 LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family', 'merged']

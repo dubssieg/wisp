@@ -5,6 +5,7 @@ from os import listdir, system
 from json import load
 from pandas import DataFrame
 from random import shuffle
+from argparse import ArgumentParser
 
 FOLDER_LIST: list[str] = [
     '10p_010dmean_143genomes',
@@ -57,7 +58,8 @@ def extract_families_with_enough_representatives(t: int):
     print(f"Database contains {len(all_genomes)} reference genomes")
     selected = [f for f, v in Counter(all_genomes).items() if v >= t]
     print(f"Len: {len(selected)} -> {selected}")
-    # extraction(selected)
+    if t != 0:
+        extraction(selected)
 
 
 def extraction(selected):
@@ -70,4 +72,11 @@ def extraction(selected):
             system(f"cp genomes/train/{e} genomes/sampled/{e}")
 
 
-number_of_classes(3)
+if __name__ == "__main__":
+    "Executes main procedure"
+    # we clean log before entering loop, might be enormous
+    parser = ArgumentParser()
+    parser.add_argument(
+        "-s", "--sample", type=int, default=0, help="Gives a objective number of genomes to WISP")
+    args = parser.parse_args()
+    number_of_classes(args.sample)
