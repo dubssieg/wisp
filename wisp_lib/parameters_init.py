@@ -22,14 +22,15 @@ def save_json(json_file: str, dico_save: dict) -> None:
 
 
 def my_params(filename: str):
+    sparkle: str = "small"
     # dict to be converted in .json file to create our parameters set
     params_job: dict = {
         # subreads size and max. of reads in sample
         'window_size': 10000,
         'sampling_objective': 500,
         # params for your database here [kmer_size, subsampling_depth, pattern]
-        'domain_ref': [5, 20, [1, 1, 1, 1, 1]],
-        'phylum_ref': [5, 50, [1, 1, 1, 1, 1]],
+        'domain_ref': [5, 50, [1, 1, 1, 1, 1]],
+        'phylum_ref': [5, 100, [1, 1, 1, 1, 1]],
         'group_ref': [4, 100, [1, 1, 1, 1]],
         'order_ref': [4, 100, [1, 1, 1, 1]],
         'family_ref': [4, 100, [1, 1, 1, 1]],
@@ -42,12 +43,12 @@ def my_params(filename: str):
         'family_sample': [4, [1, 1, 1, 1]],
         'merged_sample': [4, [1, 1, 1, 1]],
         # 'input' : location of reference genomes
-        'input_train': "genomes/train_small/",
+        'input_train': f"genomes/train_{sparkle}/",
         # 'input_unk' : location of unk genomes
-        'input_unk': "genomes/unk_small/",
+        'input_unk': f"genomes/unk_{sparkle}/",
         # 'output' : output for database
         'database_output': "data/",
-        'reports_output': "output/",
+        'reports_output': f"output/{sparkle}/",
         # parameters for exploration and algorithm
         'threshold': 0.10,
         'nb_boosts': 10,
@@ -69,9 +70,9 @@ def my_params(filename: str):
         'annotate_path': 'genomes/to_annotate',
         'accession_numbers': 'genomes/assembly_summary.txt',
         # name for database
-        'db_name': 'c_db',
-        'prefix_job': 'small_test',
-        'log_file': 'LOG_wisp'
+        'db_name': sparkle,
+        'prefix_job': sparkle,
+        'log_file': f'LOG_wisp_{sparkle}'
     }
     save_json(filename, params_job)
 

@@ -1,10 +1,9 @@
 #!/bin/bash
 
-for FILE in genomes/train_small/*
+for FILE in "genomes/train_"$1/*
 do
-    mv "genomes/train_small/"$(basename $FILE) "genomes/unk_small/"
-    rm -r data/tmp_database
-    python wisp.py -b -t 8
-    python wisp.py
-    mv "genomes/unk_small/"$(basename $FILE) "genomes/train_small/"
+    mv "genomes/train_"$1"/"$(basename $FILE) "genomes/unk_small/"
+    echo "Processing "$(basename $FILE)
+    python wisp.py "wisp_params_"$1".json" -e $(basename $FILE) -v
+    mv "genomes/unk_"$1"/"$(basename $FILE) "genomes/train_small/"
 done

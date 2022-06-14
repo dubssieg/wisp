@@ -20,7 +20,7 @@ import subprocess
 
 
 @my_function_timer("WISP run")
-def core_call(multithreading_state: int, building_state: bool, params: str, taxas_levels: list[str], db: str, unk_path: str, job_prefix: str) -> None:
+def core_call(exclusion: str, multithreading_state: int, building_state: bool, params: str, taxas_levels: list[str], db: str, unk_path: str, job_prefix: str) -> None:
     """
     Calls the building and prediction functions with global constants defined above
     If a job fails, skips to the next one
@@ -33,7 +33,7 @@ def core_call(multithreading_state: int, building_state: bool, params: str, taxa
             case False:
                 file_list: list[str] = listdir(unk_path)
                 communicators = my_futures_collector(subprocess.Popen, [[
-                    shlex.split(f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file}")] for file in file_list], multithreading_state)
+                    shlex.split(f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {exclusion}")] for file in file_list], multithreading_state)
         retcodes = [p.communicate() for p in communicators]
     except Exception as exc:
         raise BaseException("Job failed") from exc
@@ -54,6 +54,8 @@ if __name__ == "__main__":
         "-b", "--build", help="Calls for database building instead of prediciton", action='store_true')
     parser.add_argument(
         "-t", "--multithreading", type=int, default=1, help="Gives a thread number for WISP")
+    parser.add_argument(
+        "-e", "--exclude", type=str, help="Used for one-vs-all tests")
     args = parser.parse_args()
 
     try:
@@ -73,5 +75,5 @@ if __name__ == "__main__":
 
     my_logs_global_config(LOG_FILE, verbose=args.verbose)
 
-    core_call(args.multithreading, args.build, args.params,
+    core_call(args.exclude, args.multithreading, args.build, args.params,
               TAXAS_LEVELS, DATABASE, SAMPLES_PATH, JOB_PREFIX)

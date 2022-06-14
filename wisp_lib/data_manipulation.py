@@ -1,5 +1,6 @@
 "Functions to manipulate data such as JSON, LIBSVM..."
 
+from logging import warning
 from xgboost import DMatrix
 from os import listdir, path
 from pathlib import Path
@@ -62,7 +63,7 @@ def species_map(input_dir: str, int_level: int, filter: str | None = None) -> di
     return {species_listed[i]: i for i in range(len(species_listed))}
 
 
-def load_xgboost_data(dpath: str, classif_level: str, suffix: str, db_name: str, sp_determined: str | None, sample_name: str):
+def load_xgboost_data(dpath: str, classif_level: str, suffix: str, db_name: str, sp_determined: str | None, exclude: list[str] = []):
     """
     Return the target dataframe
 
@@ -72,13 +73,32 @@ def load_xgboost_data(dpath: str, classif_level: str, suffix: str, db_name: str,
     * db_name (str) : database we need to search in
     * sp_determined (str | None): upper level we've already determined
     """
+    # path handling
     if suffix == 'unk':
-        my_path = f"{dpath}data.txt.{suffix}"
+        my_path = f"{dpath}{db_name}/data.txt.{suffix}"
     elif sp_determined is None:
         my_path = f"{dpath}{db_name}/{classif_level}/data.txt.{suffix}"
     else:
         my_path = f"{dpath}{db_name}/{classif_level}/{sp_determined}_data.txt.{suffix}"
-    return DMatrix(my_path)
+
+    # exclusion list handling
+    if exclude != [] and suffix != 'unk':
+        keep = []
+        with open(my_path, 'r') as reader:
+            for line in reader:
+                skip = False
+                for ex in exclude:
+                    if ex in line:
+                        skip = True
+                if not skip:
+                    keep.append(line)
+        my_path = f"{dpath}{db_name}/data.txt.{suffix}"
+        with open(my_path, "w") as writer:
+            writer.write('\n'.join(keep))
+    try:
+        return DMatrix(my_path)
+    except:
+        my_output_msg(f"Job failed for {exclude[0]}", warning)
 
 
 def write_xgboost_data(data: list[str], dpath: str, classif_level: str, suffix: str, db_name: str, sample_name: str, sp_determined: str | None) -> None:
@@ -95,7 +115,7 @@ def write_xgboost_data(data: list[str], dpath: str, classif_level: str, suffix: 
     """
     if suffix == 'unk':
         Path(f"{dpath}").mkdir(parents=True, exist_ok=True)
-        my_path = f"{dpath}data.txt.{suffix}"
+        my_path = f"{dpath}{db_name}/data.txt.{suffix}"
     elif sp_determined is None:
         Path(f"{dpath}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
         my_path = f"{dpath}{db_name}/{classif_level}/data.txt.{suffix}"
@@ -108,7 +128,7 @@ def write_xgboost_data(data: list[str], dpath: str, classif_level: str, suffix: 
         mode = 'w'
     if data != []:
         with open(my_path, mode) as writer:
-            writer.write('\n'.join(data)+'\n')
+            writer.write('\n'.join(data))
 
 
 def check_if_merged_database_exists(db_name: str, path: str) -> bool:

@@ -59,7 +59,6 @@ def build_full_db(args: Namespace) -> None:
                         f"Building dataset at level {taxa} for parent level {parent_level}")
 
                     make_datasets(
-                        input_style=False,
                         job_name=JOB,
                         input_dir=TRAIN_PATH,
                         path=DATABASE_PATH,
@@ -78,14 +77,13 @@ def build_full_db(args: Namespace) -> None:
                     map_sp = load_mapping(DATABASE_PATH, DATABASE,
                                           taxa, parent_level)
 
-                    make_model(JOB, DATABASE_PATH, taxa, DATABASE,
+                    make_model([], DATABASE_PATH, taxa, DATABASE,
                                parent_level, init_parameters(len(map_sp), tree_depth), number_rounds=nr)
         else:
 
             if not check_if_merged_database_exists(DATABASE, DATABASE_PATH):
 
                 make_datasets(
-                    input_style=False,
                     job_name=JOB,
                     input_dir=TRAIN_PATH,
                     path=DATABASE_PATH,
@@ -104,7 +102,7 @@ def build_full_db(args: Namespace) -> None:
 
             if not check_if_merged_model_exists(DATABASE, DATABASE_PATH):
                 # needs to create merged database
-                make_model(JOB, DATABASE_PATH, 'merged', DATABASE,
+                make_model([], DATABASE_PATH, 'merged', DATABASE,
                            'merged', init_parameters(len(map_merged_sp), tree_depth), number_rounds=nr)
 
 

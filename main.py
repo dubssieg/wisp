@@ -29,6 +29,8 @@ if __name__ == "__main__":
     parser.add_argument("job_name", help="name of the given job", type=str)
     parser.add_argument(
         "-f", "--file", type=str, help="file to load. if not specified, loads the full unk/ folder")
+    parser.add_argument(
+        "-e", "--exclude", default=[], help="Used for one-vs-all tests")
 
     # executing args
     args = parser.parse_args()
@@ -39,6 +41,7 @@ if __name__ == "__main__":
     try:
         my_params: dict = load_json(args.params)
         # storing args
+        exclude: list[str] = [args.exclude] if args.exclude != [] else []
 
         DATABASE: str = args.database_name
         TAXAS_LEVELS: list[str] = my_params['levels_list']
@@ -130,7 +133,6 @@ if __name__ == "__main__":
                         if not check_if_database_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
 
                             make_datasets(
-                                input_style=False,
                                 job_name=JOB,
                                 input_dir=TRAIN_PATH,
                                 path=DATABASE_PATH,
@@ -154,7 +156,7 @@ if __name__ == "__main__":
 
                         if force_rebuild or not check_if_model_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
 
-                            make_model(JOB, DATABASE_PATH, taxa, DATABASE,
+                            make_model(exclude, DATABASE_PATH, taxa, DATABASE,
                                        parent_level, init_parameters(len(map_sp), tree_depth), number_rounds=nr)
 
                         number_of_reads = make_unk_datasets(
@@ -172,6 +174,7 @@ if __name__ == "__main__":
                         # full test set, takes time, but gives info on structure
                         if test_state == 'verbose':
                             successive_boost_results = make_testing(
+                                exclude=exclude,
                                 path_to_save=path_for_read[i],
                                 size_kmer=KMER_SIZE_REF,
                                 job_name=JOB,
@@ -191,7 +194,7 @@ if __name__ == "__main__":
                         if test_state != 'no_test':
                             # base tests for heatmap and evaluators
                             test_results[f"{taxa}_{parent_level}"] = (test_model(path_for_read[i],
-                                                                                 DATABASE_PATH, JOB, DATABASE, taxa, reads_threshold, parent_level, func_reads))
+                                                                                 DATABASE_PATH, JOB, DATABASE, taxa, reads_threshold, parent_level, func_reads, exclude))
 
                         output_temp = test_unk_sample(path_for_read[i],
                                                       DATABASE_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold, test_state, number_of_reads, func_reads, test_state)
@@ -208,7 +211,6 @@ if __name__ == "__main__":
                 if not check_if_merged_database_exists(DATABASE, DATABASE_PATH):
 
                     make_datasets(
-                        input_style=False,
                         job_name=JOB,
                         input_dir=TRAIN_PATH,
                         path=DATABASE_PATH,

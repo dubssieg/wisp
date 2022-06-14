@@ -76,7 +76,7 @@ def save_output(dico: dict, job_name: str, path_for_read: str) -> None:
         fm.write('\n')
 
 
-def test_model(path_to_save: str, out_path, job_name, database_name, classif_level, reads_threshold, sp_determined: str | None, func):
+def test_model(path_to_save: str, out_path, job_name, database_name, classif_level, reads_threshold, sp_determined: str | None, func, exclude):
     """
     Does the testing of our model with the data in /test.
     Will estimate some meaningful estimators and will plot heatmap
@@ -95,7 +95,7 @@ def test_model(path_to_save: str, out_path, job_name, database_name, classif_lev
 
     my_output_msg("Data loading...")
     dtest = load_xgboost_data(
-        out_path, classif_level, 'test', database_name, sp_determined, job_name)
+        out_path, classif_level, 'test', database_name, sp_determined, exclude)
 
     my_output_msg("Model loading...")
     load_model(bst, out_path, classif_level, database_name, sp_determined)
@@ -105,12 +105,15 @@ def test_model(path_to_save: str, out_path, job_name, database_name, classif_lev
     preds = prediction(dtest, bst, job_name, classif_level,
                        sp_determined, reads_threshold, False, inverted_map, func, True)
 
-    if sp_determined == None:
-        with open(f"{out_path}{database_name}/{classif_level}/data.txt.test", "r") as reader:
-            real = [int(l.split(' ')[0]) for l in reader]
+    if exclude != []:
+        test_path = f"{out_path}{database_name}/data.txt.test"
+    elif sp_determined is None:
+        test_path = f"{out_path}{database_name}/{classif_level}/data.txt.test"
     else:
-        with open(f"{out_path}{database_name}/{classif_level}/{sp_determined}_data.txt.test", "r") as reader:
-            real = [int(l.split(' ')[0]) for l in reader]
+        test_path = f"{out_path}{database_name}/{classif_level}/{sp_determined}_data.txt.test"
+    with open(test_path, "r") as reader:
+        real = [int(l.split(' ')[0])
+                for l in reader if l.split(' ')[0] != '\n']
 
     # filtering
     real = [p for i, p in enumerate(real) if not isinstance(preds[i], bool)]
@@ -134,7 +137,7 @@ def test_unk_sample(path_to_save, out_path, job_name, database_name, classif_lev
 
     my_output_msg("Data loading...")
     dunk = load_xgboost_data(
-        out_path, classif_level, 'unk', database_name, sp_determined, job_name)
+        out_path, classif_level, 'unk', database_name, sp_determined)
 
     my_output_msg("Preds calculation...")
     preds = prediction(dunk, bst, job_name, classif_level,

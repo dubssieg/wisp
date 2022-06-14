@@ -119,10 +119,10 @@
             1
         ]
     ],
-    "input_train": "genomes/train_small/",
-    "input_unk": "genomes/unk_small/",
+    "input_train": "genomes/train_full/",
+    "input_unk": "genomes/unk_full/",
     "database_output": "data/",
-    "reports_output": "output/small/",
+    "reports_output": "output/full/",
     "threshold": 0.1,
     "nb_boosts": 10,
     "tree_depth": 10,
@@ -143,7 +143,7 @@
     "email": "siegfried.dubois@inria.fr",
     "annotate_path": "genomes/to_annotate",
     "accession_numbers": "genomes/assembly_summary.txt",
-    "db_name": "small",
-    "prefix_job": "small",
-    "log_file": "LOG_wisp_small"
+    "db_name": "full",
+    "prefix_job": "full",
+    "log_file": "LOG_wisp_full"
 }
