@@ -2,7 +2,7 @@ from Bio import SeqIO, Entrez
 from os import path
 
 
-def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_name: str = "Merged") -> dict[str, str]:
+def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_name: str = "Merged", objective: int = 10000) -> dict[str, str]:
     """
     Renvoie un dictionnaire contenant toutes les séquences
     key : desc de la séquence
@@ -18,13 +18,13 @@ def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_nam
                        for fasta in SeqIO.parse(open(filename), 'fasta')}
             return {str(merge_name): ''.join([seq for seq in loading.values()])}
         case True, False:
-            return {fasta.id: str(fasta.seq).replace('N', '') for fasta in SeqIO.parse(open(filename), 'fasta')}
+            return {fasta.id: str(fasta.seq).replace('N', '') for fasta in SeqIO.parse(open(filename), 'fasta') if len(fasta.seq) >= objective}
         case False, True:
             loading = {fasta.id: str(fasta.seq)
                        for fasta in SeqIO.parse(open(filename), 'fasta')}
             return {str(merge_name): ''.join([seq for seq in loading.values()])}
         case _:
-            return {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(open(filename), 'fasta')}
+            return {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(open(filename), 'fasta') if len(fasta.seq) >= objective}
 
 
 def my_fasta_parser(filename: str) -> dict[str, str]:
