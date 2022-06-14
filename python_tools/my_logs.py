@@ -1,14 +1,12 @@
 from time import monotonic
-from datetime import timedelta, datetime
-from enum import Enum
-from logging import basicConfig, INFO, info
-from inspect import signature
+from datetime import timedelta
+from logging import basicConfig, INFO, WARNING, info, warning
+from typing import Callable
 
 
-def my_output_msg(string: str) -> None:
-    "Prints the date and time of action + info specified in str"
-    info(f"{string}")
-    print(f"[{str(datetime.now())}] {string}")
+def my_output_msg(string: str, severity: Callable = info) -> None:
+    "Date and time of action + info specified in str"
+    severity(f"{string}")
 
 
 def my_logs_clear(filepath: str):
@@ -17,11 +15,11 @@ def my_logs_clear(filepath: str):
         pass
 
 
-def my_logs_global_config(filepath: str):
+def my_logs_global_config(filepath: str, verbose: bool = False):
     "Clears log and defines logging info"
     my_logs_clear(f"{filepath}.log")
     basicConfig(format='%(asctime)s %(message)s', datefmt='[%m/%d/%Y %I:%M:%S %p]', filename=f"{filepath}.log",
-                encoding='utf-8', level=INFO)
+                encoding='utf-8', level=INFO if verbose else WARNING)
 
 
 def my_function_timer(arg: str):
@@ -40,36 +38,3 @@ def my_function_timer(arg: str):
             return res
         return wrapper
     return my_inner_dec
-
-
-class Unk(Enum):
-    pass
-
-
-class my_Enum(Enum):
-    def _generate_next_value_(name, start, count, last_values):
-        return name
-
-
-def my_entries_checker(func):
-    """
-    Permet de check les états des paramètres donnés en entrée à une fonction
-    """
-    def wrapper(*args, **kwargs):
-        """
-        Corps de test
-        """
-
-        # formation des listes de comparaison
-        arguments = args + tuple(kwargs.keys())
-        args_types = [type(arg) for arg in arguments]
-        signature_func = signature(func).parameters
-        annotations = [
-            signature_func[elt].annotation for elt in signature_func]
-        my_output_msg(f"Function {func.__name__} :")
-        my_output_msg(f"Input params : {annotations}")
-        # execution de la fonction décorée
-        retour = func(*args, **kwargs)
-
-        return retour
-    return wrapper

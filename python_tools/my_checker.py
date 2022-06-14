@@ -1,27 +1,14 @@
-# effectue des tests de types d'entrée/sortie de fonctions et de classes
+# IO tests on classes level
 
 from inspect import signature, _empty
+from typing import Callable
 
 
-class TCError(BaseException):
-    """
-    Erreur custom permettant d'afficher un message d'erreur.
-    """
+def my_types_checker(func: Callable):
+    """Checks the types of annotations of a func and raises error if not corresponding.
 
-    def __init__(self, msg: str) -> None:
-        self.__message = msg
-        super().__init__(self.__message)
-
-
-def my_types_checker(func):
-    """
-    Attendu pour être utilisé comme décorateur.
-    ---
-    Effectue une vérifiaction sur les types explicités dans une signature de fonction ou de classe décorée.
-    Si le type ne correspond pas au type signifié, on lève une erreur
-    Si le type n'est pas spécifié, on ignore l'argument.
-    Fonctionne à la fois avec les args et les kwargs.
-    Permet également de vérifier le type de retour, ignoré également si il n'est pas indiqué.
+    Args:
+        func (Callable): a func
     """
     def wrapper(*args, **kwargs):
         """
@@ -38,29 +25,37 @@ def my_types_checker(func):
 
         # comparaison des annotations de signature et des types des arguments
         comp = zip(args_types, annotations)
-        for input_type, annotation in comp:
+        for i, (input_type, annotation) in enumerate(comp):
             if annotation is not _empty and input_type != annotation:
-                raise TCError(
-                    f"Erreur de la fonction {func.__name__} : le type entré {input_type} ne correspond pas au type attendu {annotation}")
+                try:
+                    annotation(arguments[i])
+                except Exception as exc:
+                    raise BaseException(
+                        f"Error in {func.__name__} : input type {input_type} incompatible with {annotation}") from exc
 
         # execution de la fonction décorée
         retour = func(*args, **kwargs)
 
         # comparaison du type de retour
-        if ret_annotation is not _empty and ret_annotation != None and type(retour) != ret_annotation:
-            raise TCError(
-                f"Erreur de la fonction {func.__name__} : le type de retour {type(retour)} ne correspond pas au type attendu {ret_annotation}")
+        if ret_annotation is not _empty and ret_annotation is not None and isinstance(retour, ret_annotation):
+            raise BaseException(
+                f"Error in {func.__name__} : return type {type(retour)} does not match {ret_annotation}")
 
         return retour
     return wrapper
 
 
-def my_class_checker(cls):
-    """
-    Application du décorateur à l'entèreté d'une classe.
-    A ne pas utiliser sur une fonction seul. 
-    """
-    for attr in cls.__dict__:
-        if callable(getattr(cls, attr)):
-            setattr(cls, attr, my_types_checker(getattr(cls, attr)))
-    return cls
+def my_class_checker(arg: Callable):
+    def wrapper(cls):
+        """Application of a decorator on whole class
+
+        arg is a callable, decorator to apply
+
+        Returns:
+            cls : decorated classes
+        """
+        for attr in cls.__dict__:
+            if callable(getattr(cls, attr)):
+                setattr(cls, attr, arg(getattr(cls, attr)))
+        return cls
+    return wrapper

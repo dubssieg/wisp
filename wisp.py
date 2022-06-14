@@ -11,52 +11,51 @@
 ###########################################################################################
 
 from constants import DATABASE, PARAMS, SAMPLE_PATH, PREFIX_JOB, LEVELS
-from os import listdir, system
+from os import listdir
+from sys import executable
 from python_tools import my_output_msg, my_function_timer, my_logs_global_config, my_futures_collector
 from argparse import ArgumentParser
+from datetime import datetime
+import shlex
+import subprocess
+
 
 # constants ; change those to select database and such
 
 
-@my_function_timer("Running WISP on unk folder")
+@my_function_timer("WISP run")
 def core_call(multithreading_state: int, building_state: bool) -> None:
     """
     Calls the building and prediction functions with global constants defined above
     If a job fails, skips to the next one
     """
-    file_list: list[str] = listdir(
-        SAMPLE_PATH)
-
-    if building_state:
-        if multithreading_state > 1:
-            my_futures_collector(system, [
-                                 [f"python force_build.py {DATABASE} {PARAMS} -l {[level]}"] for level in LEVELS], multithreading_state)
-        else:
-            system(f"python force_build.py {DATABASE} {PARAMS}")
-    else:
-        if multithreading_state > 1:
-            my_futures_collector(system, [[
-                f"python main.py {DATABASE} {PARAMS} {PREFIX_JOB}_{file[:-4]} -f {file}"] for file in file_list], multithreading_state)
-        else:
-            for i, file in enumerate(file_list):
-                try:  # if a job happens to fail, you can check the .log file to check the crash cause
-                    system(
-                        f"python main.py {DATABASE} {PARAMS} {PREFIX_JOB}_{file[:-4]} -f {file}")
-                    my_output_msg(
-                        f"Sucessfully processed sample {i+1} out of {len(file_list)}. Results are in output/ folder")
-                except Exception as exc:
-                    raise ValueError(
-                        f"Job failed for sample number {i+1} ({file})") from exc
+    try:
+        match building_state:
+            case True:
+                communicators = my_futures_collector(subprocess.Popen, [
+                    [shlex.split(f"{executable} force_build.py {DATABASE} {PARAMS} -l {[level]}")] for level in LEVELS], multithreading_state)
+            case False:
+                file_list: list[str] = listdir(SAMPLE_PATH)
+                communicators = my_futures_collector(subprocess.Popen, [[
+                    shlex.split(f"{executable} main.py {DATABASE} {PARAMS} {PREFIX_JOB}_{file[:-4]} -f {file}")] for file in file_list], multithreading_state)
+        retcodes = [p.communicate() for p in communicators]
+    except Exception as exc:
+        raise BaseException("Job failed") from exc
+    finally:
+        for i, code in enumerate(retcodes):
+            my_output_msg(f"Job {i} : {code}")
 
 
 if __name__ == "__main__":
     "Executes main procedure"
     # we clean log before entering loop, might be enormous
-    my_logs_global_config("LOG_wisp")
     parser = ArgumentParser()
+    parser.add_argument(
+        "-v", "--verbose", help="Detailed log file", action='store_true')
     parser.add_argument(
         "-b", "--build", help="Calls for database building instead of prediciton", action='store_true')
     parser.add_argument(
         "-t", "--multithreading", type=int, default=1, help="Gives a thread number for WISP")
     args = parser.parse_args()
+    my_logs_global_config("LOG_wisp", verbose=args.verbose)
     core_call(args.multithreading, args.build)

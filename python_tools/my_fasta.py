@@ -1,5 +1,4 @@
 from Bio import SeqIO, Entrez
-from logging import info
 from os import path
 
 
@@ -13,7 +12,6 @@ def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_nam
     * clean si le fichier doit être nettoyé de ses N
     * merge si on merge tous les fasta d'un fichier en une seule chaine
     """
-    info(f"Loading {filename}...")
     if clean and merge:
         loading = {fasta.id: str(fasta.seq).replace('N', '')
                    for fasta in SeqIO.parse(open(filename), 'fasta')}
@@ -37,7 +35,6 @@ def my_fasta_parser(filename: str) -> dict:
     Returns:
         dict: all sequences inside fasta file
     """
-    info(f"Loading {filename}")
     return {fasta.id: str(fasta.seq).replace('N', '') for fasta in SeqIO.parse(open(filename), 'fasta')}
 
 

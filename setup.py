@@ -4,7 +4,7 @@ import versioneer
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
-with open("build/requirements.txt", "r") as fh:
+with open("requirements.txt", "r") as fh:
     requirements = [line.strip() for line in fh]
 
 setuptools.setup(
