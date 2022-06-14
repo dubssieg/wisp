@@ -2,7 +2,7 @@ from Bio import SeqIO, Entrez
 from os import path
 
 
-def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_name: str = "Merged") -> dict:
+def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_name: str = "Merged") -> dict[str, str]:
     """
     Renvoie un dictionnaire contenant toutes les séquences
     key : desc de la séquence
@@ -12,21 +12,22 @@ def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_nam
     * clean si le fichier doit être nettoyé de ses N
     * merge si on merge tous les fasta d'un fichier en une seule chaine
     """
-    if clean and merge:
-        loading = {fasta.id: str(fasta.seq).replace('N', '')
-                   for fasta in SeqIO.parse(open(filename), 'fasta')}
-        return {str(merge_name): ''.join([seq for seq in loading.values()])}
-    elif clean:
-        return {fasta.id: str(fasta.seq).replace('N', '') for fasta in SeqIO.parse(open(filename), 'fasta')}
-    elif merge:
-        loading = {fasta.id: str(fasta.seq)
-                   for fasta in SeqIO.parse(open(filename), 'fasta')}
-        return {str(merge_name): ''.join([seq for seq in loading.values()])}
-    else:
-        return {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(open(filename), 'fasta')}
+    match clean, merge:
+        case True, True:
+            loading = {fasta.id: str(fasta.seq).replace('N', '')
+                       for fasta in SeqIO.parse(open(filename), 'fasta')}
+            return {str(merge_name): ''.join([seq for seq in loading.values()])}
+        case True, False:
+            return {fasta.id: str(fasta.seq).replace('N', '') for fasta in SeqIO.parse(open(filename), 'fasta')}
+        case False, True:
+            loading = {fasta.id: str(fasta.seq)
+                       for fasta in SeqIO.parse(open(filename), 'fasta')}
+            return {str(merge_name): ''.join([seq for seq in loading.values()])}
+        case _:
+            return {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(open(filename), 'fasta')}
 
 
-def my_fasta_parser(filename: str) -> dict:
+def my_fasta_parser(filename: str) -> dict[str, str]:
     """Loads fasta files
 
     Args:
@@ -44,8 +45,8 @@ def my_pretty_printer(seq_dict: dict, size: int = 10) -> None:
             f"{key} -> [{value[:size]} --- {value[-size:]}] : {len(value)} bp")
 
 
-def my_classification_mapper(file):
-    Entrez.email = ""  # EMAIL
+def my_classification_mapper(file: str, email: str):
+    Entrez.email = email
     # skipping unnecessary calls for already processed files
     if('Bacteria' not in file and 'Archaea' not in file):
         try:
@@ -63,17 +64,17 @@ def my_classification_mapper(file):
             if has_order:
                 group = classif[2] if classif[2][-4:] != 'ales' else classif[1]
                 return f"{classif[0]}_{classif[1]}_{group}_{order}_{sub.split(' ')[0]}_{sub.split(' ')[1]}"
-        except:
-            print(f"Can't get data for {file}")
+        except Exception as exc:
+            raise BaseException(f"Can't get data for {file}") from exc
+        finally:
             return None
-    return None
 
 
-def my_fetcher(filelist, outname):
+def my_fetcher(filelist: list[str], outname: str, email: str):
     """
     Fetches all seq to one single file
     """
-    Entrez.email = 'siegfried.dubois@inria.fr'
+    Entrez.email = email
     for file in filelist:
 
         if not path.isfile(f"gen/{file}_{outname}.fna"):

@@ -4,14 +4,13 @@ from python_tools import my_classification_mapper, my_fetcher, my_parser, my_typ
 from os import listdir, rename, system
 import csv
 from Bio import SeqIO
-from constants import ANNOTATE_PATH, SUMMARY_FILE, UNK_PATH, TRAIN_PATH
 from random import random, choice
 from argparse import ArgumentParser
 
 
 class tools:
 
-    def rename_genomes(path_to_genomes: str = ANNOTATE_PATH) -> None:
+    def rename_genomes(path_to_genomes: str) -> None:
         """Aims to rename each genome it finds in the folder according to the WISP system.
         Only works on .fna files, as its the default input format for WISP.
 
@@ -28,15 +27,15 @@ class tools:
                 rename(f"{path_to_genomes}/{file}.fna",
                        f"{path_to_genomes}/{new_name}.fna")
 
-    def pre_rename() -> None:
-        files = listdir(f"{ANNOTATE_PATH}/")
+    def pre_rename(annotate_path: str) -> None:
+        files = listdir(f"{annotate_path}/")
 
         for file in files:
             if('Bacteria' not in file and 'Archaea' not in file):
-                with open(f"{ANNOTATE_PATH}/{file}", "r") as reader:
+                with open(f"{annotate_path}/{file}", "r") as reader:
                     accession = reader.readline().split('.')[0][1:]
-                rename(f"{ANNOTATE_PATH}/{file}",
-                       f"{ANNOTATE_PATH}/{accession}.fna")
+                rename(f"{annotate_path}/{file}",
+                       f"{annotate_path}/{accession}.fna")
 
     def get_info(csv_file: str) -> None:
         with open(csv_file) as file:
@@ -142,6 +141,16 @@ class tools:
                  for k, v in lectures.items() if len(v) > size_to_sample+start}
         with open("sequences.fna", "w") as writer:
             writer.write('\n'.join(['> '+k+'\n'+v for k, v in reads.items()]))
+
+    def clean_rename(genomes_path: str) -> None:
+        files = listdir(f"{genomes_path}/")
+
+        for file in files:
+            new_name = file
+            for char in ['[', ']', '(', ')']:
+                new_name = new_name.replace(char, '')
+            rename(f"{genomes_path}/{file}",
+                   f"{genomes_path}/{new_name}")
 
 
 if __name__ == "__main__":

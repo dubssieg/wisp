@@ -2,10 +2,6 @@
 "This scripts aims to call for command line WISP over a set of files"
 ###########################################################################################
 # This is your main interface. Or rather the call path to your main interface.
-# If you want to change any parameter as of database name and such
-# head over constants.py : all program constants are stored here.
-# Do not change something you're not sure about! If you did so, go to github
-# to get a clean copy of the constants file.
 # Model parameters and such are stored inside a .json file, "wisp_params" by default
 # If you want to change those, please refer to the README.md file!
 ###########################################################################################
