@@ -1,6 +1,7 @@
 "Functions to generate params file"
 
 from json import load, dump
+from argparse import ArgumentParser
 
 
 def load_json(json_file: str) -> dict:
@@ -20,7 +21,7 @@ def save_json(json_file: str, dico_save: dict) -> None:
     dump(dico_save, open(f"{json_file}.json", "w"), indent=4)
 
 
-def my_params():
+def my_params(filename: str):
     # dict to be converted in .json file to create our parameters set
     params_job: dict = {
         # subreads size and max. of reads in sample
@@ -41,9 +42,9 @@ def my_params():
         'family_sample': [4, [1, 1, 1, 1]],
         'merged_sample': [4, [1, 1, 1, 1]],
         # 'input' : location of reference genomes
-        'input_train': "genomes/train/",
+        'input_train': "genomes/train_small/",
         # 'input_unk' : location of unk genomes
-        'input_unk': "genomes/unk/",
+        'input_unk': "genomes/unk_small/",
         # 'output' : output for database
         'database_output': "data/",
         'reports_output': "output/",
@@ -62,9 +63,24 @@ def my_params():
         'single_way': True,
         'targeted_level': 'family',  # domain, phylum, group, order, family
         'levels_list': ['domain', 'phylum', 'group', 'order', 'family'],
-        'abundance_threshold': 0.25
+        'abundance_threshold': 0.25,
+        # to fetch WISP genomes from refseq
+        'email': 'siegfried.dubois@inria.fr',
+        'annotate_path': 'genomes/to_annotate',
+        'accession_numbers': 'genomes/assembly_summary.txt',
+        # name for database
+        'db_name': 'c_db',
+        'prefix_job': 'small_test',
+        'log_file': 'LOG_wisp'
     }
-    save_json("wisp_params", params_job)
+    save_json(filename, params_job)
 
 
-my_params()
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    # declaring args
+    parser.add_argument(
+        "name", help="name for parameters file", type=str)
+    # executing args
+    args = parser.parse_args()
+    my_params(args.name)

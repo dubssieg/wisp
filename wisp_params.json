@@ -139,5 +139,11 @@
         "order",
         "family"
     ],
-    "abundance_threshold": 0.25
+    "abundance_threshold": 0.25,
+    "email": "siegfried.dubois@inria.fr",
+    "annotate_path": "genomes/to_annotate",
+    "accession_numbers": "genomes/assembly_summary.txt",
+    "db_name": "tmp_database",
+    "prefix_job": "onevsall",
+    "log_file": "LOG_wisp"
 }
