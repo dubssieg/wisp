@@ -16,15 +16,18 @@ def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_nam
         case True, True:
             loading = {fasta.id: str(fasta.seq).replace('N', '')
                        for fasta in SeqIO.parse(open(filename), 'fasta')}
-            return {str(merge_name): ''.join([seq for seq in loading.values()])}
+            ret = {str(merge_name): ''.join([seq for seq in loading.values()])}
         case True, False:
-            return {fasta.id: str(fasta.seq).replace('N', '') for fasta in SeqIO.parse(open(filename), 'fasta') if len(fasta.seq) >= objective}
+            ret = {fasta.id: str(fasta.seq).replace('N', '').replace('W', '').replace(
+                'S', '').replace('R', '') for fasta in SeqIO.parse(open(filename), 'fasta')}
         case False, True:
             loading = {fasta.id: str(fasta.seq)
                        for fasta in SeqIO.parse(open(filename), 'fasta')}
-            return {str(merge_name): ''.join([seq for seq in loading.values()])}
+            ret = {str(merge_name): ''.join([seq for seq in loading.values()])}
         case _:
-            return {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(open(filename), 'fasta') if len(fasta.seq) >= objective}
+            ret = {fasta.id: str(fasta.seq)
+                   for fasta in SeqIO.parse(open(filename), 'fasta')}
+    return {k: v for k, v in ret.items() if len(v) >= objective}
 
 
 def my_fasta_parser(filename: str) -> dict[str, str]:

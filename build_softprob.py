@@ -265,7 +265,7 @@ def plot_tree_model(bst: xgb.Booster, job_name: str, classif_level: str, sp_dete
 
 
 @my_function_timer("Building model")
-def make_model(exclude: list[str], path: str, classif_level: str, db_name: str, sp_determined, model_parameters: dict, number_rounds: int):
+def make_model(exclude: list[str], path: str, classif_level: str, db_name: str, sp_determined, model_parameters: dict, number_rounds: int, sample_name: str):
     """
     Main procedure : builds the model and saves it
 
@@ -280,7 +280,7 @@ def make_model(exclude: list[str], path: str, classif_level: str, db_name: str, 
     global_scope()
     #X, y = pandas_load_libsvm(sp_determined, 'train',path, db_name, classif_level)
     dtrain = load_xgboost_data(
-        path, classif_level, 'train', db_name, sp_determined, exclude)
+        path, classif_level, 'train', db_name, sp_determined, sample_name, exclude)
     #dtrain = xgb.DMatrix(data=X, label=y)
     bst = modelisation(dtrain, model_parameters, number_rounds)
     save_model(bst, path, classif_level, db_name, sp_determined)
@@ -311,7 +311,7 @@ def make_testing(exclude: list[str], path_to_save, size_kmer, job_name, sp_deter
     bst = xgb.Booster()
     global_scope()
     mat = load_xgboost_data(
-        path, classif_level, 'train', db_name, sp_determined, exclude)
+        path, classif_level, 'train', db_name, sp_determined, job_name, exclude)
     xgb_cv = xgb.cv(dtrain=mat, params=init_parameters(class_count), nfold=3,
                     num_boost_round=20, early_stopping_rounds=10, metrics="auc", as_pandas=True, seed=123)
     bst = modelisation(mat, model_parameters, number_rounds)

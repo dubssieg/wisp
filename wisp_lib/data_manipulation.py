@@ -63,7 +63,7 @@ def species_map(input_dir: str, int_level: int, filter: str | None = None) -> di
     return {species_listed[i]: i for i in range(len(species_listed))}
 
 
-def load_xgboost_data(dpath: str, classif_level: str, suffix: str, db_name: str, sp_determined: str | None, exclude: list[str] = []):
+def load_xgboost_data(dpath: str, classif_level: str, suffix: str, db_name: str, sp_determined: str | None, sample_name: str, exclude: list[str] = []):
     """
     Return the target dataframe
 
@@ -75,7 +75,7 @@ def load_xgboost_data(dpath: str, classif_level: str, suffix: str, db_name: str,
     """
     # path handling
     if suffix == 'unk':
-        my_path = f"{dpath}{db_name}/data.txt.{suffix}"
+        my_path = f"{dpath}{db_name}/temp/{sample_name}/data.txt.{suffix}"
     elif sp_determined is None:
         my_path = f"{dpath}{db_name}/{classif_level}/data.txt.{suffix}"
     else:
@@ -92,7 +92,8 @@ def load_xgboost_data(dpath: str, classif_level: str, suffix: str, db_name: str,
                         skip = True
                 if not skip:
                     keep.append(line)
-        my_path = f"{dpath}{db_name}/data.txt.{suffix}"
+        Path(f"{dpath}{db_name}/temp/{sample_name}/").mkdir(parents=True, exist_ok=True)
+        my_path = f"{dpath}{db_name}/temp/{sample_name}/data.txt.{suffix}"
         with open(my_path, "w") as writer:
             writer.write('\n'.join(keep))
     try:
@@ -114,8 +115,8 @@ def write_xgboost_data(data: list[str], dpath: str, classif_level: str, suffix: 
     * sp_determined (str | None): upper level we've already determined
     """
     if suffix == 'unk':
-        Path(f"{dpath}").mkdir(parents=True, exist_ok=True)
-        my_path = f"{dpath}{db_name}/data.txt.{suffix}"
+        Path(f"{dpath}{db_name}/temp/{sample_name}/").mkdir(parents=True, exist_ok=True)
+        my_path = f"{dpath}{db_name}/temp/{sample_name}/data.txt.{suffix}"
     elif sp_determined is None:
         Path(f"{dpath}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
         my_path = f"{dpath}{db_name}/{classif_level}/data.txt.{suffix}"

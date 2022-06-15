@@ -41,7 +41,7 @@ if __name__ == "__main__":
     try:
         my_params: dict = load_json(args.params)
         # storing args
-        exclude: list[str] = [args.exclude] if args.exclude != [] else []
+        exclude: list[str] = [args.exclude] if args.exclude != 'None' else []
 
         DATABASE: str = args.database_name
         TAXAS_LEVELS: list[str] = my_params['levels_list']
@@ -157,7 +157,7 @@ if __name__ == "__main__":
                         if force_rebuild or not check_if_model_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
 
                             make_model(exclude, DATABASE_PATH, taxa, DATABASE,
-                                       parent_level, init_parameters(len(map_sp), tree_depth), number_rounds=nr)
+                                       parent_level, init_parameters(len(map_sp), tree_depth), nr, JOB)
 
                         number_of_reads = make_unk_datasets(
                             func=count_func,
