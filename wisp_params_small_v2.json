@@ -1,0 +1,149 @@
+{
+    "window_size": 10000,
+    "sampling_objective": 500,
+    "domain_ref": [
+        5,
+        200,
+        [
+            1,
+            1,
+            1,
+            1,
+            1
+        ]
+    ],
+    "phylum_ref": [
+        5,
+        500,
+        [
+            1,
+            1,
+            1,
+            1,
+            1
+        ]
+    ],
+    "group_ref": [
+        4,
+        500,
+        [
+            1,
+            1,
+            1,
+            1
+        ]
+    ],
+    "order_ref": [
+        4,
+        300,
+        [
+            1,
+            1,
+            1,
+            1
+        ]
+    ],
+    "family_ref": [
+        4,
+        300,
+        [
+            1,
+            1,
+            1,
+            1
+        ]
+    ],
+    "merged_ref": [
+        4,
+        50,
+        [
+            1,
+            1,
+            1,
+            1
+        ]
+    ],
+    "domain_sample": [
+        5,
+        [
+            1,
+            1,
+            1,
+            1,
+            1
+        ]
+    ],
+    "phylum_sample": [
+        5,
+        [
+            1,
+            1,
+            1,
+            1,
+            1
+        ]
+    ],
+    "group_sample": [
+        4,
+        [
+            1,
+            1,
+            1,
+            1
+        ]
+    ],
+    "order_sample": [
+        4,
+        [
+            1,
+            1,
+            1,
+            1
+        ]
+    ],
+    "family_sample": [
+        4,
+        [
+            1,
+            1,
+            1,
+            1
+        ]
+    ],
+    "merged_sample": [
+        4,
+        [
+            1,
+            1,
+            1,
+            1
+        ]
+    ],
+    "input_train": "genomes/train_small_v2/",
+    "input_unk": "genomes/unk_small_v2/",
+    "database_output": "data/",
+    "reports_output": "output/small_v2/",
+    "threshold": 0.1,
+    "nb_boosts": 10,
+    "tree_depth": 10,
+    "test_mode": "min_set",
+    "reads_th": 0.1,
+    "selection_mode": "delta_mean",
+    "force_model_rebuild": true,
+    "single_way": true,
+    "targeted_level": "family",
+    "levels_list": [
+        "domain",
+        "phylum",
+        "group",
+        "order",
+        "family"
+    ],
+    "abundance_threshold": 0.25,
+    "email": "siegfried.dubois@inria.fr",
+    "annotate_path": "genomes/to_annotate",
+    "accession_numbers": "genomes/assembly_summary.txt",
+    "db_name": "small_v2",
+    "prefix_job": "small_v2",
+    "log_file": "LOG_wisp_small_v2"
+}
