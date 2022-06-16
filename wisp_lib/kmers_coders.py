@@ -123,11 +123,8 @@ def kmer_indexing_canonical(entry: str, kmer_size: int, pattern: str) -> Counter
         return Counter({cg.reverse_hash(i): cg.get(i) for i in range(nkmers) if cg.get(i)})
 
 
-def kmer_indexing_brut(entry: str, kmer_size: int, pattern: str):
-    if pattern.count('1') != kmer_size:
-        raise ValueError("Filter does not match ksize.")
-    else:
-        return Counter([apply_filter(entry[k:k+len(pattern)], pattern) for k in range(len(entry) - len(pattern) - 1) if apply_filter(entry[k:k+len(pattern)], pattern).isalpha() and not apply_filter(entry[k:k+len(pattern)], pattern) == len(apply_filter(entry[k:k+len(pattern)], pattern)) * apply_filter(entry[k:k+len(pattern)], pattern)[0]])
+def kmer_indexing_brut(entry: str, kmer_size: int):
+    return Counter([entry[k:k+kmer_size] for k in range(len(entry) - kmer_size - 1)])
 
 
 def optimal_splitting(seq: str, window_size: int, max_sampling: int) -> set[str]:

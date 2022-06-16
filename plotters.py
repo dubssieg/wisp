@@ -2,6 +2,7 @@
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from sympy import total_degree
 from wisp_lib import kmer_indexing_brut, recode_kmer_4
 from wisp_view import plot_features
 from python_tools import my_parser
@@ -10,6 +11,52 @@ import xgboost as xgb
 from os import listdir
 from argparse import ArgumentParser
 from pathlib import Path
+from statistics import mean, stdev
+import numpy as np
+
+
+def my_encoder_4():
+    # maybe this can help gain speed ? specific to k=4
+    return {f"{a}{b}{c}{d}": 0 for a in ['A', 'T', 'G', 'C'] for b in ['A', 'T', 'G', 'C'] for c in ['A', 'T', 'G', 'C']for d in ['A', 'T', 'G', 'C']}
+
+
+def signatures(list_sequences):
+    alphabet = Counter(my_encoder_4())
+    total_len = 0
+    for sequence in list_sequences:
+        total_len += len(sequence)
+        alphabet += kmer_indexing_brut(sequence, 4)
+    return Counter({key: float(value/total_len) for key, value in alphabet.items()})
+
+
+def code(value, mn, sd):
+    if value < mn - sd:
+        return 0
+    elif value > mn + sd:
+        return 1
+    else:
+        return 2
+
+
+def compute_signatures(level, pwd, listing):
+    rets = {}
+    LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
+    splitting = LEVELS.index(level)
+    targets = list(set(s.split('_')[splitting] for s in listdir(pwd)))
+    for t in targets:
+        all_genomes_matching = [
+            f"{pwd}/{tr}" for tr in listdir(pwd) if tr.split('_')[splitting] == t]
+        list_sequences = [my_parser(genome_matching, True, True, 'm')[
+            'm'] for genome_matching in all_genomes_matching]
+        res = signatures(list_sequences)
+        mn = mean(res.values())
+        sd = stdev(res.values())
+        tpd = {k: code(v, mn, sd) for k, v in res.items()}
+        tabl = [['' for _ in range(16)] for _ in range(16)]
+        for k, v in tpd.items():
+            tabl[listing.index(k[:2])][listing.index(k[2:])] = v
+        rets[t] = np.asarray(tabl)
+    return rets
 
 
 def plot_database_features(db_path):  # ex : data/small/
@@ -32,15 +79,15 @@ def plot_some_features(my_path):
                       "", "")
 
 
-def plot_repartition_top_kmers(number_to_plot: int, sequence: str, pattern: str, ksize: int) -> None:
+def plot_repartition_top_kmers(number_to_plot: int, sequence: str, ksize: int) -> None:
     # gives most common at global scale
     counter = kmer_indexing_brut(
-        sequence, ksize, pattern).most_common(number_to_plot)
+        sequence, ksize).most_common(number_to_plot)
     elements = [e for (e, _) in counter]
     df = pd.DataFrame(columns=elements)
     # for those, we compute locally their abundance
     for i in range(0, len(sequence), int(len(sequence)/50000)):
-        local_kmers = kmer_indexing_brut(sequence[i:i+50000], ksize, pattern)
+        local_kmers = kmer_indexing_brut(sequence[i:i+50000], ksize)
         my_local_kmers = {k: v for k,
                           v in local_kmers.items() if k in elements}
         label = f"[{i}:{i+50000}]"
@@ -55,7 +102,7 @@ def plot_repartition_top_kmers(number_to_plot: int, sequence: str, pattern: str,
 
 def delta_sequence(seq1: str, seq2: str, pattern: str, ksize: int) -> None:
     counts_1, counts_2 = kmer_indexing_brut(
-        seq1, ksize, pattern), kmer_indexing_brut(seq2, ksize, pattern)
+        seq1, ksize), kmer_indexing_brut(seq2, ksize)
     counts_1, counts_2 = Counter({k: v/len(seq1) for k, v in counts_1.items()}), Counter({
         k: v/len(seq2) for k, v in counts_2.items()})
     counts_1.subtract(counts_2)
@@ -67,14 +114,37 @@ def delta_sequence(seq1: str, seq2: str, pattern: str, ksize: int) -> None:
 
 
 if __name__ == "__main__":
+    OUTPUT_PATH: str = f"output/figures/compdiff/"
+    listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
+               for b in ['A', 'T', 'G', 'C']]
+    elts = compute_signatures('group', 'genomes/sampled', listing)
+    for key, elt in elts.items():
+        print("\n"+key+"\n")
+        print(elt)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        cax = ax.matshow(elt)
+        plt.title(f"{key}")
+        plt.xticks(rotation=90)
+        plt.yticks(fontsize=9)
+        plt.xticks(fontsize=9)
+        ax.set_xticklabels(['']+[listing[i] for i in range(16)])
+        ax.set_yticklabels(['']+[listing[i] for i in range(16)])
+        cbar = fig.colorbar(cax)
+        cbar.ax.set_yticks([0, 1, 2])
+        cbar.ax.set_yticklabels(['<mean-sd', 'in-between', '>mean+sd'])
+
+        plt.savefig(f"{OUTPUT_PATH}{key}_compdiff.svg", bbox_inches='tight')
+
+    """
     parser = ArgumentParser()
     # declaring args
     parser.add_argument(
         "name", help="db name", type=str)
     # executing args
     args = parser.parse_args()
-    #plot_repartition_top_kmers(6, my_parser("genomes/sequence.fna", True, True, "merge")['merge'], "1111", 4)
-    #delta_sequence(my_parser("genomes/sequence.fna", True, True, "merge")['merge'], my_parser("genomes/sequence_2.fna", True, True, "merge")['merge'], "1111", 4)
-    OUTPUT_PATH: str = f"output/figures/{args.name}/"
+    # plot_repartition_top_kmers(6, my_parser("genomes/sequence.fna", True, True, "merge")['merge'], "1111", 4)
+    # delta_sequence(my_parser("genomes/sequence.fna", True, True, "merge")['merge'], my_parser("genomes/sequence_2.fna", True, True, "merge")['merge'], "1111", 4)
     Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
     plot_database_features(args.name)
+    """
