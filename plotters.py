@@ -8,12 +8,13 @@ from python_tools import my_parser
 from collections import Counter
 import xgboost as xgb
 from os import listdir
-
-OUTPUT_PATH: str = "output/figures/small_db/"
+from argparse import ArgumentParser
+from pathlib import Path
 
 
 def plot_database_features(db_path):  # ex : data/small/
     files = []
+    db_path = f"data/{db_path}/"
     for level in listdir(db_path):
         files.extend([f"{db_path}/{level}/{file}" for file in listdir(
             f"{db_path}/{level}") if 'saved_model.json' in file])
@@ -65,6 +66,15 @@ def delta_sequence(seq1: str, seq2: str, pattern: str, ksize: int) -> None:
     plt.savefig(f"{OUTPUT_PATH}delta_kmers.svg", bbox_inches='tight')
 
 
-#plot_repartition_top_kmers(6, my_parser("genomes/sequence.fna", True, True, "merge")['merge'], "1111", 4)
-#delta_sequence(my_parser("genomes/sequence.fna", True, True, "merge")['merge'], my_parser("genomes/sequence_2.fna", True, True, "merge")['merge'], "1111", 4)
-plot_database_features("data/small")
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    # declaring args
+    parser.add_argument(
+        "name", help="db name", type=str)
+    # executing args
+    args = parser.parse_args()
+    #plot_repartition_top_kmers(6, my_parser("genomes/sequence.fna", True, True, "merge")['merge'], "1111", 4)
+    #delta_sequence(my_parser("genomes/sequence.fna", True, True, "merge")['merge'], my_parser("genomes/sequence_2.fna", True, True, "merge")['merge'], "1111", 4)
+    OUTPUT_PATH: str = f"output/figures/{args.name}/"
+    Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
+    plot_database_features(args.name)
