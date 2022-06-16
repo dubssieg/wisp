@@ -67,10 +67,10 @@ def my_classification_mapper(file: str, email: str):
             if has_order:
                 group = classif[2] if classif[2][-4:] != 'ales' else classif[1]
                 return f"{classif[0]}_{classif[1]}_{group}_{order}_{sub.split(' ')[0]}_{sub.split(' ')[1]}"
+            else:
+                return None
         except Exception as exc:
             raise BaseException(f"Can't get data for {file}") from exc
-        finally:
-            return None
 
 
 def my_fetcher(filelist: list[str], outname: str, email: str):

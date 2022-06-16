@@ -1,6 +1,6 @@
 {
     "window_size": 10000,
-    "sampling_objective": 500,
+    "sampling_objective": 400,
     "domain_ref": [
         5,
         100,
