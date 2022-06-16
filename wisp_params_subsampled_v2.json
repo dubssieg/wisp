@@ -119,10 +119,10 @@
             1
         ]
     ],
-    "input_train": "genomes/sampled/",
-    "input_unk": "genomes/unk_sampled/",
+    "input_train": "genomes/train_subsampled_v2/",
+    "input_unk": "genomes/unk_subsampled_v2/",
     "database_output": "data/",
-    "reports_output": "output/sampled/",
+    "reports_output": "output/subsampled_v2/",
     "threshold": 0.1,
     "nb_boosts": 10,
     "tree_depth": 10,
