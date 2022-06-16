@@ -21,7 +21,6 @@ def rename_genomes(path_to_genomes: str) -> None:
     for file in files:
         new_name = my_classification_mapper(
             file, 'siegfried.dubois@inria.fr')
-        print(new_name)
 
         if new_name != None:
             rename(f"{path_to_genomes}/{file}.fna",
@@ -178,4 +177,4 @@ if __name__ == "__main__":
     except Exception as exc:
         raise BaseException("Bad execution") from exc
     """
-    rename_genomes('genomes/143_prokaryote_genomes')
+    clean_rename('genomes/143_prokaryote_genomes')

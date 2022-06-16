@@ -14,12 +14,12 @@ def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_nam
     """
     match clean, merge:
         case True, True:
-            loading = {fasta.id: str(fasta.seq).replace('N', '')
+            loading = {fasta.id: ''.join([letter for letter in str(fasta.seq) if letter in ['A', 'T', 'C', 'G']])
                        for fasta in SeqIO.parse(open(filename), 'fasta')}
             ret = {str(merge_name): ''.join([seq for seq in loading.values()])}
         case True, False:
-            ret = {fasta.id: str(fasta.seq).replace('N', '').replace('W', '').replace(
-                'S', '').replace('R', '') for fasta in SeqIO.parse(open(filename), 'fasta')}
+            ret = {fasta.id: ''.join([letter for letter in str(fasta.seq) if letter in [
+                                     'A', 'T', 'C', 'G']]) for fasta in SeqIO.parse(open(filename), 'fasta')}
         case False, True:
             loading = {fasta.id: str(fasta.seq)
                        for fasta in SeqIO.parse(open(filename), 'fasta')}
@@ -39,7 +39,7 @@ def my_fasta_parser(filename: str) -> dict[str, str]:
     Returns:
         dict: all sequences inside fasta file
     """
-    return {fasta.id: str(fasta.seq).replace('N', '') for fasta in SeqIO.parse(open(filename), 'fasta')}
+    return {fasta.id: ''.join([letter for letter in str(fasta.seq) if letter in ['A', 'T', 'C', 'G']]) for fasta in SeqIO.parse(open(filename), 'fasta')}
 
 
 def my_pretty_printer(seq_dict: dict, size: int = 10) -> None:

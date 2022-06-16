@@ -35,7 +35,7 @@ def compare():
     df.to_csv("output/mass_report.csv")
 
 
-PATH_TRAIN: str = "genomes/train/"
+PATH_TRAIN: str = "genomes/sampled/"
 PATH_SAMPLED: str = "genomes/sampled/"
 LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
 
@@ -58,8 +58,8 @@ def extract_families_with_enough_representatives(t: int):
     print(f"Database contains {len(all_genomes)} reference genomes")
     selected = [f for f, v in Counter(all_genomes).items() if v >= t]
     print(f"Len: {len(selected)} -> {selected}")
-    if t != 0:
-        extraction(selected)
+    # if t != 0:
+    #    extraction(selected)
 
 
 def extraction(selected):
