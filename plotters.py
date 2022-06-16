@@ -2,10 +2,33 @@
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from wisp_lib import kmer_indexing_brut
+from wisp_lib import kmer_indexing_brut, recode_kmer_4
+from wisp_view import plot_features
 from python_tools import my_parser
-from constants import OUTPUT_PATH
 from collections import Counter
+import xgboost as xgb
+from os import listdir
+
+OUTPUT_PATH: str = "output/figures/small_db/"
+
+
+def plot_database_features(db_path):  # ex : data/small/
+    files = []
+    for level in listdir(db_path):
+        files.extend([f"{db_path}/{level}/{file}" for file in listdir(
+            f"{db_path}/{level}") if 'saved_model.json' in file])
+    for file in files:
+        plot_some_features(file)
+
+
+def plot_some_features(my_path):
+    bst = xgb.Booster()
+    bst.load_model(my_path)
+    mapped = {
+        f"{recode_kmer_4(str(k[1:]),max([len(str(ky[1:])) for ky, _ in bst.get_score(importance_type='gain').items()]))}": v for k, v in bst.get_score(importance_type='gain').items()}
+    if mapped != {}:
+        plot_features(f"{OUTPUT_PATH}{my_path.split('/')[-1].split('_')[0]}_", mapped, "",
+                      "", "")
 
 
 def plot_repartition_top_kmers(number_to_plot: int, sequence: str, pattern: str, ksize: int) -> None:
@@ -26,7 +49,7 @@ def plot_repartition_top_kmers(number_to_plot: int, sequence: str, pattern: str,
     df = df.transpose()
     ax = df.plot(figsize=(
         20, 6), ylabel=f'kmers/{int(len(sequence)/5000)}bp', rot=90, colormap='cividis')
-    plt.savefig(f"{OUTPUT_PATH}kmers_repartition", bbox_inches='tight')
+    plt.savefig(f"{OUTPUT_PATH}kmers_repartition.svg", bbox_inches='tight')
 
 
 def delta_sequence(seq1: str, seq2: str, pattern: str, ksize: int) -> None:
@@ -39,10 +62,9 @@ def delta_sequence(seq1: str, seq2: str, pattern: str, ksize: int) -> None:
     plt.plot(counts_1.values(), counts_1.keys())
     plt.xticks(fontsize=5)
     plt.yticks(fontsize=5)
-    plt.savefig(f"{OUTPUT_PATH}delta_kmers", bbox_inches='tight')
+    plt.savefig(f"{OUTPUT_PATH}delta_kmers.svg", bbox_inches='tight')
 
 
 #plot_repartition_top_kmers(6, my_parser("genomes/sequence.fna", True, True, "merge")['merge'], "1111", 4)
-
-delta_sequence(my_parser("genomes/sequence.fna", True, True, "merge")
-               ['merge'], my_parser("genomes/sequence_2.fna", True, True, "merge")['merge'], "1111", 4)
+#delta_sequence(my_parser("genomes/sequence.fna", True, True, "merge")['merge'], my_parser("genomes/sequence_2.fna", True, True, "merge")['merge'], "1111", 4)
+plot_database_features("data/small")

@@ -16,7 +16,7 @@ conda activate "/home/genouest/genscale/sdubois/wisp-env"
 
 # python wisp.py "wisp_params_"$1".json" -b -t 8
 
-for FILE in "genomes/train_"$1/*
+for FILE in "genomes/train_"$1"/"*
 do
     mv "genomes/train_"$1"/"$(basename $FILE) "genomes/unk_"$1"/"
     python wisp.py "wisp_params_"$1".json"

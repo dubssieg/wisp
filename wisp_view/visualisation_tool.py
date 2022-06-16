@@ -137,7 +137,7 @@ def pandas_confusion(test_classes, test_preds, inverted_map: dict) -> DataFrame:
     """Creates the dataframe used to plot a confusion matrix from test datas
 
     Args:
-        test_classes (array): true classes we're dealing wih for our test set
+        test_classes (array): true classes we're dealing with for our test set
         test_preds (array): predicted classes for test set
         inverted_map (dict): mapping between ints and class labels
 
@@ -237,11 +237,17 @@ def plot_features(path_to_save: str, datas, job_name: str, classif_level: str, s
     data.astype(float).nlargest(nb_features, columns="score").plot(
         kind='barh', color='#465065', figsize=(7, 6))
     plt.xlabel("Gain score")
-    if sp_determined != 'None':
+    if job_name == "":
+        pass
+    elif sp_determined != 'None':
         plt.title(
             f"Top {nb_features} features for {classif_level} (knowing {sp_determined})")
     else:
         plt.title(
             f"Top {nb_features} features for {classif_level}")
-    plt.savefig(
-        f"{path_to_save}{classif_level}_{sp_determined}_feature_importance.svg", bbox_inches='tight')
+    if job_name == "":
+        plt.savefig(
+            f"{path_to_save}feature_importance.svg", bbox_inches='tight')
+    else:
+        plt.savefig(
+            f"{path_to_save}{classif_level}_{sp_determined}_feature_importance.svg", bbox_inches='tight')
