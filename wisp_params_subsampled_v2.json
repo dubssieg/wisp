@@ -129,7 +129,7 @@
     "test_mode": "min_set",
     "reads_th": 0.1,
     "selection_mode": "delta_mean",
-    "force_model_rebuild": true,
+    "force_model_rebuild": false,
     "single_way": true,
     "targeted_level": "family",
     "levels_list": [
