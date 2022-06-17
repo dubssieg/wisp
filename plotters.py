@@ -30,12 +30,12 @@ def signatures(list_sequences):
 
 
 def code(value, mn, sd):
-    if value < mn - sd:
+    if value < mn - 2 * sd:
         return 0
-    elif value > mn + sd:
-        return 1
-    else:
+    elif value > mn + 2 * sd:
         return 2
+    else:
+        return 1
 
 
 def compute_signatures(level, pwd, listing):
@@ -122,19 +122,24 @@ if __name__ == "__main__":
         print("\n"+key+"\n")
         print(elt)
         fig = plt.figure()
+        cm = plt.get_cmap('rainbow', 3)
         ax = fig.add_subplot(111)
-        cax = ax.matshow(elt)
+        cax = ax.matshow(elt, cmap=cm, vmin=0, vmax=2)
         plt.title(f"{key}")
         plt.xticks(rotation=90)
         plt.yticks(fontsize=9)
         plt.xticks(fontsize=9)
-        ax.set_xticklabels(['']+[listing[i] for i in range(16)])
-        ax.set_yticklabels(['']+[listing[i] for i in range(16)])
+        ax.set_xticks([i for i in range(16)])
+        ax.set_yticks([i for i in range(16)])
+        ax.set_xticklabels([listing[i] for i in range(16)])
+        ax.set_yticklabels([listing[i] for i in range(16)])
+        ax.tick_params(axis=u'both', which=u'both', length=0)
         cbar = fig.colorbar(cax)
         cbar.ax.set_yticks([0, 1, 2])
-        cbar.ax.set_yticklabels(['<mean-sd', 'in-between', '>mean+sd'])
+        cbar.ax.set_yticklabels(
+            ['$f < \mu - 2\sigma$', '$f = \mu \pm 2\sigma$', '$f > \mu + 2\sigma$'])
 
-        plt.savefig(f"{OUTPUT_PATH}{key}_compdiff.svg", bbox_inches='tight')
+        plt.savefig(f"{OUTPUT_PATH}{key}_compdiff.png", bbox_inches='tight')
 
     """
     parser = ArgumentParser()
