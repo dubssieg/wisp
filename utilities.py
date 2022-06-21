@@ -132,7 +132,7 @@ def destroy_sequence(sequence_path: str, destruction_ratio: float) -> None:
                     header = line
                 else:
                     sequence = f"{sequence}{line}"
-        new_seq = ''.join([base if random() >= destruction_ratio else choice(
+        new_seq = ''.join([base if random() >= 0.75*destruction_ratio else choice(
             ['A', 'T', 'C', 'G']) for base in sequence])
         with open(f"{sequence_path}{seq.split('.')[0]}_destr.fna", 'w') as writer:
             writer.write(f"{header}\n{new_seq}")
@@ -157,6 +157,8 @@ def clean_rename(genomes_path: str) -> None:
         new_name = file
         for char in ['[', ']', '(', ')']:
             new_name = new_name.replace(char, '')
+        for char in [' ']:
+            new_name = new_name.replace(char, '-')
         rename(f"{genomes_path}/{file}",
                f"{genomes_path}/{new_name}")
 
@@ -177,4 +179,6 @@ if __name__ == "__main__":
     except Exception as exc:
         raise BaseException("Bad execution") from exc
     """
-    clean_rename('genomes/143_prokaryote_genomes')
+    # clean_rename('genomes/143_prokaryote_genomes')
+    destroy_sequence(
+        "/udd/sidubois/Stage/wisp/genomes/143_prokaryote_genomes/", 0.1)

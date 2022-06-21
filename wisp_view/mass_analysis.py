@@ -35,8 +35,8 @@ def compare():
     df.to_csv("output/mass_report.csv")
 
 
-PATH_TRAIN: str = "genomes/sampled/"
-PATH_SAMPLED: str = "genomes/sampled/"
+PATH_TRAIN: str = "/udd/sidubois/Stage/output/onevsall_sampled_v1/"
+PATH_SAMPLED: str = "/udd/sidubois/Stage/output/onevsall_sampled_v1/"
 LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
 
 
