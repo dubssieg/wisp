@@ -3,16 +3,23 @@
 from functools import cache
 from typing import Generator
 from collections import Counter
-from time import monotonic
-from random import choice
 from itertools import product
 
 
-def recode_kmer_4(input: str, target_len: int):
-    if len(input) == target_len:
-        return decode_kmer_4(input)
+def recode_kmer_4(input_kmer: str, target_len: int) -> str:
+    """Recodes a kmer form its int code, processing at desired size
+
+    Args:
+        input_kmer (str): kmer to encode
+        target_len (int): len to return
+
+    Returns:
+        str: _description_
+    """
+    if len(input_kmer) == target_len:
+        return decode_kmer_4(input_kmer)
     else:
-        temp = decode_kmer_4(input)
+        temp = decode_kmer_4(input_kmer)
         while len(temp) < target_len:
             temp = f"A{temp}"
         return temp
@@ -20,7 +27,14 @@ def recode_kmer_4(input: str, target_len: int):
 
 @cache
 def encode_kmer_4(kmer: str) -> int:
-    "Encodes a kmer into base 4 format"
+    """Encodes a kmer into base 4 format
+
+    Args:
+        kmer (str): a k-sized word composed of A,T,C,G
+
+    Returns:
+        int: Encoding of kmer
+    """
     mapper: dict = {
         'A': "0",
         'T': "3",
@@ -32,7 +46,14 @@ def encode_kmer_4(kmer: str) -> int:
 
 @cache
 def decode_kmer_4(kmer: str) -> str:
-    "Decodes a kmer from base 4 format"
+    """Decodes a kmer from our internal base4 format
+
+    Args:
+        kmer (str): a kmer code
+
+    Returns:
+        str: the A,T,C,G representation of the kmer
+    """
     mapper: dict = {
         '0': "A",
         '3': "T",
@@ -42,12 +63,19 @@ def decode_kmer_4(kmer: str) -> str:
     return ''.join([mapper[k] for k in kmer])
 
 
-def my_encoder_k4():
-    # maybe this can help gain speed ? specific to k=4
-    return {f"{a}{b}{c}{d}": encode_kmer_4(f"{a}{b}{c}{d}") for a in ['A', 'T', 'G', 'C'] for b in ['A', 'T', 'G', 'C'] for c in ['A', 'T', 'G', 'C']for d in ['A', 'T', 'G', 'C']}
-
-
 def apply_filter(substring: str, pattern: str) -> str:
+    """Set a filter on kmer
+
+    Args:
+        substring (str): the kmer to apply filter on
+        pattern (str): pattern to multiply by
+
+    Raises:
+        ValueError: if kmer is too small for pattern
+
+    Returns:
+        str: filtered kmer
+    """
     if len(pattern) > len(substring):
         raise ValueError("Substring is too small to apply filter.")
     elif len(substring) == pattern.count('1'):
@@ -57,12 +85,23 @@ def apply_filter(substring: str, pattern: str) -> str:
 
 
 def reverse_comp(seq: str) -> str:
-    cpl: dict = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}
-    return ''.join([cpl[base]for base in reversed(seq)])  # reverse complement
+    """Given a sequence, computes its reversecomp
+
+    Args:
+        seq (str): origin sequence
+
+    Returns:
+        str: reversed complemented sequence
+    """
+    try:
+        cpl: dict = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}
+        return ''.join([cpl[base]for base in reversed(seq)])
+    except Exception as exc:
+        raise exc
 
 
 def read_and_its_compl(entry: str, kmer_size: int, pattern: str) -> Counter:
-    """Froma read, computes its reverse complement and counts both kmers on read and its reverse
+    """From a read, computes its reverse complement and counts both kmers on read and its reverse
 
     Args:
         entry (str): a read to be computed
@@ -105,26 +144,16 @@ def kmer_2soluces(entry: str, kmer_size: int, pattern: str, inverted: bool = Fal
         return Counter([apply_filter(entry[k:k+len(pattern)], pattern) for k in range(len(entry) - len(pattern) - 1) if apply_filter(entry[k:k+len(pattern)], pattern).isalpha() and not apply_filter(entry[k:k+len(pattern)], pattern) == len(apply_filter(entry[k:k+len(pattern)], pattern)) * apply_filter(entry[k:k+len(pattern)], pattern)[0]])
 
 
-"""
-def kmer_indexing_canonical(entry: str, kmer_size: int, pattern: str) -> Counter:
-    if pattern.count('1') != kmer_size:
-        raise ValueError("Filter does not match ksize.")
-    else:
-        ksize = kmer_size
-        nkmers = 4**ksize
-        tablesize = nkmers + 10
-        cg = Countgraph(ksize, tablesize, 1)
-        for k in range(len(entry) - len(pattern) - 1):
-            my_kmer = apply_filter(entry[k:k+len(pattern)], pattern)
-            if my_kmer.isalpha() and not my_kmer == len(my_kmer) * my_kmer[0]:
-                # fixes rare issue where a \n was integrated
-                # and checks for mononucleotid patterns
-                cg.count(my_kmer)
-        return Counter({cg.reverse_hash(i): cg.get(i) for i in range(nkmers) if cg.get(i)})
-"""
+def kmer_indexing_brut(entry: str, kmer_size: int) -> Counter:
+    """Bruteforce kmer encoding. Used for plots.
 
+    Args:
+        entry (str): a read
+        kmer_size (int): kmer length
 
-def kmer_indexing_brut(entry: str, kmer_size: int):
+    Returns:
+        Counter: kmer counts
+    """
     return Counter([entry[k:k+kmer_size] for k in range(len(entry) - kmer_size - 1)])
 
 
@@ -148,7 +177,17 @@ def optimal_splitting(seq: str, window_size: int, max_sampling: int) -> set[str]
     return set([seq[shift*i:shift*i+window_size] for i in range(max_sampling)])
 
 
-def counter_fast(entry: str, kmer_size: int, pattern: str):
+def counter_fast(entry: str, kmer_size: int, pattern: str) -> Counter:
+    """Computes kmer counts in read
+
+    Args:
+        entry (str): a read
+        kmer_size (int): size of words we use
+        pattern (str): pattern to apply to kmers
+
+    Returns:
+        Counter: counts of kmers
+    """
     all_kmers: list = [entry[i:i+len(pattern)]
                        for i in range(len(entry)-len(pattern)-1)]
     if pattern != len(pattern) * '1':
@@ -191,8 +230,8 @@ def counter_ultrafast(entry: str, kmer_size: int, pattern: list) -> Counter:
     all_counts = counts + counts_reverse
     if pattern != len(pattern) * '1':
         counts = Counter({ultrafast_filter(k, pattern): v for k, v in all_counts.items()})
-    for f in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
-        del counts[f]
+    for filtered_kmer in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
+        del counts[filtered_kmer]
     return counts
 
 
@@ -240,56 +279,3 @@ def encoder(ksize: int) -> dict:
         dict: kmer:code
     """
     return {code: encode_kmer_4(code) for code in map(''.join, product('ATCG', repeat=ksize))}
-
-####################################################################################
-
-
-if __name__ == "__main__":
-    seq = ''.join([choice(['A', 'T', 'C', 'G']) for _ in range(1000000)])
-    my_encoder = encoder(5)
-
-    base = monotonic()
-
-    splits = splitting_generator(seq, 10000, 500)
-    counters = [kmer_indexing_canonical(split, 5, "111011")
-                for split in splits]
-
-    print(f"kmer_canonique:generator en : {monotonic()-base}")
-    base = monotonic()
-
-    splits = splitting_generator(seq, 10000, 500)
-    counters = [counter_ultrafast(split, 5, [1, 1, 1, 0, 1, 1])
-                for split in splits]
-
-    print(f"counter_ultrafast:generator en : {monotonic()-base}")
-    base = monotonic()
-
-    encoded = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
-
-    #print(f"encode:generator en : {monotonic()-base}")
-    base = monotonic()
-
-    encoded = [{encode_kmer_4(k): v for k, v in cts.items()}
-               for cts in counters]
-
-    #print(f"encode:regular en : {monotonic()-base}")
-    base = monotonic()
-
-    splits = optimal_splitting(seq, 10000, 500)
-    [counter_ultrafast(split, 5, [1, 1, 1, 0, 1, 1]) for split in splits]
-
-    print(f"counter_ultrafast:regular en : {monotonic()-base}")
-
-    base = monotonic()
-
-    splits = optimal_splitting(seq, 10000, 500)
-    [counter_fast(split, 5, '111011') for split in splits]
-
-    print(f"counter_fast en : {monotonic()-base}")
-
-    base = monotonic()
-
-    splits = optimal_splitting(seq, 10000, 500)
-    [kmer_indexing_brut(split, 5, '111011') for split in splits]
-
-    print(f"kmer_indexing_brut en : {monotonic()-base}")
