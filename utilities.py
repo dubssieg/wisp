@@ -6,6 +6,7 @@ import csv
 from Bio import SeqIO
 from random import random, choice
 from argparse import ArgumentParser
+from logging import info
 
 
 def rename_genomes(path_to_genomes: str) -> None:
@@ -99,24 +100,25 @@ def verificator(fasta_file: str) -> int:
 
 def summary_to_dl(summary_file: str) -> None:
     # assumming its a standard NCBI summary file
+    genomes_path = "genomes/to_annotate"
     with open(summary_file, "r") as summary_reader:
         next(summary_reader)
         next(summary_reader)
         for i, line in enumerate(summary_reader):
-            if i < 60000:
+            if i < 165000:
                 next(summary_reader)
-            elif i >= 60000:
+            elif i >= 165000:
                 # accession, https
                 split = line.split()
-                print(f"Resolving entry n°{i} : {split[0]}")
+                info(f"Resolving entry n°{i} : {split[0]}")
                 try:
                     https_wget = [
                         elt for elt in split if elt[:5] == 'https'][0]
                     access = [split[0], https_wget]
                     system(
-                        f"wget -P {ANNOTATE_PATH} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz; gzip -d {ANNOTATE_PATH}/*.gz")
-                    pre_rename()
-                    rename_genomes()
+                        f"wget -P {genomes_path} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz; gzip -d {ANNOTATE_PATH}/*.gz")
+                    pre_rename(genomes_path)
+                    rename_genomes(genomes_path)
                 except:
                     pass
             else:
@@ -179,6 +181,6 @@ if __name__ == "__main__":
     except Exception as exc:
         raise BaseException("Bad execution") from exc
     """
+    summary_to_dl("genomes/assembly_summary.txt")
     # clean_rename('genomes/143_prokaryote_genomes')
-    destroy_sequence(
-        "/udd/sidubois/Stage/wisp/genomes/143_prokaryote_genomes/", 0.1)
+    #destroy_sequence("/udd/sidubois/Stage/wisp/genomes/143_prokaryote_genomes/", 0.1)
