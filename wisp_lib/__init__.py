@@ -11,7 +11,6 @@ from .data_manipulation import load_mapping
 from .kmers_coders import encode_kmer_4
 from .kmers_coders import decode_kmer_4
 from .kmers_coders import recode_kmer_4
-from .kmers_coders import kmer_indexing_canonical
 from .kmers_coders import kmer_indexing_brut
 from .kmers_coders import my_encoder_k4
 from .kmers_coders import read_and_its_compl

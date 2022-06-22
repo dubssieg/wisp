@@ -2,7 +2,6 @@
 
 from functools import cache
 from typing import Generator
-from khmer import Countgraph
 from collections import Counter
 from time import monotonic
 from random import choice
@@ -106,6 +105,7 @@ def kmer_2soluces(entry: str, kmer_size: int, pattern: str, inverted: bool = Fal
         return Counter([apply_filter(entry[k:k+len(pattern)], pattern) for k in range(len(entry) - len(pattern) - 1) if apply_filter(entry[k:k+len(pattern)], pattern).isalpha() and not apply_filter(entry[k:k+len(pattern)], pattern) == len(apply_filter(entry[k:k+len(pattern)], pattern)) * apply_filter(entry[k:k+len(pattern)], pattern)[0]])
 
 
+"""
 def kmer_indexing_canonical(entry: str, kmer_size: int, pattern: str) -> Counter:
     if pattern.count('1') != kmer_size:
         raise ValueError("Filter does not match ksize.")
@@ -121,6 +121,7 @@ def kmer_indexing_canonical(entry: str, kmer_size: int, pattern: str) -> Counter
                 # and checks for mononucleotid patterns
                 cg.count(my_kmer)
         return Counter({cg.reverse_hash(i): cg.get(i) for i in range(nkmers) if cg.get(i)})
+"""
 
 
 def kmer_indexing_brut(entry: str, kmer_size: int):
@@ -189,7 +190,7 @@ def counter_ultrafast(entry: str, kmer_size: int, pattern: list) -> Counter:
     counts_reverse = Counter({reverse_comp(k): v for k, v in counts.items()})
     all_counts = counts + counts_reverse
     if pattern != len(pattern) * '1':
-        counts = Counter({ultrafast_filter(k, pattern)                         : v for k, v in all_counts.items()})
+        counts = Counter({ultrafast_filter(k, pattern): v for k, v in all_counts.items()})
     for f in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
         del counts[f]
     return counts
