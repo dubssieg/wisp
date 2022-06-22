@@ -30,9 +30,9 @@ def signatures(list_sequences):
 
 
 def code(value, mn, sd):
-    if value < mn - 2 * sd:
+    if value < mn * sd:
         return 0
-    elif value > mn + 2 * sd:
+    elif value > mn * sd:
         return 2
     else:
         return 1
@@ -49,6 +49,7 @@ def compute_signatures(level, pwd, listing):
         list_sequences = [my_parser(genome_matching, True, True, 'm')[
             'm'] for genome_matching in all_genomes_matching]
         res = signatures(list_sequences)
+        print(res)
         mn = mean(res.values())
         sd = stdev(res.values())
         tpd = {k: code(v, mn, sd) for k, v in res.items()}
@@ -137,8 +138,7 @@ if __name__ == "__main__":
         cbar = fig.colorbar(cax)
         cbar.ax.set_yticks([0, 1, 2])
         cbar.ax.set_yticklabels(
-            ['$f < \mu - 2\sigma$', '$f = \mu \pm 2\sigma$', '$f > \mu + 2\sigma$'])
-
+            ['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
         plt.savefig(f"{OUTPUT_PATH}{key}_compdiff.png", bbox_inches='tight')
 
     """
