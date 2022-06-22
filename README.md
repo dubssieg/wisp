@@ -4,10 +4,8 @@
 
 This Python program is meant to determine to which taxa a bacteria is belonginig to, from long reads (>10.000bp), solely based upon alignment-free methods. As of now, the main focus is upon kmers proportions. It aims to do binning over a collection of samples, giving a probable class to each read.
 Currently, five levels of taxa are implemented : **domain**, **phylum**, **group**, **order** and **family**.
-This tool is requiring some reference genomes, which it will index, to create a XGBoost model.
-One can download custom genome dataset with NCBI accession numbers
 Once a model finished at a given taxa level, it aims to do another iteration from previous results, excluding non-matching reference genomes.
-Software was extensively tested both in baseline and leave-one-out scenarios. The two following figures are averaged over 103200 distinct reads, and depicts baseline accuracy with no fine tuning of parameters at family level.
+This work was extensively tested both in baseline and leave-one-out scenarios. The two following figures are averaged over 103200 distinct reads, and depicts baseline accuracy with no fine tuning of parameters at family level. You may find more details in the linked publication below.
 
 <p align="center">
   <img src="https://github.com/Tharos-ux/wisp/blob/master/preview/clustermap_baseline.png">
@@ -20,7 +18,9 @@ Software was extensively tested both in baseline and leave-one-out scenarios. Th
 The core functionnalities relies on a class probabiliy attribution to discriminate reads that might not be good indicators for our specie to be determined. As many other options, you can choose the ratio and the selection function to suit best your biological context.
 A result for a sample read issued from a MinION lecture of Streptococcus may be found here : [MinION read](preview/sample_report.pdf)
 
-**WISP is research work**. If you want to use it, please source the code and **cite** the maybe-one-day [upcomming paper](preview/Bacterial_families_identification_from_long_reads___machine_learning_with_XGBoost_.pdf).
+**WISP is research software**. If you want to use it, please source the code and **cite** the maybe-one-day [upcomming paper](preview/Bacterial_families_identification_from_long_reads___machine_learning_with_XGBoost_.pdf).
+
+This tool is requiring some reference genomes, which it will index, to create a XGBoost model. Genomic fasta (.fna) files are the prefferd input style as of now. One can download custom genome dataset with NCBI accession numbers to create its own specific dataset and increase even more classifier accuracy. You may find here [accession files](https://ftp.ncbi.nlm.nih.gov/genomes/refseq/) that WISP can directly take as inputs to retrieve both genomes and taxonomy.
 
 # Installation
 
