@@ -1,12 +1,11 @@
 "This script is rather a set of tools for downloading references ganomes and renaming those"
 
-from python_tools import my_classification_mapper, my_fetcher, my_parser, my_types_checker
+from python_tools import my_classification_mapper, my_fetcher, my_parser, my_output_msg, my_logs_global_config
 from os import listdir, rename, system
 import csv
 from Bio import SeqIO
 from random import random, choice
 from argparse import ArgumentParser
-from logging import info
 
 
 def rename_genomes(path_to_genomes: str) -> None:
@@ -39,6 +38,7 @@ def pre_rename(annotate_path: str) -> None:
                    f"{annotate_path}/{accession}.fna")
 
 
+"""
 def get_info(csv_file: str) -> None:
     with open(csv_file) as file:
         csvreader = csv.reader(file)
@@ -49,9 +49,11 @@ def get_info(csv_file: str) -> None:
 
     for i, row in enumerate(rows):
         try:
-            my_fetcher(row[0].split(',')[0], '_'.join(row[1:]))
+            my_fetcher(row[0].split(',')[0], '_'.join(
+                row[1:]), 'siegfried.dubois@inria.fr')
         except:
             print("Bad request")
+"""
 
 
 def gather(csv_file: str) -> None:
@@ -110,7 +112,7 @@ def summary_to_dl(summary_file: str) -> None:
             elif i >= 165000:
                 # accession, https
                 split = line.split()
-                info(f"Resolving entry n°{i} : {split[0]}")
+                my_output_msg(f"Resolving entry n°{i} : {split[0]}")
                 try:
                     https_wget = [
                         elt for elt in split if elt[:5] == 'https'][0]
@@ -181,6 +183,8 @@ if __name__ == "__main__":
     except Exception as exc:
         raise BaseException("Bad execution") from exc
     """
+    my_logs_global_config("WISP_download", True, True)
+    my_output_msg("Starting genomes retrieving...")
     summary_to_dl("genomes/assembly_summary.txt")
     # clean_rename('genomes/143_prokaryote_genomes')
     #destroy_sequence("/udd/sidubois/Stage/wisp/genomes/143_prokaryote_genomes/", 0.1)
