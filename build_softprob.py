@@ -60,7 +60,7 @@ def tests_with_kfold(path_to_save, cls, xgbMatrix, X, y, class_count, classif_le
 
 #################### SAVE AND LOAD ####################
 
-def save_model(bst, path: str, classif_level: str, db_name: str, sp_determined):
+def save_model(bst, path: str, classif_level: str, db_name: str, sp_determined: str | None, job_name: str, bool_temporary: bool = False):
     """
     Store model in order to dodge calculation at each new run
     Executes a memory snapshot and put it in a .json file
@@ -71,14 +71,16 @@ def save_model(bst, path: str, classif_level: str, db_name: str, sp_determined):
     * bst (xgb.Model) : xgboost model
     * db_name (str) : database we need to search in
     """
-    if sp_determined == None:
+    if bool_temporary:
+        my_path = f"{path}{db_name}/temp/{job_name}/saved_model.json"
+    elif sp_determined is None:
         my_path = f"{path}{db_name}/{classif_level}/saved_model.json"
     else:
         my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_saved_model.json"
     bst.save_model(my_path)
 
 
-def load_model(bst, path: str, classif_level: str, db_name: str, sp_determined):
+def load_model(bst, path: str, classif_level: str, db_name: str, sp_determined: str | None, job_name: str, bool_temporary: bool = False):
     """
     Load previously stored model in order to dodge calculation
     Load a memory snapshot from a .json file
@@ -89,7 +91,9 @@ def load_model(bst, path: str, classif_level: str, db_name: str, sp_determined):
     * bst (xgb.Model) : xgboost model
     * db_name (str) : database we need to search in
     """
-    if sp_determined == None:
+    if bool_temporary:
+        my_path = f"{path}{db_name}/temp/{job_name}/saved_model.json"
+    elif sp_determined is None:
         my_path = f"{path}{db_name}/{classif_level}/saved_model.json"
     else:
         my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_saved_model.json"
@@ -265,7 +269,7 @@ def plot_tree_model(bst: xgb.Booster, job_name: str, classif_level: str, sp_dete
 
 
 @my_function_timer("Building model")
-def make_model(exclude: list[str], path: str, classif_level: str, db_name: str, sp_determined, model_parameters: dict, number_rounds: int, sample_name: str):
+def make_model(exclude: list[str], path: str, classif_level: str, db_name: str, sp_determined, model_parameters: dict, number_rounds: int, sample_name: str, bool_temporary):
     """
     Main procedure : builds the model and saves it
 
@@ -283,7 +287,8 @@ def make_model(exclude: list[str], path: str, classif_level: str, db_name: str, 
         path, classif_level, 'train', db_name, sp_determined, sample_name, exclude)
     #dtrain = xgb.DMatrix(data=X, label=y)
     bst = modelisation(dtrain, model_parameters, number_rounds)
-    save_model(bst, path, classif_level, db_name, sp_determined)
+    save_model(bst, path, classif_level, db_name,
+               sp_determined, bool_temporary)
     save_params(bst, path, classif_level, db_name, sp_determined)
 
 

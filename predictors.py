@@ -98,7 +98,8 @@ def test_model(path_to_save: str, out_path, job_name, database_name, classif_lev
         out_path, classif_level, 'test', database_name, sp_determined, job_name, exclude=excluded)
 
     my_output_msg("Model loading...")
-    load_model(bst, out_path, classif_level, database_name, sp_determined)
+    load_model(bst, out_path, classif_level,
+               database_name, sp_determined, job_name)
     load_params(bst, out_path, classif_level, database_name, sp_determined)
 
     my_output_msg("Preds calculation...")
@@ -123,7 +124,7 @@ def test_model(path_to_save: str, out_path, job_name, database_name, classif_lev
     return compare_test(path_to_save, real, preds, inverted_map, job_name, classif_level, sp_determined)
 
 
-def test_unk_sample(path_to_save, out_path, job_name, database_name, classif_level, sp_determined, threshold, reads_threshold, test_status, sampling_number, func, test_state):
+def test_unk_sample(path_to_save, out_path, job_name, database_name, classif_level, sp_determined, threshold, reads_threshold, test_status, sampling_number, func, test_state, bool_temporary):
     map_sp = load_mapping(out_path, database_name,
                           classif_level, sp_determined)
     inverted_map = {str(v): k for k, v in map_sp.items()}
@@ -131,7 +132,8 @@ def test_unk_sample(path_to_save, out_path, job_name, database_name, classif_lev
     bst = xgb.Booster()
 
     my_output_msg("Model loading...")
-    load_model(bst, out_path, classif_level, database_name, sp_determined)
+    load_model(bst, out_path, classif_level, database_name,
+               sp_determined, job_name, bool_temporary)
     load_params(bst, out_path, classif_level, database_name, sp_determined)
 
     # loop over all data to exit model re-loading at each step?

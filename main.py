@@ -31,17 +31,19 @@ if __name__ == "__main__":
         "-f", "--file", type=str, help="file to load. if not specified, loads the full unk/ folder")
     parser.add_argument(
         "-e", "--exclude", default=[], help="Used for one-vs-all tests")
+    parser.add_argument(
+        "-l", "--leaveoneout", help="Leave the unknown sample out of training set", action='store_true')
 
     # executing args
     args = parser.parse_args()
 
 ############################################ LOADING STUFF ###############################################
-
     # we try to load params file and gather data from it
     try:
         my_params: dict = load_json(args.params)
         # storing args
         exclude: list[str] = [args.exclude] if args.exclude != 'None' else []
+        temporary_models: bool = args.leaveoneout
 
         DATABASE: str = args.database_name
         TAXAS_LEVELS: list[str] = my_params['levels_list']
@@ -57,6 +59,8 @@ if __name__ == "__main__":
         reads_threshold = float(my_params['reads_th'])
         test_state = str(my_params['test_mode'])
         force_rebuild = bool(my_params['force_model_rebuild'])
+        if temporary_models:
+            force_rebuild = True
         tree_depth = int(my_params['tree_depth'])
         func_reads = str(my_params['selection_mode'])
         single_way = bool(my_params['single_way'])
@@ -157,7 +161,7 @@ if __name__ == "__main__":
                         if force_rebuild or not check_if_model_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
 
                             make_model(exclude, DATABASE_PATH, taxa, DATABASE,
-                                       parent_level, init_parameters(len(map_sp), tree_depth), nr, JOB)
+                                       parent_level, init_parameters(len(map_sp), tree_depth), nr, JOB, temporary_models)
 
                         number_of_reads = make_unk_datasets(
                             func=count_func,
@@ -197,7 +201,7 @@ if __name__ == "__main__":
                                                                                  DATABASE_PATH, JOB, DATABASE, taxa, reads_threshold, parent_level, func_reads, exclude))
 
                         output_temp = test_unk_sample(path_for_read[i],
-                                                      DATABASE_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold, test_state, number_of_reads, func_reads, test_state)
+                                                      DATABASE_PATH, JOB, DATABASE, taxa, parent_level, threshold, reads_threshold, test_state, number_of_reads, func_reads, test_state, temporary_models)
                         topmost[f"{taxa}_{parent_level}"] = output_temp[f"Reads summation {taxa}"]
 
                         if f"Possible for {taxa}" in output:
