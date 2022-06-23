@@ -22,7 +22,7 @@ def save_json(json_file: str, dico_save: dict) -> None:
 
 
 def my_params(filename: str):
-    sparkle: str = "small"
+    sparkle: str = "destroyed"
     # dict to be converted in .json file to create our parameters set
     params_job: dict = {
         # subreads size and max. of reads in sample
@@ -59,7 +59,7 @@ def my_params(filename: str):
         'reads_th': 0.1,
         'selection_mode': 'delta_mean',  # 'min_max','delta_mean','delta_sum'
         # force rebuilding full model, when you re-use a database but you changed model parameters
-        'force_model_rebuild': True,  # never set true in multithread mode
+        'force_model_rebuild': False,  # never set true in multithread mode
         # tells the software if should consider both orientations or assume it is 3' -> 5' and computes canonical kmers
         'single_way': True,
         'targeted_level': 'family',  # domain, phylum, group, order, family
