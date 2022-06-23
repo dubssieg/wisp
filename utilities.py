@@ -104,6 +104,8 @@ def summary_to_dl(summary_file: str) -> None:
     # assumming its a standard NCBI summary file
     genomes_path = "genomes/to_annotate"
     with open(summary_file, "r") as summary_reader:
+        my_output_msg(
+            f"Loaded annotation file, {len(summary_reader)} entries detected.")
         next(summary_reader)
         next(summary_reader)
         for i, line in enumerate(summary_reader):
@@ -118,7 +120,7 @@ def summary_to_dl(summary_file: str) -> None:
                         elt for elt in split if elt[:5] == 'https'][0]
                     access = [split[0], https_wget]
                     system(
-                        f"wget -P {genomes_path} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz; gzip -d {ANNOTATE_PATH}/*.gz")
+                        f"wget -P {genomes_path} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz; gzip -d {genomes_path}/*.gz")
                     pre_rename(genomes_path)
                     rename_genomes(genomes_path)
                 except:
