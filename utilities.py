@@ -129,8 +129,9 @@ def summary_to_dl(summary_file: str) -> None:
                 break
 
 
-def destroy_sequence(sequence_path: str, destruction_ratio: float) -> None:
-    for seq in listdir(sequence_path):
+def destroy_sequence(sequence_path: str, sequence_output: str, destruction_ratio: float) -> None:
+    for i, seq in enumerate(listdir(sequence_path)):
+        my_output_msg(f"Destroying sequence {i}...")
         header, sequence = "", ""
         with open(f"{sequence_path}{seq}", 'r') as reader:
             for line in reader:
@@ -140,7 +141,7 @@ def destroy_sequence(sequence_path: str, destruction_ratio: float) -> None:
                     sequence = f"{sequence}{line}"
         new_seq = ''.join([base if random() >= 0.75*destruction_ratio else choice(
             ['A', 'T', 'C', 'G']) for base in sequence])
-        with open(f"{sequence_path}{seq.split('.')[0]}_destr.fna", 'w') as writer:
+        with open(f"{sequence_output}{seq.split('.')[0]}_destr.fna", 'w') as writer:
             writer.write(f"{header}\n{new_seq}")
 
 
@@ -186,7 +187,8 @@ if __name__ == "__main__":
         raise BaseException("Bad execution") from exc
     """
     my_logs_global_config("WISP_download", True, True)
-    my_output_msg("Starting genomes retrieving...")
-    summary_to_dl("genomes/assembly_summary.txt")
+    my_output_msg("Starting genomes destruction...")
+    # summary_to_dl("genomes/assembly_summary.txt")
     # clean_rename('genomes/143_prokaryote_genomes')
-    #destroy_sequence("/udd/sidubois/Stage/wisp/genomes/143_prokaryote_genomes/", 0.1)
+    destroy_sequence("genomes/train_destroyed/",
+                     "genomes/unk_destroyed/", 0.06)
