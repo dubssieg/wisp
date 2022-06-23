@@ -7,7 +7,7 @@ from warnings import filterwarnings
 from python_tools import my_output_msg, my_fasta_parser
 from datetime import datetime
 from wisp_view import plot_boosting, make_doc, global_sample_report
-from wisp_lib import counter_ultrafast, kmer_indexing_canonical, reverse_comp, splitting_generator, check_if_database_exists, check_if_model_exists, check_if_merged_database_exists, load_mapping, load_json, check_if_merged_model_exists
+from wisp_lib import counter_ultrafast, reverse_comp, splitting_generator, check_if_database_exists, check_if_model_exists, check_if_merged_database_exists, load_mapping, load_json, check_if_merged_model_exists
 from predictors import test_unk_sample, save_output, test_model
 from pathlib import Path
 from _version import get_versions
