@@ -190,5 +190,5 @@ if __name__ == "__main__":
     my_output_msg("Starting genomes destruction...")
     # summary_to_dl("genomes/assembly_summary.txt")
     # clean_rename('genomes/143_prokaryote_genomes')
-    destroy_sequence("genomes/train_destroyed/",
-                     "genomes/unk_destroyed/", 0.06)
+    destroy_sequence("genomes/train_destroyed2/",
+                     "genomes/unk_destroyed2/", 0.06)
