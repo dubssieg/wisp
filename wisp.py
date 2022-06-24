@@ -38,7 +38,7 @@ def core_call(leaveoneout: bool, exclusion: str, multithreading_state: int, buil
                         shlex.split(f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {file} -l")] for file in file_list], multithreading_state)
                     """
                     communicators = my_futures_collector(system, [[
-                                                         f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {file} -l"] for file in file_list], multithreading_state)
+                                                         f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {'_'.join(file.split('_')[:-1])} -l"] for file in file_list], multithreading_state)
                 else:
                     communicators = my_futures_collector(subprocess.Popen, [[
                         shlex.split(f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {exclusion}")] for file in file_list], multithreading_state)

@@ -1,3 +1,4 @@
+from logging import warning
 import xgboost as xgb
 from python_tools import my_output_msg, my_function_timer
 from wisp_lib import load_xgboost_data, recode_kmer_4
@@ -77,6 +78,7 @@ def save_model(bst, path: str, classif_level: str, db_name: str, sp_determined: 
         my_path = f"{path}{db_name}/{classif_level}/saved_model.json"
     else:
         my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_saved_model.json"
+    my_output_msg(f"Model saved in {my_path}", warning)
     bst.save_model(my_path)
 
 
