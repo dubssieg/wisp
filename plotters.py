@@ -30,9 +30,9 @@ def signatures(list_sequences):
 
 
 def code(value, mn, sd):
-    if value < mn * sd:
+    if value < mn - sd:
         return 0
-    elif value > mn * sd:
+    elif value > mn + sd:
         return 2
     else:
         return 1
@@ -117,28 +117,30 @@ if __name__ == "__main__":
     OUTPUT_PATH: str = f"output/figures/compdiff/"
     listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
                for b in ['A', 'T', 'G', 'C']]
-    elts = compute_signatures('group', 'genomes/sampled', listing)
-    for key, elt in elts.items():
-        print("\n"+key+"\n")
-        print(elt)
-        fig = plt.figure()
-        cm = plt.get_cmap('rainbow', 3)
-        ax = fig.add_subplot(111)
-        cax = ax.matshow(elt, cmap=cm, vmin=0, vmax=2)
-        plt.title(f"{key}")
-        plt.xticks(rotation=90)
-        plt.yticks(fontsize=9)
-        plt.xticks(fontsize=9)
-        ax.set_xticks([i for i in range(16)])
-        ax.set_yticks([i for i in range(16)])
-        ax.set_xticklabels([listing[i] for i in range(16)])
-        ax.set_yticklabels([listing[i] for i in range(16)])
-        ax.tick_params(axis=u'both', which=u'both', length=0)
-        cbar = fig.colorbar(cax)
-        cbar.ax.set_yticks([0, 1, 2])
-        cbar.ax.set_yticklabels(
-            ['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
-        plt.savefig(f"{OUTPUT_PATH}{key}_compdiff.png", bbox_inches='tight')
+    for level in ['domain', 'phylum', 'group', 'order', 'family']:
+        elts = compute_signatures(level, 'genomes/sampled', listing)
+        for key, elt in elts.items():
+            print("\n"+key+"\n")
+            print(elt)
+            fig = plt.figure()
+            cm = plt.get_cmap('rainbow', 3)
+            ax = fig.add_subplot(111)
+            cax = ax.matshow(elt, cmap=cm, vmin=0, vmax=2)
+            plt.title(f"{key}")
+            plt.xticks(rotation=90)
+            plt.yticks(fontsize=9)
+            plt.xticks(fontsize=9)
+            ax.set_xticks([i for i in range(16)])
+            ax.set_yticks([i for i in range(16)])
+            ax.set_xticklabels([listing[i] for i in range(16)])
+            ax.set_yticklabels([listing[i] for i in range(16)])
+            ax.tick_params(axis=u'both', which=u'both', length=0)
+            cbar = fig.colorbar(cax)
+            cbar.ax.set_yticks([0, 1, 2])
+            cbar.ax.set_yticklabels(
+                ['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
+            plt.savefig(f"{OUTPUT_PATH}{level}/{key}_compdiff.png",
+                        bbox_inches='tight')
 
     """
     parser = ArgumentParser()

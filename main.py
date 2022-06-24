@@ -1,5 +1,6 @@
 "Executes main procedure"
 from argparse import ArgumentParser
+from logging import warning
 from traceback import format_exc
 from sample_class import make_datasets, make_unk_datasets
 from build_softprob import make_model, init_parameters, make_testing
@@ -59,8 +60,6 @@ if __name__ == "__main__":
         reads_threshold = float(my_params['reads_th'])
         test_state = str(my_params['test_mode'])
         force_rebuild = bool(my_params['force_model_rebuild'])
-        if temporary_models:
-            force_rebuild = True
         tree_depth = int(my_params['tree_depth'])
         func_reads = str(my_params['selection_mode'])
         single_way = bool(my_params['single_way'])
@@ -158,8 +157,8 @@ if __name__ == "__main__":
 
             ############################################ MODEL STUFF ###############################################
 
-                        if force_rebuild or not check_if_model_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
-
+                        if temporary_models or force_rebuild or not check_if_model_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
+                            my_output_msg("MAKING MODEL", warning)
                             make_model(exclude, DATABASE_PATH, taxa, DATABASE,
                                        parent_level, init_parameters(len(map_sp), tree_depth), nr, JOB, temporary_models)
 
