@@ -1,11 +1,11 @@
-"This script is rather a set of tools for downloading references ganomes and renaming those"
+"This script is rather a set of tools for downloading references genomes and renaming those"
 
-from python_tools import my_classification_mapper, my_fetcher, my_parser, my_output_msg, my_logs_global_config
 from os import listdir, rename, system
 import csv
-from Bio import SeqIO
 from random import random, choice
 from argparse import ArgumentParser
+from Bio import SeqIO
+from python_tools import my_classification_mapper, my_parser, my_output_msg, my_logs_global_config
 
 
 def rename_genomes(path_to_genomes: str) -> None:
@@ -17,17 +17,20 @@ def rename_genomes(path_to_genomes: str) -> None:
     """
     files = [f"{file[:-4]}" for file in listdir(
         f"{path_to_genomes}/") if file[-4:] == '.fna']
-
     for file in files:
         new_name = my_classification_mapper(
             file, 'siegfried.dubois@inria.fr')
-
-        if new_name != None:
+        if new_name is not None:
             rename(f"{path_to_genomes}/{file}.fna",
                    f"{path_to_genomes}/{new_name}.fna")
 
 
 def pre_rename(annotate_path: str) -> None:
+    """Gets the accession number to later retrieve taxonomy, and puts it as filename
+
+    Args:
+        annotate_path (str): path we want to process
+    """
     files = listdir(f"{annotate_path}/")
 
     for file in files:
@@ -38,25 +41,12 @@ def pre_rename(annotate_path: str) -> None:
                    f"{annotate_path}/{accession}.fna")
 
 
-"""
-def get_info(csv_file: str) -> None:
-    with open(csv_file) as file:
-        csvreader = csv.reader(file)
-        header = next(csvreader)
-
-        rows = [[row[header.index("GenBank ID/Accession")], row[header.index(
-            "Domain")], row[header.index("Phylum")], row[header.index("Class")], row[header.index("Order")], row[header.index("Family")], f"{row[header.index('Genome Name')].split(' ')[0]}_{row[header.index('Genome Name')].split(' ')[1]}"] for row in csvreader]
-
-    for i, row in enumerate(rows):
-        try:
-            my_fetcher(row[0].split(',')[0], '_'.join(
-                row[1:]), 'siegfried.dubois@inria.fr')
-        except:
-            print("Bad request")
-"""
-
-
 def gather(csv_file: str) -> None:
+    """Extacts accession numbers from CSV file
+
+    Args:
+        csv_file (str): a path to a .csv file
+    """
     ids = []
     with open(csv_file) as file:
         csvreader = csv.reader(file)
@@ -65,19 +55,22 @@ def gather(csv_file: str) -> None:
             ids = list(
                 ids + row[header.index("GenBank ID/Accession")].split(', '))
     with open("out.txt", "w") as writer:
-        for id in ids:
-            writer.write(f"{id}\n")
-
-# downloading via https://www.ncbi.nlm.nih.gov/sites/batchentrez
-# retrieving one huge .fasta file
+        for id_file in ids:
+            writer.write(f"{id_file}\n")
 
 
 def scatter(fasta_file: str) -> None:
+    """When downloading via https://www.ncbi.nlm.nih.gov/sites/batchentrez
+    we are retrieving one huge .fasta file ; this func splits it in independant files
+
+    Args:
+        fasta_file (str): a huge .fna file
+    """
     my_tuple = [(fasta.id, fasta.seq)
                 for fasta in SeqIO.parse(open(fasta_file), 'fasta')]
-    for id, seq in my_tuple:
-        name: str | None = id  # my_classification_mapper(id)
-        if name != None:
+    for id_seq, seq in my_tuple:
+        name: str | None = id_seq
+        if name is not None:
             with open(f"gen/{name}.fna", "w") as writer:
                 writer.write(f"> {id} {name.replace('_',' ')}\n{seq}")
             print(f"File {name}.fna sucessfully writed out!")
@@ -101,11 +94,13 @@ def verificator(fasta_file: str) -> int:
 
 
 def summary_to_dl(summary_file: str) -> None:
-    # assumming its a standard NCBI summary file
+    """Download all genomes from a file, assumming its a standard NCBI summary file
+
+    Args:
+        summary_file (str): path to a NCBI file
+    """
     genomes_path = "genomes/to_annotate"
     with open(summary_file, "r") as summary_reader:
-        my_output_msg(
-            f"Loaded annotation file, {len(summary_reader)} entries detected.")
         next(summary_reader)
         next(summary_reader)
         for i, line in enumerate(summary_reader):
@@ -123,13 +118,24 @@ def summary_to_dl(summary_file: str) -> None:
                         f"wget -P {genomes_path} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz; gzip -d {genomes_path}/*.gz")
                     pre_rename(genomes_path)
                     rename_genomes(genomes_path)
-                except:
+                    # we clean genomes we can't retrive classification for
+                    system(f"rm {genomes_path}/N*")
+                    clean_rename(genomes_path)
+                except OSError:
                     pass
             else:
                 break
 
 
 def destroy_sequence(sequence_path: str, sequence_output: str, destruction_ratio: float) -> None:
+    """Applies artificial sequencing errors to sequences
+
+    Args:
+        sequence_path (str): path to reference sequences to be destroyed
+        sequence_output (str): path where files will be outputted
+        destruction_ratio (float): percentage we want to destroy our sequences
+    """
+    destruction_ratio = float(destruction_ratio)
     for i, seq in enumerate(listdir(sequence_path)):
         my_output_msg(f"Destroying sequence {i}...")
         header, sequence = "", ""
@@ -158,6 +164,11 @@ def read_generator(path_to_sample: str, size_to_sample: int, start: int) -> None
 
 
 def clean_rename(genomes_path: str) -> None:
+    """Cleanses genomes from non-standard characters that might cause issues
+
+    Args:
+        genomes_path (str): path to apply cleaning
+    """
     files = listdir(f"{genomes_path}/")
 
     for file in files:
@@ -175,20 +186,24 @@ if __name__ == "__main__":
     # From an assembly_summary.txt downloaded from NCBI (obtained via ftp.ncbi)
     # it downloads all references, renames it according to the WISP file system
     # All you have to do after is to put those files into train folder once process is done
-    """
+
     parser = ArgumentParser()
     parser.add_argument(
-        "-m", "--method", type=str, help="A callable func to execute")
+        "-m", "--method", type=str, choices=['clean_rename', 'summary_to_dl', 'destroy_sequence'], help="A callable func to execute")
     parser.add_argument('kwargs', nargs='*')
     args = parser.parse_args()
-    try:
-        getattr(tools, args.method)(*args.kwargs)
-    except Exception as exc:
-        raise BaseException("Bad execution") from exc
-    """
-    my_logs_global_config("WISP_download", True, True)
-    my_output_msg("Starting genomes treatment...")
-    # summary_to_dl("genomes/assembly_summary.txt")
-    clean_rename('genomes/unk_destroyed')
-    clean_rename('genomes/unk_destroyed2')
-    #destroy_sequence("genomes/train_destroyed2/","genomes/unk_destroyed2/", 0.06)
+
+    my_logs_global_config("WISP_utilities", True, True)
+    match args.method:
+        case 'clean_rename':
+            # Need to provide path to target folder
+            clean_rename(**args.kwargs)
+        case 'summary_to_dl':
+            # Need to provide mpath to accession file
+            summary_to_dl(**args.kwargs)
+        case 'destroy_sequence':
+            # input folder, output folder, destruction ratio
+            destroy_sequence(**args.kwargs)
+        case _:
+            my_output_msg(
+                'You need to specifiy a method and its args for the program to work. See documentation for help')

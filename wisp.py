@@ -6,7 +6,7 @@
 # If you want to change those, please refer to the README.md file!
 ###########################################################################################
 
-from os import listdir
+from os import listdir, system
 from sys import executable
 from python_tools import my_output_msg, my_function_timer, my_logs_global_config, my_futures_collector
 from wisp_lib import load_json
@@ -33,8 +33,12 @@ def core_call(leaveoneout: bool, exclusion: str, multithreading_state: int, buil
             case False:
                 file_list: list[str] = listdir(unk_path)
                 if leaveoneout:
+                    """
                     communicators = my_futures_collector(subprocess.Popen, [[
                         shlex.split(f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {file} -l")] for file in file_list], multithreading_state)
+                    """
+                    communicators = my_futures_collector(system, [
+                                                         f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {file} -l" for file in file_list], multithreading_state)
                 else:
                     communicators = my_futures_collector(subprocess.Popen, [[
                         shlex.split(f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {exclusion}")] for file in file_list], multithreading_state)
