@@ -118,7 +118,8 @@ if __name__ == "__main__":
     listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
                for b in ['A', 'T', 'G', 'C']]
     for level in ['domain', 'phylum', 'group', 'order', 'family']:
-        elts = compute_signatures(level, 'genomes/sampled', listing)
+        elts = compute_signatures(
+            level, '/scratch/sdubois/all_genomes', listing)
         for key, elt in elts.items():
             print("\n"+key+"\n")
             print(elt)
