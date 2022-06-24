@@ -49,7 +49,6 @@ def compute_signatures(level, pwd, listing):
         list_sequences = [my_parser(genome_matching, True, True, 'm')[
             'm'] for genome_matching in all_genomes_matching]
         res = signatures(list_sequences)
-        print(res)
         mn = mean(res.values())
         sd = stdev(res.values())
         tpd = {k: code(v, mn, sd) for k, v in res.items()}
@@ -111,7 +110,7 @@ def delta_sequence(seq1: str, seq2: str, pattern: str, ksize: int) -> None:
     plt.plot(counts_1.values(), counts_1.keys())
     plt.xticks(fontsize=5)
     plt.yticks(fontsize=5)
-    plt.savefig(f"{OUTPUT_PATH}delta_kmers.svg", bbox_inches='tight')
+    plt.savefig(f"{OUTPUT_PATH}delta_kmers.png", bbox_inches='tight')
 
 
 if __name__ == "__main__":
