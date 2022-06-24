@@ -61,7 +61,7 @@ def tests_with_kfold(path_to_save, cls, xgbMatrix, X, y, class_count, classif_le
 
 #################### SAVE AND LOAD ####################
 
-def save_model(bst, path: str, classif_level: str, db_name: str, sp_determined: str | None, job_name: str, bool_temporary: bool = False):
+def save_model(bst, path: str, classif_level: str, db_name: str, sp_determined: str | None, job_name: str, bool_temporary: bool):
     """
     Store model in order to dodge calculation at each new run
     Executes a memory snapshot and put it in a .json file
@@ -74,10 +74,11 @@ def save_model(bst, path: str, classif_level: str, db_name: str, sp_determined: 
     """
     if bool_temporary:
         my_path = f"{path}{db_name}/temp/{job_name}/saved_model.json"
-    elif sp_determined is None:
-        my_path = f"{path}{db_name}/{classif_level}/saved_model.json"
     else:
-        my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_saved_model.json"
+        if sp_determined is None:
+            my_path = f"{path}{db_name}/{classif_level}/saved_model.json"
+        else:
+            my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_saved_model.json"
     my_output_msg(f"Model saved in {my_path}", warning)
     bst.save_model(my_path)
 
@@ -95,10 +96,11 @@ def load_model(bst, path: str, classif_level: str, db_name: str, sp_determined: 
     """
     if bool_temporary:
         my_path = f"{path}{db_name}/temp/{job_name}/saved_model.json"
-    elif sp_determined is None:
-        my_path = f"{path}{db_name}/{classif_level}/saved_model.json"
     else:
-        my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_saved_model.json"
+        if sp_determined is None:
+            my_path = f"{path}{db_name}/{classif_level}/saved_model.json"
+        else:
+            my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_saved_model.json"
     bst.load_model(my_path)
 
 
@@ -271,7 +273,7 @@ def plot_tree_model(bst: xgb.Booster, job_name: str, classif_level: str, sp_dete
 
 
 @my_function_timer("Building model")
-def make_model(exclude: list[str], path: str, classif_level: str, db_name: str, sp_determined, model_parameters: dict, number_rounds: int, sample_name: str, bool_temporary):
+def make_model(job_name: str, exclude: list[str], path: str, classif_level: str, db_name: str, sp_determined, model_parameters: dict, number_rounds: int, sample_name: str, bool_temporary):
     """
     Main procedure : builds the model and saves it
 
@@ -290,7 +292,7 @@ def make_model(exclude: list[str], path: str, classif_level: str, db_name: str, 
     #dtrain = xgb.DMatrix(data=X, label=y)
     bst = modelisation(dtrain, model_parameters, number_rounds)
     save_model(bst, path, classif_level, db_name,
-               sp_determined, bool_temporary)
+               sp_determined, job_name, bool_temporary)
     save_params(bst, path, classif_level, db_name, sp_determined)
 
 

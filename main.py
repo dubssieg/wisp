@@ -159,7 +159,7 @@ if __name__ == "__main__":
 
                         if temporary_models or force_rebuild or not check_if_model_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
                             my_output_msg("MAKING MODEL", warning)
-                            make_model(exclude, DATABASE_PATH, taxa, DATABASE,
+                            make_model(JOB, exclude, DATABASE_PATH, taxa, DATABASE,
                                        parent_level, init_parameters(len(map_sp), tree_depth), nr, JOB, temporary_models)
 
                         number_of_reads = make_unk_datasets(

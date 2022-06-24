@@ -77,7 +77,7 @@ def build_full_db(args: Namespace) -> None:
                     map_sp = load_mapping(DATABASE_PATH, DATABASE,
                                           taxa, parent_level)
 
-                    make_model([], DATABASE_PATH, taxa, DATABASE,
+                    make_model("", [], DATABASE_PATH, taxa, DATABASE,
                                parent_level, init_parameters(len(map_sp), tree_depth), nr, JOB, False)
         else:
 
@@ -102,7 +102,7 @@ def build_full_db(args: Namespace) -> None:
 
             if not check_if_merged_model_exists(DATABASE, DATABASE_PATH):
                 # needs to create merged database
-                make_model([], DATABASE_PATH, 'merged', DATABASE,
+                make_model("", [], DATABASE_PATH, 'merged', DATABASE,
                            'merged', init_parameters(len(map_merged_sp), tree_depth), nr, JOB, False)
 
 
