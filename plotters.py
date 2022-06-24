@@ -2,15 +2,12 @@
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from sympy import total_degree
 from wisp_lib import kmer_indexing_brut, recode_kmer_4
 from wisp_view import plot_features
 from python_tools import my_parser
 from collections import Counter
 import xgboost as xgb
 from os import listdir
-from argparse import ArgumentParser
-from pathlib import Path
 from statistics import mean, stdev
 import numpy as np
 
