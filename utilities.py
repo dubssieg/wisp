@@ -187,8 +187,8 @@ if __name__ == "__main__":
         raise BaseException("Bad execution") from exc
     """
     my_logs_global_config("WISP_download", True, True)
-    my_output_msg("Starting genomes destruction...")
+    my_output_msg("Starting genomes treatment...")
     # summary_to_dl("genomes/assembly_summary.txt")
-    # clean_rename('genomes/143_prokaryote_genomes')
-    destroy_sequence("genomes/train_destroyed2/",
-                     "genomes/unk_destroyed2/", 0.06)
+    clean_rename('genomes/unk_destroyed')
+    clean_rename('genomes/unk_destroyed2')
+    #destroy_sequence("genomes/train_destroyed2/","genomes/unk_destroyed2/", 0.06)
