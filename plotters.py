@@ -124,6 +124,7 @@ if __name__ == "__main__":
             cm = plt.get_cmap('rainbow', 3)
             ax = fig.add_subplot(111)
             cax = ax.matshow(elt, cmap=cm, vmin=0, vmax=2)
+            plt.style.use('dark_background')
             plt.title(f"{key}")
             plt.xticks(rotation=90)
             plt.yticks(fontsize=9)
@@ -133,11 +134,12 @@ if __name__ == "__main__":
             ax.set_xticklabels([listing[i] for i in range(16)])
             ax.set_yticklabels([listing[i] for i in range(16)])
             ax.tick_params(axis=u'both', which=u'both', length=0)
-            #cbar = fig.colorbar(cax)
-            #cbar.ax.set_yticks([0, 1, 2])
-            #cbar.ax.set_yticklabels(['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
-            plt.savefig(f"{OUTPUT_PATH}{level}/{key}_compdiff_nocbar.png",
-                        bbox_inches='tight')
+            cbar = fig.colorbar(cax)
+            cbar.ax.set_yticks([0, 1, 2])
+            cbar.ax.set_yticklabels(
+                ['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
+            plt.savefig(f"{OUTPUT_PATH}{level}/{key}_compdiff_transp.png",
+                        bbox_inches='tight', transparent=True)
 
     """
     parser = ArgumentParser()

@@ -20,6 +20,13 @@ A result for a sample read issued from a MinION lecture of Streptococcus may be 
 
 **WISP is research software**. If you want to use it, please source the code and **cite** the maybe-one-day [upcomming paper](preview/Bacterial_families_identification_from_long_reads___machine_learning_with_XGBoost_.pdf).
 
+
+<p align="center">
+  <img src="https://github.com/Tharos-ux/wisp/blob/master/preview/Archaea_compdiff_transp.png" width="32%" />
+  <img src="https://github.com/Tharos-ux/wisp/blob/master/preview/Bacteria_compdiff_transp.png" width="32%" /> 
+</p>
+
+It elaborates upon the notion of quantitative kmer signatures, and seeks to define patterns inside smaller unities (10.000 bp fragments).
 This tool is requiring some reference genomes, which it will index, to create a XGBoost model. Genomic fasta (.fna) files are the prefferd input style as of now. One can download custom genome dataset with NCBI accession numbers to create its own specific dataset and increase even more classifier accuracy. You may find here [accession files](https://ftp.ncbi.nlm.nih.gov/genomes/refseq/) that WISP can directly take as inputs to retrieve both genomes and taxonomy.
 
 # Installation
