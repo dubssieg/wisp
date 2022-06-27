@@ -107,7 +107,7 @@ def summary_to_dl(summary_file: str) -> None:
         for i, line in enumerate(summary_reader):
             if i < 165000:
                 next(summary_reader)
-            elif i >= 165000:
+            else:
                 # accession, https
                 split = line.split()
                 my_output_msg(f"Resolving entry n°{i} : {split[0]}")
@@ -124,8 +124,6 @@ def summary_to_dl(summary_file: str) -> None:
                     clean_rename(genomes_path)
                 except OSError:
                     pass
-            else:
-                break
 
 
 def destroy_sequence(sequence_path: str, sequence_output: str, destruction_ratio: float) -> None:
