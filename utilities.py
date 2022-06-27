@@ -99,6 +99,7 @@ def summary_to_dl(summary_file: str) -> None:
     Args:
         summary_file (str): path to a NCBI file
     """
+    my_output_msg(f"Summary filepath : {summary_file}")
     genomes_path = "genomes/to_annotate"
     with open(summary_file, "r") as summary_reader:
         next(summary_reader)
