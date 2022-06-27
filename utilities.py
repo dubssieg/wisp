@@ -105,9 +105,7 @@ def summary_to_dl(summary_file: str) -> None:
         next(summary_reader)
         next(summary_reader)
         for i, line in enumerate(summary_reader):
-            if i < 165000:
-                next(summary_reader)
-            else:
+            if i > 165000:
                 # accession, https
                 split = line.split()
                 my_output_msg(f"Resolving entry n°{i} : {split[0]}")
@@ -121,6 +119,8 @@ def summary_to_dl(summary_file: str) -> None:
                 # we clean genomes we can't retrive classification for
                 system(f"rm {genomes_path}/N*")
                 clean_rename(genomes_path)
+            else:
+                my_output_msg(f"Skipping item {i}")
 
 
 def destroy_sequence(sequence_path: str, sequence_output: str, destruction_ratio: float) -> None:

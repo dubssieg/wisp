@@ -24,6 +24,7 @@ import pylab as pl
 import numpy as np
 import matplotlib as mpl
 from pathlib import Path
+from mpl_toolkits import mplot3d
 
 
 def load_json(json_file: str) -> dict:
@@ -466,7 +467,7 @@ def code(value, mn, sd):
 
 
 def compute_signatures(level, pwd, listing):
-    rets = {}
+    rets, raw_rets = {}, {}
     LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
     splitting = LEVELS.index(level)
     targets = list(set(s.split('_')[splitting] for s in listdir(pwd)))
@@ -479,11 +480,15 @@ def compute_signatures(level, pwd, listing):
         mn = mean(res.values())
         sd = stdev(res.values())
         tpd = {k: code(v, mn, sd) for k, v in res.items()}
-        tabl = [['' for _ in range(16)] for _ in range(16)]
+        tabl, tabl2 = [['' for _ in range(16)] for _ in range(16)], [
+            ['' for _ in range(16)] for _ in range(16)]
         for k, v in tpd.items():
             tabl[listing.index(k[:2])][listing.index(k[2:])] = v
+        for k, v in res.items():
+            tabl2[listing.index(k[:2])][listing.index(k[2:])] = v
         rets[t] = np.asarray(tabl)
-    return rets
+        raw_rets[t] = np.asarray(tabl2)
+    return rets, raw_rets
 
 
 def plot_database_features(db_path):  # ex : data/small/
@@ -545,7 +550,7 @@ def compdiff_plotting():
     listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
                for b in ['A', 'T', 'G', 'C']]
     for level in ['domain', 'phylum', 'group', 'order', 'family']:
-        elts = compute_signatures(
+        elts, raw_elts = compute_signatures(
             level, 'genomes/143_prokaryote_genomes', listing)
         for key, elt in elts.items():
             print("\n"+key+"\n")
@@ -570,16 +575,31 @@ def compdiff_plotting():
                 ['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
             plt.savefig(f"{OUTPUT_PATH}{level}/{key}_compdiff_transp.png",
                         bbox_inches='tight', transparent=True)
+        for key, elt in raw_elts.items():
+            fig2 = plt.figure()
+            cm = plt.get_cmap('rainbow')
+            ax2 = plt.axes(projection='3d')
+            X, Y = np.meshgrid(np.arange(0, 15, 1), np.arange(0, 15, 1))
+            ax2.set_title(key)
+            ax2.set_xticks([i for i in range(16)])
+            ax2.set_yticks([i for i in range(16)])
+            ax2.set_xticklabels([listing[i] for i in range(16)])
+            ax2.set_yticklabels([listing[i] for i in range(16)])
+            ax2.view_init(60, 35)
+            ax2.tick_params(axis=u'both', which=u'both', length=0)
+            ax2.plot_surface(X, Y, elt, cmap=cm, edgecolor='none')
+            plt.savefig(f"{OUTPUT_PATH}{level}/{key}_compdiff_3d.png",
+                        bbox_inches='tight', transparent=True)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     # declaring args
     parser.add_argument(
-        "method", help="Plotting method to use : available are 'compdiff', 'deltasequence' and 'clustering'.", type=str)
+        "method", help="Plotting method to use : available are 'dbfeatures', 'compdiff', 'deltasequence' and 'clustering'.", type=str)
     # executing args
     args = parser.parse_args()
     # plot_repartition_top_kmers(6, my_parser("genomes/sequence.fna", True, True, "merge")['merge'], "1111", 4)
     # delta_sequence(my_parser("genomes/sequence.fna", True, True, "merge")['merge'], my_parser("genomes/sequence_2.fna", True, True, "merge")['merge'], "1111", 4)
-
-    plot_database_features(args.name)
+    compdiff_plotting()
+    # plot_database_features(args.name)
