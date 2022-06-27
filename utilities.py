@@ -114,8 +114,11 @@ def summary_to_dl(summary_file: str) -> None:
                 access = [split[0], https_wget]
                 system(
                     f"wget -P {genomes_path} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz; gzip -d {genomes_path}/*.gz")
-                pre_rename(genomes_path)
-                rename_genomes(genomes_path)
+                try:
+                    pre_rename(genomes_path)
+                    rename_genomes(genomes_path)
+                except:
+                    pass
                 # we clean genomes we can't retrive classification for
                 system(f"rm {genomes_path}/N*")
                 clean_rename(genomes_path)
