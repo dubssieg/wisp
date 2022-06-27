@@ -111,19 +111,16 @@ def summary_to_dl(summary_file: str) -> None:
                 # accession, https
                 split = line.split()
                 my_output_msg(f"Resolving entry n°{i} : {split[0]}")
-                try:
-                    https_wget = [
-                        elt for elt in split if elt[:5] == 'https'][0]
-                    access = [split[0], https_wget]
-                    system(
-                        f"wget -P {genomes_path} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz; gzip -d {genomes_path}/*.gz")
-                    pre_rename(genomes_path)
-                    rename_genomes(genomes_path)
-                    # we clean genomes we can't retrive classification for
-                    system(f"rm {genomes_path}/N*")
-                    clean_rename(genomes_path)
-                except OSError:
-                    pass
+                https_wget = [
+                    elt for elt in split if elt[:5] == 'https'][0]
+                access = [split[0], https_wget]
+                system(
+                    f"wget -P {genomes_path} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz; gzip -d {genomes_path}/*.gz")
+                pre_rename(genomes_path)
+                rename_genomes(genomes_path)
+                # we clean genomes we can't retrive classification for
+                system(f"rm {genomes_path}/N*")
+                clean_rename(genomes_path)
 
 
 def destroy_sequence(sequence_path: str, sequence_output: str, destruction_ratio: float) -> None:
