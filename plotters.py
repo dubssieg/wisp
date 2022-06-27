@@ -116,7 +116,7 @@ if __name__ == "__main__":
                for b in ['A', 'T', 'G', 'C']]
     for level in ['domain', 'phylum', 'group', 'order', 'family']:
         elts = compute_signatures(
-            level, '/scratch/sdubois/all_genomes', listing)
+            level, 'genomes/143_prokaryote_genomes', listing)
         for key, elt in elts.items():
             print("\n"+key+"\n")
             print(elt)
@@ -133,11 +133,10 @@ if __name__ == "__main__":
             ax.set_xticklabels([listing[i] for i in range(16)])
             ax.set_yticklabels([listing[i] for i in range(16)])
             ax.tick_params(axis=u'both', which=u'both', length=0)
-            cbar = fig.colorbar(cax)
-            cbar.ax.set_yticks([0, 1, 2])
-            cbar.ax.set_yticklabels(
-                ['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
-            plt.savefig(f"{OUTPUT_PATH}{level}/{key}_compdiff.png",
+            #cbar = fig.colorbar(cax)
+            #cbar.ax.set_yticks([0, 1, 2])
+            #cbar.ax.set_yticklabels(['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
+            plt.savefig(f"{OUTPUT_PATH}{level}/{key}_compdiff_nocbar.png",
                         bbox_inches='tight')
 
     """
