@@ -7,13 +7,13 @@ Currently, five levels of taxa are implemented : **domain**, **phylum**, **group
 Once a model finished at a given taxa level, it aims to do another iteration from previous results, excluding non-matching reference genomes.
 This work was extensively tested both in baseline and leave-one-out scenarios. The two following figures are averaged over 103200 distinct reads, and depicts baseline accuracy with no fine tuning of parameters at family level. You may find more details in the linked publication below.
 
-<p align="center">
-  <img src="https://github.com/Tharos-ux/wisp/blob/master/preview/clustermap_baseline.png">
-</p>
 
 <p align="center">
-  <img src="https://github.com/Tharos-ux/wisp/blob/master/preview/clustermap_leaveoneout.png">
+  <img src="https://github.com/Tharos-ux/wisp/blob/master/preview/leaveoneout_supported_group.png" width="32%" />
+  <img src="https://github.com/Tharos-ux/wisp/blob/master/preview/leaveoneout_supported_order.png" width="32%" /> 
+  <img src="https://github.com/Tharos-ux/wisp/blob/master/preview/leaveoneout_supported_family.png" width="32%" />
 </p>
+
 
 The core functionnalities relies on a class probabiliy attribution to discriminate reads that might not be good indicators for our specie to be determined. As many other options, you can choose the ratio and the selection function to suit best your biological context.
 A result for a sample read issued from a MinION lecture of Streptococcus may be found here : [MinION read](preview/sample_report.pdf)
