@@ -22,8 +22,9 @@ A result for a sample read issued from a MinION lecture of Streptococcus may be 
 
 
 <p align="center">
-  <img src="https://github.com/Tharos-ux/wisp/blob/master/preview/Archaea_compdiff_transp.png" width="32%" />
-  <img src="https://github.com/Tharos-ux/wisp/blob/master/preview/Bacteria_compdiff_transp.png" width="32%" /> 
+  <img src="https://github.com/Tharos-ux/wisp/blob/master/preview/Actinobacteria_compdiff_transp.png" width="32%" />
+  <img src="https://github.com/Tharos-ux/wisp/blob/master/preview/Fusobacteria_compdiff_transp.png" width="32%" />
+  <img src="https://github.com/Tharos-ux/wisp/blob/master/preview/Proteobacteria_compdiff_transp.png" width="32%" /> 
 </p>
 
 It elaborates upon the notion of quantitative kmer signatures, and seeks to define patterns inside smaller unities (10.000 bp fragments).
