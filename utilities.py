@@ -197,13 +197,13 @@ if __name__ == "__main__":
     match args.method:
         case 'clean_rename':
             # Need to provide path to target folder
-            clean_rename(**args.kwargs)
+            clean_rename(*args.kwargs)
         case 'summary_to_dl':
             # Need to provide mpath to accession file
-            summary_to_dl(**args.kwargs)
+            summary_to_dl(*args.kwargs)
         case 'destroy_sequence':
             # input folder, output folder, destruction ratio
-            destroy_sequence(**args.kwargs)
+            destroy_sequence(*args.kwargs)
         case _:
             my_output_msg(
                 'You need to specifiy a method and its args for the program to work. See documentation for help')
