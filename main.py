@@ -275,9 +275,8 @@ if __name__ == "__main__":
                 save_output({'Date': f"{datetime.today().strftime('%Y.%m.%d - %H:%M:%S')}", **
                             vars(args), **output}, JOB, path_for_read[i])
                 if test_state != 'no_test':
-                    mts = True if test_state == 'verbose' else False
                     make_doc(path_for_read[i], JOB, my_params, TAXAS_LEVELS, output, test_results,
-                             mts, threshold, reads_threshold, len(all_reads[i]), id, __version__, len(read))
+                             test_state == 'verbose', threshold, reads_threshold, len(all_reads[i]), id, __version__, len(read))
 
     # saves global output (merged reads attribution)
     save_output({'Date': f"{datetime.today().strftime('%Y.%m.%d - %H:%M:%S')}",

@@ -126,7 +126,7 @@
     "threshold": 0.1,
     "nb_boosts": 10,
     "tree_depth": 10,
-    "test_mode": "min_set",
+    "test_mode": "no_test",
     "reads_th": 0.1,
     "selection_mode": "delta_mean",
     "force_model_rebuild": false,
