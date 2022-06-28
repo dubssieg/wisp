@@ -76,7 +76,7 @@ def my_classification_mapper(file: str, email: str):
             #raise BaseException(f"Can't get data for {file}") from exc
 
 
-def my_minion(filename: str):
+def my_minion(filename: str, output_minion: str):
     header, sequence, collection = '', '', {}
     with open(filename, 'r') as minion_reader:
         for i, line in enumerate(minion_reader):
@@ -86,7 +86,7 @@ def my_minion(filename: str):
                 sequence = line[:-1]
             else:
                 collection[header] = sequence
-    with open(f"genomes/MinION_reads/{(filename.split('/')[-1]).split('.')[0]}.fna", 'w') as minion_writer:
+    with open(f"{output_minion}/{(filename.split('/')[-1]).split('.')[0]}.fna", 'w') as minion_writer:
         minion_writer.write(
             '\n'.join([f"> {k}\n{v}" for k, v in collection.items()]))
 

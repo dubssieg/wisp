@@ -93,14 +93,14 @@ def verificator(fasta_file: str) -> int:
     return integer
 
 
-def summary_to_dl(summary_file: str) -> None:
+def summary_to_dl(summary_file: str, genomes_path: str) -> None:
     """Download all genomes from a file, assumming its a standard NCBI summary file
 
     Args:
         summary_file (str): path to a NCBI file
     """
     my_output_msg(f"Summary filepath : {summary_file}")
-    genomes_path = "genomes/to_annotate"
+
     with open(summary_file, "r") as summary_reader:
         next(summary_reader)
         next(summary_reader)
@@ -180,10 +180,10 @@ def clean_rename(genomes_path: str) -> None:
                f"{genomes_path}/{new_name}")
 
 
-def minion(genomes_path: str) -> None:
+def minion(genomes_path: str, output_minion: str) -> None:
     files = listdir(f"{genomes_path}/")
     for file in files:
-        my_minion(f"{genomes_path}/{file}")
+        my_minion(f"{genomes_path}/{file}", output_minion)
 
 
 if __name__ == "__main__":

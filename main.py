@@ -76,7 +76,7 @@ if __name__ == "__main__":
 
     input_file: str = f"{args.file}"
     fasta_reads: dict = my_fasta_parser(
-        f"{UNK_PATH}{input_file}")
+        f"{UNK_PATH}{input_file}", WINDOW)
 
     if fasta_reads == {}:
         my_output_msg(
