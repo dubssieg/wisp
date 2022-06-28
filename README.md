@@ -1,5 +1,9 @@
 # WISP : Bacterial families identification from long reads, machine learning with XGBoost
 
+[![](https://img.shields.io/badge/Build-stable-green.svg)](https://github.com/Tharos-ux/wisp/)
+[![](https://img.shields.io/badge/Wiki-unfinished-blue.svg)](https://github.com/Tharos-ux/wisp/wiki)
+[![](https://img.shields.io/badge/Paper-submitted-blue.svg)](preview/Bacterial_families_identification_from_long_reads___machine_learning_with_XGBoost_.pdf)
+
 <img align="right" src="https://github.com/Tharos-ux/wisp/blob/master/preview/WISP.png" alt="wisp logo" width="300"/>
 
 This Python program is meant to determine to which taxa a bacteria is belonginig to, from long reads (>10.000bp), solely based upon alignment-free methods. As of now, the main focus is upon kmers proportions. It aims to do binning over a collection of samples, giving a probable class to each read.
@@ -29,6 +33,8 @@ A result for a sample read issued from a MinION lecture of Streptococcus may be 
 
 It elaborates upon the notion of quantitative kmer signatures, and seeks to define patterns inside smaller unities (10.000 bp fragments).
 This tool is requiring some reference genomes, which it will index, to create a XGBoost model. Genomic fasta (.fna) files are the prefferd input style as of now. One can download custom genome dataset with NCBI accession numbers to create its own specific dataset and increase even more classifier accuracy. You may find here [accession files](https://ftp.ncbi.nlm.nih.gov/genomes/refseq/) that WISP can directly take as inputs to retrieve both genomes and taxonomy.
+
+The remaining of this Readme will focus on WISP installation and setup, see the [wiki](https://github.com/Tharos-ux/wisp/wiki) for information 
 
 # Installation
 
