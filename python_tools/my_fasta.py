@@ -70,7 +70,8 @@ def my_classification_mapper(file: str, email: str):
             else:
                 return None
         except Exception as exc:
-            raise BaseException(f"Can't get data for {file}") from exc
+            return None
+            #raise BaseException(f"Can't get data for {file}") from exc
 
 
 def my_fetcher(filelist: list[str], outname: str, email: str):
