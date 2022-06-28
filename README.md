@@ -1,8 +1,9 @@
 # WISP : Bacterial families identification from long reads, machine learning with XGBoost
 
 [![](https://img.shields.io/badge/Build-stable-green.svg)](https://github.com/Tharos-ux/wisp/)
-[![](https://img.shields.io/badge/Wiki-unfinished-blue.svg)](https://github.com/Tharos-ux/wisp/wiki)
+[![](https://img.shields.io/badge/Wiki-unfinished-red.svg)](https://github.com/Tharos-ux/wisp/wiki)
 [![](https://img.shields.io/badge/Paper-submitted-blue.svg)](preview/Bacterial_families_identification_from_long_reads___machine_learning_with_XGBoost_.pdf)
+[![](https://img.shields.io/badge/Licence-MIT-blue.svg)](https://github.com/Tharos-ux/wisp/blob/master/LICENCE)
 
 <img align="right" src="https://github.com/Tharos-ux/wisp/blob/master/preview/WISP.png" alt="wisp logo" width="300"/>
 
