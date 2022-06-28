@@ -33,21 +33,21 @@ def core_call(leaveoneout: bool, exclusion: str, multithreading_state: int, buil
             case False:
                 file_list: list[str] = listdir(unk_path)
                 if leaveoneout:
-                    """
                     communicators = my_futures_collector(subprocess.Popen, [[
                         shlex.split(f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {file} -l")] for file in file_list], multithreading_state)
-                    """
-                    communicators = my_futures_collector(system, [[
-                                                         f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {'_'.join(file.split('_')[:-1])} -l"] for file in file_list], multithreading_state)
+                    #communicators = my_futures_collector(system, [[f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {'_'.join(file.split('_')[:-1])} -l"] for file in file_list], multithreading_state)
                 else:
                     communicators = my_futures_collector(subprocess.Popen, [[
                         shlex.split(f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {exclusion}")] for file in file_list], multithreading_state)
         retcodes = [p.communicate() for p in communicators]
-    except Exception as exc:
-        raise BaseException("Job failed") from exc
+    except Exception as excl:
+        retcodes = ['Base error']
+        raise BaseException("Job failed") from excl
     finally:
         for i, code in enumerate(retcodes):
             my_output_msg(f"Job {i} : {code}")
+            # cleaning db
+            system(f"rm -r data/{DATABASE}/temp")
 
 
 if __name__ == "__main__":

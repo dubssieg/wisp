@@ -105,19 +105,19 @@ def summary_to_dl(summary_file: str) -> None:
         next(summary_reader)
         next(summary_reader)
         for i, line in enumerate(summary_reader):
-            if i > 165000:
+            if i > 168421:
                 # accession, https
                 split = line.split()
                 my_output_msg(f"Resolving entry n°{i} : {split[0]}")
-                https_wget = [
-                    elt for elt in split if elt[:5] == 'https'][0]
-                access = [split[0], https_wget]
-                system(
-                    f"wget -P {genomes_path} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz; gzip -d {genomes_path}/*.gz")
                 try:
+                    https_wget = [
+                        elt for elt in split if elt[:5] == 'https'][0]
+                    access = [split[0], https_wget]
+                    system(
+                        f"wget -P {genomes_path} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz; gzip -d {genomes_path}/*.gz")
                     pre_rename(genomes_path)
                     rename_genomes(genomes_path)
-                except:
+                except Exception:
                     pass
                 # we clean genomes we can't retrive classification for
                 system(f"rm {genomes_path}/N*")
