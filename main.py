@@ -78,6 +78,11 @@ if __name__ == "__main__":
     fasta_reads: dict = my_fasta_parser(
         f"{UNK_PATH}{input_file}")
 
+    if fasta_reads == {}:
+        my_output_msg(
+            f"No reads matching window size ({WINDOW}), skipping sample {input_file}")
+        exit(12)
+
     all_reads_report: dict = {}  # will contain all reports, read by read
     global_reports_path: str = f"{REPORTS_PATH}{input_file}/"
     Path(global_reports_path).mkdir(parents=True, exist_ok=True)

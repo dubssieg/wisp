@@ -7,6 +7,7 @@ from .my_fasta import my_fetcher
 from .my_fasta import my_pretty_printer
 from .my_fasta import my_classification_mapper
 from .my_fasta import my_fasta_parser
+from .my_fasta import my_minion
 
 from .my_logs import my_output_msg
 from .my_logs import my_function_timer

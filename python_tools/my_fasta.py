@@ -30,7 +30,7 @@ def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_nam
     return {k: v for k, v in ret.items() if len(v) >= objective}
 
 
-def my_fasta_parser(filename: str) -> dict[str, str]:
+def my_fasta_parser(filename: str, length: int) -> dict[str, str]:
     """Loads fasta files
 
     Args:
@@ -39,7 +39,9 @@ def my_fasta_parser(filename: str) -> dict[str, str]:
     Returns:
         dict: all sequences inside fasta file
     """
-    return {fasta.id: ''.join([letter for letter in str(fasta.seq) if letter in ['A', 'T', 'C', 'G']]) for fasta in SeqIO.parse(open(filename), 'fasta')}
+    reads = {fasta.id: ''.join([letter for letter in str(fasta.seq) if letter in [
+                               'A', 'T', 'C', 'G']]) for fasta in SeqIO.parse(open(filename), 'fasta')}
+    return {k: v for k, v in reads.items() if len(v) >= length}
 
 
 def my_pretty_printer(seq_dict: dict, size: int = 10) -> None:
@@ -74,6 +76,21 @@ def my_classification_mapper(file: str, email: str):
             #raise BaseException(f"Can't get data for {file}") from exc
 
 
+def my_minion(filename: str):
+    header, sequence, collection = '', '', {}
+    with open(filename, 'r') as minion_reader:
+        for i, line in enumerate(minion_reader):
+            if i % 4 == 0:
+                header = line.split(' ')[0]
+            elif i % 4 == 1:
+                sequence = line[:-1]
+            else:
+                collection[header] = sequence
+    with open(f"genomes/MinION_reads/{(filename.split('/')[-1]).split('.')[0]}.fna", 'w') as minion_writer:
+        minion_writer.write(
+            '\n'.join([f"> {k}\n{v}" for k, v in collection.items()]))
+
+
 def my_fetcher(filelist: list[str], outname: str, email: str):
     """
     Fetches all seq to one single file
@@ -87,3 +104,12 @@ def my_fetcher(filelist: list[str], outname: str, email: str):
                                rettype="fasta", retmode="text") as handle:
                 with open(f"gen/{outname}.fna", "w") as writer:
                     writer.write(handle.read())
+
+
+"""
+my_minion("/udd/sidubois/Stage/output/fastq_runid_72b9f29db5475fd8d2499feaab3eba305d6d2f07_0_0.fastq")
+fastas = my_fasta_parser(
+    "genomes/MinION_reads/fastq_runid_72b9f29db5475fd8d2499feaab3eba305d6d2f07_0_0.fna", 10000)
+my_pretty_printer(fastas)
+print(len(fastas))
+"""

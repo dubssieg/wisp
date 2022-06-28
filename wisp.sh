@@ -2,8 +2,8 @@
 #SBATCH --job-name=wisp
 #SBATCH --output=LOG_job.log
 #SBATCH --mail-user=siegfried.dubois@irisa.fr
-#SBATCH --mail-type=begin
-#SBATCH --mail-type=end
+#SBATCH --mail-type=END,FAIL
+
 . /local/env/envconda.sh
 
 # create mandatory dirs if not exist

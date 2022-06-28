@@ -5,7 +5,7 @@ import csv
 from random import random, choice
 from argparse import ArgumentParser
 from Bio import SeqIO
-from python_tools import my_classification_mapper, my_parser, my_output_msg, my_logs_global_config
+from python_tools import my_classification_mapper, my_parser, my_output_msg, my_logs_global_config, my_minion
 
 
 def rename_genomes(path_to_genomes: str) -> None:
@@ -180,6 +180,12 @@ def clean_rename(genomes_path: str) -> None:
                f"{genomes_path}/{new_name}")
 
 
+def minion(genomes_path: str) -> None:
+    files = listdir(f"{genomes_path}/")
+    for file in files:
+        my_minion(f"{genomes_path}/{file}")
+
+
 if __name__ == "__main__":
     # This class aims to help to generate databases from a set of references.
     # From an assembly_summary.txt downloaded from NCBI (obtained via ftp.ncbi)
@@ -188,8 +194,9 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument(
-        "-m", "--method", type=str, choices=['clean_rename', 'summary_to_dl', 'destroy_sequence'], help="A callable func to execute")
-    parser.add_argument('kwargs', nargs='*')
+        "method", type=str, choices=['clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion'], help="A callable func to execute")
+    parser.add_argument('kwargs', nargs='*',
+                        help="Args for Callable, see documentation for usage")
     args = parser.parse_args()
 
     my_logs_global_config("WISP_utilities", True, True)
@@ -203,6 +210,8 @@ if __name__ == "__main__":
         case 'destroy_sequence':
             # input folder, output folder, destruction ratio
             destroy_sequence(*args.kwargs)
+        case 'clean_minion':
+            minion(*args.kwargs)
         case _:
             my_output_msg(
                 'You need to specifiy a method and its args for the program to work. See documentation for help')
