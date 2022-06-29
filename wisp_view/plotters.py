@@ -510,7 +510,7 @@ def plot_some_features(my_path, listing, i, output_path):
         importance_type='gain').items()}
     if mapped != {}:
         # then we plot features in 3d
-        sds = [[0 for _ in range(16)] for _ in range(16)]
+        sds = [[np.nan for _ in range(16)] for _ in range(16)]
         for k, v in mapped.items():
             sds[listing.index(k[:2])][listing.index(k[2:])] = float(v)
         fig = plt.figure()
@@ -523,7 +523,7 @@ def plot_some_features(my_path, listing, i, output_path):
             idx = listing.index(maskd)
             sds[idx][idx] = np.nan
         sds = np.asarray(sds)
-        ax3.set_title(my_path.split('_')[0])
+        ax3.set_title(my_path.split('_')[0].split('/')[-1])
         ax3.set_xticks([i for i in range(16)])
         ax3.set_yticks([i for i in range(16)])
         ax3.set_xticklabels([listing[i] for i in range(16)])
