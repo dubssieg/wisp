@@ -510,7 +510,7 @@ def plot_some_features(my_path, listing, i, output_path):
         importance_type='gain').items()}
     if mapped != {}:
         # then we plot features in 3d
-        sds = [[np.nan for _ in range(16)] for _ in range(16)]
+        sds = [[0 for _ in range(16)] for _ in range(16)]
         for k, v in mapped.items():
             sds[listing.index(k[:2])][listing.index(k[2:])] = float(v)
         fig = plt.figure()
@@ -646,7 +646,6 @@ def compdiff_plotting(input_dir, output_path):
         sds = np.asarray(sds)
         # np.vectorize(mfunc)(eltx)
         X, Y = np.meshgrid(x, y)
-        ax2.set_title(level.capitalize())
         ax2.set_xticks([i for i in range(16)])
         ax2.set_yticks([i for i in range(16)])
         ax2.set_xticklabels([listing[i] for i in range(16)])
