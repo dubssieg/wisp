@@ -490,7 +490,7 @@ def compute_signatures(level, pwd, listing):
     return rets, raw_rets
 
 
-def plot_database_features(db_path):  # ex : data/small/
+def plot_database_features(db_path, output_path):  # ex : data/small/
     listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
                for b in ['A', 'T', 'G', 'C']]
     files = []
@@ -499,10 +499,10 @@ def plot_database_features(db_path):  # ex : data/small/
         files.extend([f"{db_path}/{level}/{file}" for file in listdir(
             f"{db_path}/{level}") if 'saved_model.json' in file])
     for i, file in enumerate(files):
-        plot_some_features(file, listing, i)
+        plot_some_features(file, listing, i, output_path)
 
 
-def plot_some_features(my_path, listing, i):
+def plot_some_features(my_path, listing, i, output_path):
     bst = xgb.Booster()
     bst.load_model(my_path)
     mapped = {recode_kmer_4(str(k[1:]), 4): v for k, v in bst.get_score(
