@@ -199,7 +199,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument(
-        "method", type=str, choices=['kmers_signatures', 'compare_outputs', 'clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
+        "method", type=str, choices=['database_features', 'kmers_signatures', 'compare_outputs', 'clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
     parser.add_argument('kwargs', nargs='*',
                         help="Args for Callable, see documentation for usage")
     args = parser.parse_args()
