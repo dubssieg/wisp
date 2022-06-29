@@ -8,12 +8,12 @@
 
 from os import listdir, system
 from sys import executable
-from python_tools import my_output_msg, my_function_timer, my_logs_global_config, my_futures_collector
-from wisp_lib import load_json
 from argparse import ArgumentParser
 from traceback import format_exc
 import shlex
 import subprocess
+from wisp_tools import my_output_msg, my_function_timer, my_logs_global_config, my_futures_collector
+from wisp_lib import load_json
 
 
 # constants ; change those to select database and such
@@ -25,20 +25,21 @@ def core_call(leaveoneout: bool, exclusion: str, multithreading_state: int, buil
     Calls the building and prediction functions with global constants defined above
     If a job fails, skips to the next one
     """
+    retcodes: list = []
     try:
         match building_state:
             case True:
                 communicators = my_futures_collector(subprocess.Popen, [
-                    [shlex.split(f"{executable} force_build.py {db} {params} -l {[level]}")] for level in taxas_levels], multithreading_state)
+                    [shlex.split(f"{executable} wisp_build.py {db} {params} -l {[level]}")] for level in taxas_levels], multithreading_state)
             case False:
                 file_list: list[str] = listdir(unk_path)
                 if leaveoneout:
                     communicators = my_futures_collector(subprocess.Popen, [[
-                        shlex.split(f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {file} -l")] for file in file_list], multithreading_state)
+                        shlex.split(f"{executable} wisp_predict.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {file} -l")] for file in file_list], multithreading_state)
                     #communicators = my_futures_collector(system, [[f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {'_'.join(file.split('_')[:-1])} -l"] for file in file_list], multithreading_state)
                 else:
                     communicators = my_futures_collector(subprocess.Popen, [[
-                        shlex.split(f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {exclusion}")] for file in file_list], multithreading_state)
+                        shlex.split(f"{executable} wisp_predict.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {exclusion}")] for file in file_list], multithreading_state)
         retcodes = [p.communicate() for p in communicators]
     except Exception as excl:
         retcodes = ['Base error']
@@ -51,8 +52,6 @@ def core_call(leaveoneout: bool, exclusion: str, multithreading_state: int, buil
 
 
 if __name__ == "__main__":
-    "Executes main procedure"
-    # we clean log before entering loop, might be enormous
     parser = ArgumentParser()
     parser.add_argument(
         "params", help="path to a params .json file", type=str)

@@ -1,0 +1,211 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper, total={6in, 8in}]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[clean]{svg}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{flafter}
+\usepackage{hyperref}
+\title{JOB : small\_MinION\_collection\_read\_0\\[0.2em]\smaller{}READ ID : CP092101.1}
+\date{2022-06-15}
+\begin{document}
+\maketitle
+\begin{abstract}
+\begin{sloppypar}
+Sample has been splitted in 10000 distinct lectures over 6313455 sequenced nucleotides.\\
+Explored hypothesis are all above 10 percent of attributed reads.\\
+All explorations have been made within a significance range of [0, 0.1[.\\
+This report was produced with WISP version 0.0.1+43.g8d0d4fc.dirty. \\
+You may get source code from \url{https://github.com/Tharos-ux/wisp}
+\end{sloppypar}
+\end{abstract}\begin{figure}[h]
+\centering
+\includesvg[width=0.4\textwidth]{small\_MinION\_collection\_read\_0\_pie\_merge.svg}
+\includesvg[width=0.4\textwidth]{small\_MinION\_collection\_read\_0\_tree.svg}
+\caption{Global data for small\_MinION\_collection\_read\_0}
+\label{f-Global data for small\_MinION\_collection\_read\_0}
+\end{figure}
+\begin{table}[htp]
+\begin{tabular}{ll}
+window\_size & 10000 \\
+sampling\_objective & 500 \\
+domain\_ref & [5, 50, [1, 1, 1, 1, 1]] \\
+phylum\_ref & [5, 100, [1, 1, 1, 1, 1]] \\
+group\_ref & [4, 100, [1, 1, 1, 1]] \\
+order\_ref & [4, 100, [1, 1, 1, 1]] \\
+family\_ref & [4, 100, [1, 1, 1, 1]] \\
+merged\_ref & [4, 50, [1, 1, 1, 1]] \\
+domain\_sample & [5, [1, 1, 1, 1, 1]] \\
+phylum\_sample & [5, [1, 1, 1, 1, 1]] \\
+group\_sample & [4, [1, 1, 1, 1]] \\
+order\_sample & [4, [1, 1, 1, 1]] \\
+family\_sample & [4, [1, 1, 1, 1]] \\
+merged\_sample & [4, [1, 1, 1, 1]] \\
+input\_train & genomes/train\_small/ \\
+input\_unk & genomes/unk\_small/ \\
+database\_output & data/ \\
+reports\_output & output/small/ \\
+threshold & 0.1 \\
+nb\_boosts & 10 \\
+tree\_depth & 10 \\
+test\_mode & min\_set \\
+reads\_th & 0.1 \\
+selection\_mode & delta\_mean \\
+force\_model\_rebuild & True \\
+single\_way & True \\
+targeted\_level & family \\
+levels\_list & ['domain', 'phylum', 'group', 'order', 'family'] \\
+abundance\_threshold & 0.25 \\
+email & siegfried.dubois@inria.fr \\
+annotate\_path & genomes/to\_annotate \\
+accession\_numbers & genomes/assembly\_summary.txt \\
+db\_name & small \\
+prefix\_job & small \\
+log\_file & LOG\_wisp\_small
+\end{tabular}
+\caption*{Algorithm parameters}
+\end{table}
+\clearpage
+\pagebreak[4]
+\section*{Level domain}
+\begin{figure}[h]
+\centering
+\includesvg[width=0.8\textwidth]{domain\_None\_confusion\_matrix.svg}
+\includesvg[width=0.8\textwidth]{domain\_None\_graph\_reads.svg}
+\caption{Level domain}
+\label{f-Level domain}
+\end{figure}
+\begin{table}[htp]
+\begin{tabular}{l}
+accuracy : 1.0 \\
+macro avg : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 96} \\
+weighted avg : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 96} \\
+Bacteria : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 96}
+\end{tabular}
+\caption*{Estimators for None}
+\end{table}
+
+
+
+
+\clearpage
+\pagebreak[4]
+\section*{Level phylum for hypothesis Bacteria}
+\begin{figure}[h]
+\centering
+\includesvg[width=0.8\textwidth]{phylum\_Bacteria\_confusion\_matrix.svg}
+\includesvg[width=0.8\textwidth]{phylum\_Bacteria\_graph\_reads.svg}
+\caption{Level phylum for hypothesis Bacteria}
+\label{f-Level phylum for hypothesis Bacteria}
+\end{figure}
+\begin{table}[htp]
+\begin{tabular}{l}
+accuracy : 1.0 \\
+macro avg : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 198} \\
+weighted avg : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 198} \\
+Actinobacteria : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 132} \\
+Firmicutes : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 66}
+\end{tabular}
+\caption*{Estimators for Bacteria}
+\end{table}
+
+
+
+
+\clearpage
+\pagebreak[4]
+\section*{Level group for hypothesis Actinobacteria}
+\begin{figure}[h]
+\centering
+\includesvg[width=0.8\textwidth]{group\_Actinobacteria\_confusion\_matrix.svg}
+\includesvg[width=0.8\textwidth]{group\_Actinobacteria\_graph\_reads.svg}
+\caption{Level group for hypothesis Actinobacteria}
+\label{f-Level group for hypothesis Actinobacteria}
+\end{figure}
+\begin{table}[htp]
+\begin{tabular}{l}
+accuracy : 1.0 \\
+macro avg : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 132} \\
+weighted avg : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 132} \\
+Actinobacteria : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 132}
+\end{tabular}
+\caption*{Estimators for Actinobacteria}
+\end{table}
+
+
+
+
+\clearpage
+\pagebreak[4]
+\section*{Level order for hypothesis Actinobacteria}
+\begin{figure}[h]
+\centering
+\includesvg[width=0.8\textwidth]{order\_Actinobacteria\_confusion\_matrix.svg}
+\includesvg[width=0.8\textwidth]{order\_Actinobacteria\_graph\_reads.svg}
+\caption{Level order for hypothesis Actinobacteria}
+\label{f-Level order for hypothesis Actinobacteria}
+\end{figure}
+\begin{table}[htp]
+\begin{tabular}{l}
+accuracy : 0.9923664122137404 \\
+macro avg : {'precision': 0.99, 'recall': 0.99, 'f1-score': 0.99, 'support': 131} \\
+weighted avg : {'precision': 0.99, 'recall': 0.99, 'f1-score': 0.99, 'support': 131} \\
+Propionibacteriales : {'precision': 0.97, 'recall': 1.0, 'f1-score': 0.99, 'support': 33} \\
+Nakamurellales : {'precision': 1.0, 'recall': 0.97, 'f1-score': 0.98, 'support': 32} \\
+Pseudonocardiales : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 66}
+\end{tabular}
+\caption*{Estimators for Actinobacteria}
+\end{table}
+
+
+
+
+\clearpage
+\pagebreak[4]
+\section*{Level family for hypothesis Propionibacteriales}
+\begin{figure}[h]
+\centering
+\includesvg[width=0.8\textwidth]{family\_Propionibacteriales\_confusion\_matrix.svg}
+\includesvg[width=0.8\textwidth]{family\_Propionibacteriales\_graph\_reads.svg}
+\caption{Level family for hypothesis Propionibacteriales}
+\label{f-Level family for hypothesis Propionibacteriales}
+\end{figure}
+\begin{table}[htp]
+\begin{tabular}{l}
+accuracy : 1.0 \\
+macro avg : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 33} \\
+weighted avg : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 33} \\
+Kribbella : {'precision': 1.0, 'recall': 1.0, 'f1-score': 1.0, 'support': 33}
+\end{tabular}
+\caption*{Estimators for Propionibacteriales}
+\end{table}
+
+
+
+
+\clearpage
+\pagebreak[4]
+\section*{Level family for hypothesis Pseudonocardiales}
+\begin{figure}[h]
+\centering
+\includesvg[width=0.8\textwidth]{family\_Pseudonocardiales\_confusion\_matrix.svg}
+\includesvg[width=0.8\textwidth]{family\_Pseudonocardiales\_graph\_reads.svg}
+\caption{Level family for hypothesis Pseudonocardiales}
+\label{f-Level family for hypothesis Pseudonocardiales}
+\end{figure}
+\begin{table}[htp]
+\begin{tabular}{l}
+accuracy : 0.9846153846153847 \\
+macro avg : {'precision': 0.99, 'recall': 0.98, 'f1-score': 0.98, 'support': 65} \\
+weighted avg : {'precision': 0.99, 'recall': 0.98, 'f1-score': 0.98, 'support': 65} \\
+Saccharomonospora : {'precision': 1.0, 'recall': 0.97, 'f1-score': 0.98, 'support': 32} \\
+Actinosynnema : {'precision': 0.97, 'recall': 1.0, 'f1-score': 0.99, 'support': 33}
+\end{tabular}
+\caption*{Estimators for Pseudonocardiales}
+\end{table}
+
+
+
+
+\end{document}

@@ -6,7 +6,7 @@ from os import listdir, path
 from pathlib import Path
 from os.path import exists
 from json import load
-from python_tools import my_output_msg
+from wisp_tools import my_output_msg
 
 
 def load_mapping(path: str, db_name: str, classif_level: str, sp_determined: str | None) -> dict:

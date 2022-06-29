@@ -1,6 +1,6 @@
 "This class is about the computing of DNA samples"
 from typing import Callable
-from python_tools import my_parser, my_function_timer
+from wisp_tools import my_parser, my_function_timer
 from wisp_lib import species_map, encoder, write_xgboost_data, load_mapping, splitting_generator, counter_ultrafast
 from os import listdir
 from json import dump

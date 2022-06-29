@@ -1,6 +1,6 @@
 from logging import warning
 import xgboost as xgb
-from python_tools import my_output_msg, my_function_timer
+from wisp_tools import my_output_msg, my_function_timer
 from wisp_lib import load_xgboost_data, recode_kmer_4
 from wisp_view import compare_test, plot_features, plot_all_reads
 from sklearn.model_selection import train_test_split

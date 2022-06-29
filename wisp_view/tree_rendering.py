@@ -1,5 +1,5 @@
 from pygraphviz import AGraph
-from python_tools import entropy
+from wisp_tools import entropy
 
 
 def node_childrens(tree: AGraph, name_of_node: str) -> int:

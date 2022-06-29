@@ -1,7 +1,7 @@
 from build_softprob import load_model, load_params, prediction
 import xgboost as xgb
 from json import dump
-from python_tools import my_output_msg
+from wisp_tools import my_output_msg
 from collections import Counter
 from wisp_view import reads_species_plotter, compare_test
 from wisp_lib import load_xgboost_data, load_mapping

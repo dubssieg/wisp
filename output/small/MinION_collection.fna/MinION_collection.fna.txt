@@ -1,0 +1,5 @@
+CP092101.1:['Bacteria', 'Actinobacteria', 'Actinobacteria', 'Pseudonocardiales', 'Saccharomonospora']
+CP091078.1:['Bacteria', 'Actinobacteria', 'Actinobacteria', 'Nakamurellales', 'Nakamurella']
+CP087590.1:['Bacteria', 'Firmicutes', 'Bacilli', 'Lactobacillales', 'Lactiplantibacillus']
+CP046930.1:['Bacteria', 'Firmicutes', 'Bacilli', 'Lactobacillales', 'Lactococcus']
+CP066168.1:['Bacteria', 'Firmicutes', 'Bacilli', 'Lactobacillales', 'Lactococcus']
