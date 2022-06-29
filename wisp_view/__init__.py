@@ -10,3 +10,4 @@ from .visualisation_tool import plot_pie_merge
 from .tex_report import make_doc
 from .tex_report import global_sample_report
 from .mass_analysis import number_of_classes
+from .mass_analysis import compare

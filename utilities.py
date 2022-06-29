@@ -6,7 +6,7 @@ from random import random, choice
 from argparse import ArgumentParser
 from Bio import SeqIO
 from python_tools import my_classification_mapper, my_parser, my_output_msg, my_logs_global_config, my_minion
-from wisp_view import number_of_classes
+from wisp_view import number_of_classes, compare
 
 
 def rename_genomes(path_to_genomes: str) -> None:
@@ -199,18 +199,21 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument(
-        "method", type=str, choices=['clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
+        "method", type=str, choices=['compare_outputs', 'clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
     parser.add_argument('kwargs', nargs='*',
                         help="Args for Callable, see documentation for usage")
     args = parser.parse_args()
 
     my_logs_global_config("WISP_utilities", True, True)
     match args.method:
+        case 'compare_outputs':
+            # takes a list so /!\ no unpacking
+            compare(args.kwargs)
         case 'clean_rename':
             # Need to provide path to target folder
             clean_rename(*args.kwargs)
         case 'summary_to_dl':
-            # Need to provide mpath to accession file
+            # Need to provide mpath to accession file, output folder, number to start
             summary_to_dl(*args.kwargs)
         case 'destroy_sequence':
             # input folder, output folder, destruction ratio

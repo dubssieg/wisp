@@ -8,18 +8,10 @@ from pandas import DataFrame
 from random import shuffle
 from argparse import ArgumentParser
 
-FOLDER_LIST: list[str] = [
-    '10p_010dmean_143genomes',
-    '10p_010dmean_143genomes_destr50percent',
-    '10p_010dmean_400genomes',
-    '10p_010dmean_400genomes_destr5percent',
-    '10p_010dmean_400genomes_destr50percent'
-]
 
-
-def compare():
+def compare(folder_list: list) -> None:
     df = DataFrame()
-    for subfolder in FOLDER_LIST:
+    for subfolder in folder_list:
         temp_list = []
         for report_folder in listdir(f"output/{subfolder}/"):
             try:
@@ -36,26 +28,22 @@ def compare():
     df.to_csv("output/mass_report.csv")
 
 
-PATH_TRAIN: str = "/udd/sidubois/Stage/output/onevsall_sampled_v1/"
-PATH_SAMPLED: str = "/udd/sidubois/Stage/output/onevsall_sampled_v1/"
-LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
-
-
-def number_of_classes(t: int, input_path: str, output_path: str):
+def number_of_classes(t: int, input_path: str, output_path: str) -> None:
     """Computes the number of classes at each level
     """
+    levels: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
     t = int(t)
     extract_families_with_enough_representatives(t, input_path, output_path)
     for direct in [input_path, output_path]:
         all_genomes: list[list] = [
-            [e.split('_')[i] for e in listdir(direct)] for i in range(len(LEVELS))]
+            [e.split('_')[i] for e in listdir(direct)] for i in range(len(levels))]
         for i, level in enumerate(all_genomes):
             counts = Counter(level)
             print(
-                f"{LEVELS[i]} : {len(counts)} classes, with {sum([1 for _,v in counts.items() if v>=t])} equal or above {t} representatives")
+                f"{levels[i]} : {len(counts)} classes, with {sum([1 for _,v in counts.items() if v>=t])} equal or above {t} representatives")
 
 
-def extract_families_with_enough_representatives(t: int, input_path: str, output_path: str):
+def extract_families_with_enough_representatives(t: int, input_path: str, output_path: str) -> None:
     t = int(t)
     all_genomes: list = [e.split('_')[4] for e in listdir(input_path)]
     print(f"Database contains {len(all_genomes)} reference genomes")
@@ -65,8 +53,8 @@ def extract_families_with_enough_representatives(t: int, input_path: str, output
         extraction(selected, input_path, output_path)
 
 
-def extraction(selected: list, input_path: str, output_path: str):
-    all_genomes_full: list = [e for e in listdir(PATH_TRAIN)]
+def extraction(selected: list, input_path: str, output_path: str) -> None:
+    all_genomes_full: list = [e for e in listdir(input_path)]
     shuffle(all_genomes_full)
     for enf in selected:
         list_selected = [g for g in all_genomes_full if enf == g.split('_')[
