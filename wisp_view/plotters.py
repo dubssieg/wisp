@@ -509,9 +509,9 @@ def plot_some_features(my_path, listing, i, output_path):
         importance_type='gain').items()}
     if mapped != {}:
         # then we plot features in 3d
-        sds = [['' for _ in range(16)] for _ in range(16)]
+        sds = [[0 for _ in range(16)] for _ in range(16)]
         for k, v in mapped.items():
-            sds[listing.index(k[:2])][listing.index(k[2:])] = v
+            sds[listing.index(k[:2])][listing.index(k[2:])] = float(v)
         fig = plt.figure()
         cm = plt.get_cmap('rainbow')
         ax3 = plt.axes(projection='3d')
