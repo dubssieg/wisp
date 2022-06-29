@@ -3,6 +3,7 @@
 from collections import Counter
 from os import listdir, system
 from json import load
+from numpy import outer
 from pandas import DataFrame
 from random import shuffle
 from argparse import ArgumentParser
@@ -40,43 +41,35 @@ PATH_SAMPLED: str = "/udd/sidubois/Stage/output/onevsall_sampled_v1/"
 LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
 
 
-def number_of_classes(t: int):
+def number_of_classes(t: int, input_path: str, output_path: str):
     """Computes the number of classes at each level
     """
-    extract_families_with_enough_representatives(t)
-    for dir in [PATH_TRAIN, PATH_SAMPLED]:
+    t = int(t)
+    extract_families_with_enough_representatives(t, input_path, output_path)
+    for direct in [input_path, output_path]:
         all_genomes: list[list] = [
-            [e.split('_')[i] for e in listdir(dir)] for i in range(len(LEVELS))]
+            [e.split('_')[i] for e in listdir(direct)] for i in range(len(LEVELS))]
         for i, level in enumerate(all_genomes):
             counts = Counter(level)
             print(
                 f"{LEVELS[i]} : {len(counts)} classes, with {sum([1 for _,v in counts.items() if v>=t])} equal or above {t} representatives")
 
 
-def extract_families_with_enough_representatives(t: int):
-    all_genomes: list = [e.split('_')[4] for e in listdir(PATH_TRAIN)]
+def extract_families_with_enough_representatives(t: int, input_path: str, output_path: str):
+    t = int(t)
+    all_genomes: list = [e.split('_')[4] for e in listdir(input_path)]
     print(f"Database contains {len(all_genomes)} reference genomes")
     selected = [f for f, v in Counter(all_genomes).items() if v >= t]
     print(f"Len: {len(selected)} -> {selected}")
-    # if t != 0:
-    #    extraction(selected)
+    if t != 0:
+        extraction(selected, input_path, output_path)
 
 
-def extraction(selected):
+def extraction(selected: list, input_path: str, output_path: str):
     all_genomes_full: list = [e for e in listdir(PATH_TRAIN)]
     shuffle(all_genomes_full)
-    for f in selected:
-        list_selected = [g for g in all_genomes_full if f == g.split('_')[
+    for enf in selected:
+        list_selected = [g for g in all_genomes_full if enf == g.split('_')[
             4]][0:3]
-        for e in list_selected:
-            system(f"cp genomes/train/{e} genomes/sampled/{e}")
-
-
-if __name__ == "__main__":
-    "Executes main procedure"
-    # we clean log before entering loop, might be enormous
-    parser = ArgumentParser()
-    parser.add_argument(
-        "-s", "--sample", type=int, default=0, help="Gives a objective number of genomes to WISP")
-    args = parser.parse_args()
-    number_of_classes(args.sample)
+        for file in list_selected:
+            system(f"cp {input_path}/{file} {output_path}/{file}")

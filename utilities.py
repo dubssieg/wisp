@@ -6,6 +6,7 @@ from random import random, choice
 from argparse import ArgumentParser
 from Bio import SeqIO
 from python_tools import my_classification_mapper, my_parser, my_output_msg, my_logs_global_config, my_minion
+from wisp_view import number_of_classes
 
 
 def rename_genomes(path_to_genomes: str) -> None:
@@ -176,6 +177,8 @@ def clean_rename(genomes_path: str) -> None:
             new_name = new_name.replace(char, '')
         for char in [' ']:
             new_name = new_name.replace(char, '-')
+        for char in ['..']:
+            new_name = new_name.replace(char, '.')
         rename(f"{genomes_path}/{file}",
                f"{genomes_path}/{new_name}")
 
@@ -212,6 +215,8 @@ if __name__ == "__main__":
             destroy_sequence(*args.kwargs)
         case 'clean_minion':
             minion(*args.kwargs)
+        case 'extract_genomes':
+            number_of_classes(*args.kwargs)
         case _:
             my_output_msg(
                 'You need to specifiy a method and its args for the program to work. See documentation for help')
