@@ -496,8 +496,9 @@ def plot_database_features(db_path, output_path):  # ex : data/small/
     files = []
     db_path = f"data/{db_path}/"
     for level in listdir(db_path):
-        files.extend([f"{db_path}/{level}/{file}" for file in listdir(
-            f"{db_path}/{level}") if 'saved_model.json' in file])
+        if level in ['family', 'group', 'order']:
+            files.extend([f"{db_path}/{level}/{file}" for file in listdir(
+                f"{db_path}/{level}") if 'saved_model.json' in file])
     for i, file in enumerate(files):
         plot_some_features(file, listing, i, output_path)
 
