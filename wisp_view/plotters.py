@@ -523,7 +523,7 @@ def plot_some_features(my_path, listing, i, output_path):
             idx = listing.index(maskd)
             sds[idx][idx] = np.nan
         sds = np.asarray(sds)
-        ax3.set_title(my_path.split('_')[0].split('/')[-1])
+        ax3.set_title(my_path.split('/')[-1].split('_')[0])
         ax3.set_xticks([i for i in range(16)])
         ax3.set_yticks([i for i in range(16)])
         ax3.set_xticklabels([listing[i] for i in range(16)])
