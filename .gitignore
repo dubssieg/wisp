@@ -1,0 +1,6 @@
+data/
+output/
+logs/
+__pycache__/
+genomes/
+
