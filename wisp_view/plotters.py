@@ -597,7 +597,7 @@ def compdiff_plotting(input_dir, output_path):
             ax3.plot_surface(X, Y, elt, cmap=cm, edgecolor='none')
             plt.savefig(f"{output_path}/{level}/compdiff_3d_{key}.png",
                         bbox_inches='tight', transparent=True)
-        eltx = np.dstack((elt for elt in raw_elts.values()))
+        eltx = np.dstack(list(raw_elts.values()))
         fig2 = plt.figure()
         cm = plt.get_cmap('rainbow')
         ax2 = plt.axes(projection='3d')

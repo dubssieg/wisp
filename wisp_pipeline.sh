@@ -2,7 +2,7 @@
 #SBATCH --job-name=wisp_pipeline
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=80G
-#SBATCH --output=LOG_pipeline.log
+#SBATCH --output=logs/pipeline-%j.log
 #SBATCH --mail-user=siegfried.dubois@irisa.fr
 #SBATCH --mail-type=END,FAIL
 

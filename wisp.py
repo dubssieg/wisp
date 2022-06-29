@@ -62,6 +62,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-t", "--multithreading", type=int, default=1, help="Gives a thread number for WISP")
     parser.add_argument(
+        "-j", "--jobnumber", type=str, default='0', help="Gives a job identifier for WISP logs")
+    parser.add_argument(
         "-e", "--exclude", type=str, help="Used for one-vs-all tests")
     parser.add_argument(
         "-l", "--leaveoneout", help="Leave the unknown sample out of training set", action='store_true')
@@ -82,7 +84,7 @@ if __name__ == "__main__":
         raise ValueError(
             "Incorrect or missing parameters file ; check path and/or contents of json reference.") from exc
 
-    my_logs_global_config(LOG_FILE, verbose=args.verbose)
+    my_logs_global_config(LOG_FILE, args.jobnumber, verbose=args.verbose)
 
     core_call(args.leaveoneout, args.exclude, args.multithreading, args.build, args.params,
               TAXAS_LEVELS, DATABASE, SAMPLES_PATH, JOB_PREFIX)

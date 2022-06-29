@@ -1,6 +1,6 @@
 #!/bin/sh
 #SBATCH --job-name=wisp
-#SBATCH --output=LOG_job.log
+#SBATCH --output=logs/wisp-%j.log
 #SBATCH --mail-user=siegfried.dubois@irisa.fr
 #SBATCH --mail-type=END,FAIL
 

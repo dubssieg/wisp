@@ -11,15 +11,15 @@ def my_output_msg(string: str, severity: Callable = info) -> None:
 
 def my_logs_clear(filepath: str):
     "Cleans out log file if run was success"
-    with open(f"{filepath}", 'w'):
+    with open(f"logs/{filepath}", 'w'):
         pass
 
 
-def my_logs_global_config(filepath: str, verbose: bool = False, cleanse: bool = False):
+def my_logs_global_config(filepath: str, identifier: str, verbose: bool = False, cleanse: bool = False):
     "Clears log and defines logging info"
     if cleanse:
         my_logs_clear(f"{filepath}.log")
-    basicConfig(format='%(asctime)s %(message)s', datefmt='[%m/%d/%Y %I:%M:%S %p]', filename=f"{filepath}.log",
+    basicConfig(format='%(asctime)s %(message)s', datefmt='[%m/%d/%Y %I:%M:%S %p]', filename=f"logs/{filepath}-{identifier}.log",
                 encoding='utf-8', level=INFO if verbose else WARNING)
 
 
