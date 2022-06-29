@@ -94,19 +94,21 @@ def verificator(fasta_file: str) -> int:
     return integer
 
 
-def summary_to_dl(summary_file: str, genomes_path: str) -> None:
+def summary_to_dl(summary_file: str, genomes_path: str, start: int = 0) -> None:
     """Download all genomes from a file, assumming its a standard NCBI summary file
 
     Args:
         summary_file (str): path to a NCBI file
     """
+    start = int(start)
+
     my_output_msg(f"Summary filepath : {summary_file}")
 
     with open(summary_file, "r") as summary_reader:
         next(summary_reader)
         next(summary_reader)
         for i, line in enumerate(summary_reader):
-            if i > 168421:
+            if i > start:
                 # accession, https
                 split = line.split()
                 my_output_msg(f"Resolving entry n°{i} : {split[0]}")
@@ -197,7 +199,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument(
-        "method", type=str, choices=['clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion'], help="A callable func to execute")
+        "method", type=str, choices=['clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
     parser.add_argument('kwargs', nargs='*',
                         help="Args for Callable, see documentation for usage")
     args = parser.parse_args()
@@ -216,6 +218,7 @@ if __name__ == "__main__":
         case 'clean_minion':
             minion(*args.kwargs)
         case 'extract_genomes':
+            # number, path_in, path out
             number_of_classes(*args.kwargs)
         case _:
             my_output_msg(
