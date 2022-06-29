@@ -1,6 +1,7 @@
 "Analysis upon kmers repartition and stuff"
 
 from argparse import ArgumentParser
+import enum
 import matplotlib.pyplot as plt
 import pandas as pd
 from wisp_lib import kmer_indexing_brut, recode_kmer_4
@@ -36,7 +37,6 @@ def load_json(json_file: str) -> dict:
 
 
 def extractor(SPARKLE: str) -> dict[str, str]:
-    print("")
     dict_files: dict[str, str] = {}
     for folder in listdir(f"{SPARKLE}/"):
         for subf in listdir(f"{SPARKLE}/{folder}"):
@@ -296,7 +296,6 @@ def clustering_plotting(folders_to_analyze: list[str]):
             averages = {key: mean(val) for key, val in vals.items()}
             # read numbers
             good, bad = (read_number_aggregator(good_read_value(dctx)))
-            # print(good)
 
             tp = []
             for filterd in ['domain', 'phylum', 'group', 'order', 'family']:
@@ -545,13 +544,19 @@ def delta_sequence(seq1: str, seq2: str, pattern: str, ksize: int) -> None:
     plt.savefig(f"{OUTPUT_PATH}delta_kmers.png", bbox_inches='tight')
 
 
-def compdiff_plotting():
-    OUTPUT_PATH: str = f"output/figures/compdiff/"
+def mfunc(x):
+    try:
+        return stdev(x)
+    except TypeError:
+        return x
+
+
+def compdiff_plotting(input_dir, output_path):
     listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
                for b in ['A', 'T', 'G', 'C']]
     for level in ['domain', 'phylum', 'group', 'order', 'family']:
         elts, raw_elts = compute_signatures(
-            level, 'genomes/143_prokaryote_genomes', listing)
+            level, input_dir, listing)
         for key, elt in elts.items():
             print("\n"+key+"\n")
             print(elt)
@@ -559,7 +564,7 @@ def compdiff_plotting():
             cm = plt.get_cmap('rainbow', 3)
             ax = fig.add_subplot(111)
             cax = ax.matshow(elt, cmap=cm, vmin=0, vmax=2)
-            plt.style.use('dark_background')
+            # plt.style.use('dark_background')
             plt.title(f"{key}")
             plt.xticks(rotation=90)
             plt.yticks(fontsize=9)
@@ -573,33 +578,48 @@ def compdiff_plotting():
             cbar.ax.set_yticks([0, 1, 2])
             cbar.ax.set_yticklabels(
                 ['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
-            plt.savefig(f"{OUTPUT_PATH}{level}/{key}_compdiff_transp.png",
-                        bbox_inches='tight', transparent=True)
+            plt.savefig(f"{output_path}/{level}/{key}_compdiff.png",
+                        bbox_inches='tight')
         for key, elt in raw_elts.items():
-            fig2 = plt.figure()
+            fig3 = plt.figure()
             cm = plt.get_cmap('rainbow')
-            ax2 = plt.axes(projection='3d')
-            X, Y = np.meshgrid(np.arange(0, 15, 1), np.arange(0, 15, 1))
-            ax2.set_title(key)
-            ax2.set_xticks([i for i in range(16)])
-            ax2.set_yticks([i for i in range(16)])
-            ax2.set_xticklabels([listing[i] for i in range(16)])
-            ax2.set_yticklabels([listing[i] for i in range(16)])
-            ax2.view_init(60, 35)
-            ax2.tick_params(axis=u'both', which=u'both', length=0)
-            ax2.plot_surface(X, Y, elt, cmap=cm, edgecolor='none')
-            plt.savefig(f"{OUTPUT_PATH}{level}/{key}_compdiff_3d.png",
+            ax3 = plt.axes(projection='3d')
+            x = np.arange(0, 16, 1)
+            y = np.arange(0, 16, 1)
+            X, Y = np.meshgrid(x, y)
+            ax3.set_title(key)
+            ax3.set_xticks([i for i in range(16)])
+            ax3.set_yticks([i for i in range(16)])
+            ax3.set_xticklabels([listing[i] for i in range(16)])
+            ax3.set_yticklabels([listing[i] for i in range(16)])
+            ax3.view_init(60, 35)
+            ax3.tick_params(axis=u'both', which=u'both', length=0)
+            ax3.plot_surface(X, Y, elt, cmap=cm, edgecolor='none')
+            plt.savefig(f"{output_path}/{level}/compdiff_3d_{key}.png",
                         bbox_inches='tight', transparent=True)
-
-
-if __name__ == "__main__":
-    parser = ArgumentParser()
-    # declaring args
-    parser.add_argument(
-        "method", help="Plotting method to use : available are 'dbfeatures', 'compdiff', 'deltasequence' and 'clustering'.", type=str)
-    # executing args
-    args = parser.parse_args()
-    # plot_repartition_top_kmers(6, my_parser("genomes/sequence.fna", True, True, "merge")['merge'], "1111", 4)
-    # delta_sequence(my_parser("genomes/sequence.fna", True, True, "merge")['merge'], my_parser("genomes/sequence_2.fna", True, True, "merge")['merge'], "1111", 4)
-    compdiff_plotting()
-    # plot_database_features(args.name)
+        eltx = np.dstack((elt for elt in raw_elts.values()))
+        fig2 = plt.figure()
+        cm = plt.get_cmap('rainbow')
+        ax2 = plt.axes(projection='3d')
+        x = np.arange(0, 16, 1)
+        y = np.arange(0, 16, 1)
+        sds = [['' for _ in range(16)] for _ in range(16)]
+        for i, x_axis in enumerate(eltx):
+            for j, y_axis in enumerate(x_axis):
+                sds[i][j] = stdev(y_axis) if len(y_axis) > 1 else float(y_axis)
+        for maskd in ['AA', 'TT', 'CC', 'GG']:
+            idx = listing.index(maskd)
+            sds[idx][idx] = np.nan
+        sds = np.asarray(sds)
+        # np.vectorize(mfunc)(eltx)
+        X, Y = np.meshgrid(x, y)
+        ax2.set_title(level.capitalize())
+        ax2.set_xticks([i for i in range(16)])
+        ax2.set_yticks([i for i in range(16)])
+        ax2.set_xticklabels([listing[i] for i in range(16)])
+        ax2.set_yticklabels([listing[i] for i in range(16)])
+        ax2.view_init(60, 35)
+        ax2.tick_params(axis=u'both', which=u'both', length=0)
+        ax2.plot_surface(X, Y, sds, cmap=cm, edgecolor='none')
+        plt.savefig(f"{output_path}/{level}/compdiff_3d_{level}.png",
+                    bbox_inches='tight', transparent=True)
