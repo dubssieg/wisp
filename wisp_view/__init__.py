@@ -13,6 +13,7 @@ from .mass_analysis import number_of_classes
 from .mass_analysis import compare
 
 from .plotters import compdiff_plotting
+from .plotters import plot_database_features
 
 #from .tree_rendering import tree_render
 #from .tree_rendering import mod_to_tree

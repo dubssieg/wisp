@@ -491,23 +491,47 @@ def compute_signatures(level, pwd, listing):
 
 
 def plot_database_features(db_path):  # ex : data/small/
+    listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
+               for b in ['A', 'T', 'G', 'C']]
     files = []
     db_path = f"data/{db_path}/"
     for level in listdir(db_path):
         files.extend([f"{db_path}/{level}/{file}" for file in listdir(
             f"{db_path}/{level}") if 'saved_model.json' in file])
-    for file in files:
-        plot_some_features(file)
+    for i, file in enumerate(files):
+        plot_some_features(file, listing, i)
 
 
-def plot_some_features(my_path):
+def plot_some_features(my_path, listing, i):
     bst = xgb.Booster()
     bst.load_model(my_path)
-    mapped = {
-        f"{recode_kmer_4(str(k[1:]),max([len(str(ky[1:])) for ky, _ in bst.get_score(importance_type='gain').items()]))}": v for k, v in bst.get_score(importance_type='gain').items()}
+    mapped = {recode_kmer_4(str(k[1:]), 4): v for k, v in bst.get_score(
+        importance_type='gain').items()}
     if mapped != {}:
-        plot_features(f"{OUTPUT_PATH}{my_path.split('/')[-1].split('_')[0]}_", mapped, "",
-                      "", "")
+        # then we plot features in 3d
+        sds = [['' for _ in range(16)] for _ in range(16)]
+        for k, v in mapped.items():
+            sds[listing.index(k[:2])][listing.index(k[2:])] = v
+        fig = plt.figure()
+        cm = plt.get_cmap('rainbow')
+        ax3 = plt.axes(projection='3d')
+        x = np.arange(0, 16, 1)
+        y = np.arange(0, 16, 1)
+        X, Y = np.meshgrid(x, y)
+        for maskd in ['AA', 'TT', 'CC', 'GG']:
+            idx = listing.index(maskd)
+            sds[idx][idx] = np.nan
+        sds = np.asarray(sds)
+        ax3.set_title(my_path.split('_')[0])
+        ax3.set_xticks([i for i in range(16)])
+        ax3.set_yticks([i for i in range(16)])
+        ax3.set_xticklabels([listing[i] for i in range(16)])
+        ax3.set_yticklabels([listing[i] for i in range(16)])
+        ax3.view_init(60, 35)
+        ax3.tick_params(axis=u'both', which=u'both', length=0)
+        ax3.plot_surface(X, Y, sds, cmap=cm, edgecolor='none')
+        plt.savefig(f"{output_path}/features_3d_{i}.png",
+                    bbox_inches='tight', transparent=True)
 
 
 def plot_repartition_top_kmers(number_to_plot: int, sequence: str, ksize: int) -> None:
@@ -587,6 +611,14 @@ def compdiff_plotting(input_dir, output_path):
             x = np.arange(0, 16, 1)
             y = np.arange(0, 16, 1)
             X, Y = np.meshgrid(x, y)
+            sds = [['' for _ in range(16)] for _ in range(16)]
+            for i, x_axis in enumerate(elt):
+                for j, y_axis in enumerate(x_axis):
+                    sds[i][j] = float(y_axis)
+            for maskd in ['AA', 'TT', 'CC', 'GG']:
+                idx = listing.index(maskd)
+                sds[idx][idx] = np.nan
+            sds = np.asarray(sds)
             ax3.set_title(key)
             ax3.set_xticks([i for i in range(16)])
             ax3.set_yticks([i for i in range(16)])
@@ -594,7 +626,7 @@ def compdiff_plotting(input_dir, output_path):
             ax3.set_yticklabels([listing[i] for i in range(16)])
             ax3.view_init(60, 35)
             ax3.tick_params(axis=u'both', which=u'both', length=0)
-            ax3.plot_surface(X, Y, elt, cmap=cm, edgecolor='none')
+            ax3.plot_surface(X, Y, sds, cmap=cm, edgecolor='none')
             plt.savefig(f"{output_path}/{level}/compdiff_3d_{key}.png",
                         bbox_inches='tight', transparent=True)
         eltx = np.dstack(list(raw_elts.values()))
@@ -621,5 +653,5 @@ def compdiff_plotting(input_dir, output_path):
         ax2.view_init(60, 35)
         ax2.tick_params(axis=u'both', which=u'both', length=0)
         ax2.plot_surface(X, Y, sds, cmap=cm, edgecolor='none')
-        plt.savefig(f"{output_path}/{level}/compdiff_3d_{level}.png",
+        plt.savefig(f"{output_path}/compdiff_3d_database.png",
                     bbox_inches='tight', transparent=True)

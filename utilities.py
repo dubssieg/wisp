@@ -6,7 +6,7 @@ from random import random, choice
 from argparse import ArgumentParser
 from Bio import SeqIO
 from wisp_tools import my_classification_mapper, my_parser, my_output_msg, my_logs_global_config, my_minion
-from wisp_view import number_of_classes, compare, compdiff_plotting
+from wisp_view import number_of_classes, compare, compdiff_plotting, plot_database_features
 
 
 def rename_genomes(path_to_genomes: str) -> None:
@@ -204,8 +204,11 @@ if __name__ == "__main__":
                         help="Args for Callable, see documentation for usage")
     args = parser.parse_args()
 
-    my_logs_global_config("WISP_utilities", True, True)
+    my_logs_global_config("WISP_utilities", '0', True, True)
     match args.method:
+        case 'database_features':
+            # needs a db name
+            plot_database_features(*args.kwargs)
         case 'kmers_signatures':
             compdiff_plotting(*args.kwargs)
         case 'compare_outputs':
