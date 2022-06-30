@@ -1,11 +1,9 @@
 "Analysis upon kmers repartition and stuff"
 
 from argparse import ArgumentParser
-import enum
 import matplotlib.pyplot as plt
 import pandas as pd
-from wisp_lib import kmer_indexing_brut, recode_kmer_4
-from wisp_view import plot_features
+from wisp_lib import kmer_indexing_brut, recode_kmer_4, kmer_indexing_10000
 from wisp_tools import my_parser
 from collections import Counter
 import xgboost as xgb
@@ -456,6 +454,14 @@ def signatures(list_sequences):
     return Counter({key: float(value/total_len) for key, value in alphabet.items()})
 
 
+def signatures_sd(list_sequences):
+    alphabet = {k: [] for k in my_encoder_4().keys()}
+    for sequence in list_sequences:
+        for kmer, kval in kmer_indexing_10000(sequence, 4).items():
+            alphabet[kmer].append(kval)
+    return Counter({key: float(mean(value)) if len(value) > 1 else value for key, value in alphabet.items()})
+
+
 def code(value, mn, sd):
     if value < mn - sd:
         return 0
@@ -466,7 +472,7 @@ def code(value, mn, sd):
 
 
 def compute_signatures(level, pwd, listing):
-    rets, raw_rets = {}, {}
+    rets, raw_rets, dev_rets = {}, {}, {}
     LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
     splitting = LEVELS.index(level)
     targets = list(set(s.split('_')[splitting] for s in listdir(pwd)))
@@ -476,18 +482,24 @@ def compute_signatures(level, pwd, listing):
         list_sequences = [my_parser(genome_matching, True, True, 'm')[
             'm'] for genome_matching in all_genomes_matching]
         res = signatures(list_sequences)
+        deviation = signatures_sd(list_sequences)
         mn = mean(res.values())
         sd = stdev(res.values())
         tpd = {k: code(v, mn, sd) for k, v in res.items()}
-        tabl, tabl2 = [['' for _ in range(16)] for _ in range(16)], [
+        tabl, tabl2, tabldev = [['' for _ in range(16)] for _ in range(16)], [
+            ['' for _ in range(16)] for _ in range(16)], [
             ['' for _ in range(16)] for _ in range(16)]
         for k, v in tpd.items():
             tabl[listing.index(k[:2])][listing.index(k[2:])] = v
         for k, v in res.items():
             tabl2[listing.index(k[:2])][listing.index(k[2:])] = v
+        for k, v in deviation.items():
+            tabldev[listing.index(k[:2])][listing.index(k[2:])] = v
         rets[t] = np.asarray(tabl)
         raw_rets[t] = np.asarray(tabl2)
-    return rets, raw_rets
+        dev_rets[t] = np.asarray(tabldev)
+
+    return rets, raw_rets, dev_rets
 
 
 def plot_database_features(db_path, output_path):  # ex : data/small/
@@ -580,8 +592,30 @@ def compdiff_plotting(input_dir, output_path):
     listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
                for b in ['A', 'T', 'G', 'C']]
     for level in ['domain', 'phylum', 'group', 'order', 'family']:
-        elts, raw_elts = compute_signatures(
+        elts, raw_elts, dev_items = compute_signatures(
             level, input_dir, listing)
+        for key, elt in dev_items.items():
+            fig = plt.figure()
+            cm = plt.get_cmap('rainbow')
+            ax = fig.add_subplot(111)
+            cax = ax.matshow(elt, cmap=cm)
+            # plt.style.use('dark_background') vmin=0, vmax=2
+            plt.title(f"{key}")
+            plt.xticks(rotation=90)
+            plt.yticks(fontsize=9)
+            plt.xticks(fontsize=9)
+            ax.set_xticks([i for i in range(16)])
+            ax.set_yticks([i for i in range(16)])
+            ax.set_xticklabels([listing[i] for i in range(16)])
+            ax.set_yticklabels([listing[i] for i in range(16)])
+            ax.tick_params(axis=u'both', which=u'both', length=0)
+            cbar = fig.colorbar(cax)
+            cbar.ax.set_title(
+                '$\sigma_{freq}$')
+            #cbar.ax.set_yticks([0, 1, 2])
+            #cbar.ax.set_yticklabels(['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
+            plt.savefig(f"{output_path}/{level}/{key}_sigmadiff.png",
+                        bbox_inches='tight', transparent=True)
         for key, elt in elts.items():
             print("\n"+key+"\n")
             print(elt)
@@ -604,7 +638,7 @@ def compdiff_plotting(input_dir, output_path):
             cbar.ax.set_yticklabels(
                 ['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
             plt.savefig(f"{output_path}/{level}/{key}_compdiff.png",
-                        bbox_inches='tight')
+                        bbox_inches='tight', transparent=True)
         for key, elt in raw_elts.items():
             fig3 = plt.figure()
             cm = plt.get_cmap('rainbow')
@@ -650,6 +684,7 @@ def compdiff_plotting(input_dir, output_path):
         ax2.set_yticks([i for i in range(16)])
         ax2.set_xticklabels([listing[i] for i in range(16)])
         ax2.set_yticklabels([listing[i] for i in range(16)])
+        ax2.set_title("All genomes")
         ax2.view_init(60, 35)
         ax2.tick_params(axis=u'both', which=u'both', length=0)
         ax2.plot_surface(X, Y, sds, cmap=cm, edgecolor='none')

@@ -1,6 +1,7 @@
 "Functions to encode and decode kmers"
 
 from functools import cache
+from statistics import stdev
 from typing import Generator
 from collections import Counter
 from itertools import product
@@ -155,6 +156,31 @@ def kmer_indexing_brut(entry: str, kmer_size: int) -> Counter:
         Counter: kmer counts
     """
     return Counter([entry[k:k+kmer_size] for k in range(len(entry) - kmer_size - 1)])
+
+
+def encoder_list():
+    # maybe this can help gain speed ? specific to k=4
+    return {f"{a}{b}{c}{d}": [] for a in ['A', 'T', 'G', 'C'] for b in ['A', 'T', 'G', 'C'] for c in ['A', 'T', 'G', 'C']for d in ['A', 'T', 'G', 'C']}
+
+
+def kmer_indexing_10000(entry: str, kmer_size: int) -> dict:
+    """Bruteforce kmer encoding. Used for plots.
+
+    Args:
+        entry (str): a read
+        kmer_size (int): kmer length
+
+    Returns:
+        Counter: kmer counts
+    """
+    entries = optimal_splitting(entry, 10000, 100)
+    entrs = encoder_list()
+    for entr in entries:
+        counts = Counter([entr[k:k+kmer_size]
+                         for k in range(len(entr) - kmer_size - 1)])
+        for k, v in counts.items():
+            entrs[k].append(float(v))
+    return {key: stdev(value) for key, value in entrs.items()}
 
 
 def optimal_splitting(seq: str, window_size: int, max_sampling: int) -> set[str]:
