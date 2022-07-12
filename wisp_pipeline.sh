@@ -14,11 +14,14 @@ ENV="/home/genouest/genscale/sdubois/wisp-env"
 PARAMETERS="parameters_files/"$1".json"
 INPUT_MINION="/scratch/sdubois/Lactobacillales_MinION/pass"
 OUTPUT_MINION="genomes/unk_"$1
+TEMP_GENOMES="genomes/temp_"$1
 REF_GENOMES="genomes/train_"$1
+NUMBER_RELATIVES=3
 
 # create mandatory dirs if not exist
 mkdir -p $OUTPUT_MINION
 mkdir -p $REF_GENOMES
+mkdir -p $TEMP_GENOMES
 mkdir -p "data"
 mkdir -p "output/"$1
 
@@ -29,7 +32,10 @@ conda activate $ENV
     python utilities.py 'clean_minion' $INPUT_MINION $OUTPUT_MINION
 
     # downloading set of reference genomes
-    python utilities.py 'summary_to_dl' $SUMMARY_FILE $REF_GENOMES
+    python utilities.py 'summary_to_dl' $SUMMARY_FILE $TEMP_GENOMES
+
+    # selecting only ref genomes
+    python utilities.py 'extract_genomes' $NUMBER_RELATIVES $TEMP_GENOMES $REF_GENOMES
 
     # cleaning somewhat dirty NCBI classification
     python utilities.py 'clean_rename' $REF_GENOMES
@@ -39,9 +45,6 @@ conda activate $ENV
 
     # calling for analysis
     python wisp.py $PARAMETERS -t 8
-
-    # plotting facilities for visualisation
-    # to be added
 
 # exiting conda env
 conda deactivate
