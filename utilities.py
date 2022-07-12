@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 from Bio import SeqIO
 from wisp_tools import my_classification_mapper, my_parser, my_output_msg, my_logs_global_config, my_minion
 from wisp_view import number_of_classes, compare, compdiff_plotting, plot_database_features
+import matplotlib.pyplot as plt
 
 
 def rename_genomes(path_to_genomes: str) -> None:
@@ -205,6 +206,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     my_logs_global_config("WISP_utilities", '0', True, True)
+    plt.rcParams.update({'figure.max_open_warning': 0})
+
     match args.method:
         case 'database_features':
             # needs a db name

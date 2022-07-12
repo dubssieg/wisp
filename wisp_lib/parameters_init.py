@@ -22,7 +22,7 @@ def save_json(json_file: str, dico_save: dict) -> None:
 
 
 def my_params(filename: str):
-    sparkle: str = "MinION"
+    sparkle: str = "mega"
     # dict to be converted in .json file to create our parameters set
     params_job: dict = {
         # subreads size and max. of reads in sample
@@ -43,18 +43,18 @@ def my_params(filename: str):
         'family_sample': [4, [1, 1, 1, 1]],
         'merged_sample': [4, [1, 1, 1, 1]],
         # 'input' : location of reference genomes
-        'input_train': f"genomes/train_{sparkle}/",
+        'input_train': f"/scratch/sdubois/lb_minion/train_{sparkle}/",
         # 'input_unk' : location of unk genomes
-        'input_unk': f"genomes/unk_{sparkle}/",
+        'input_unk': f"/scratch/sdubois/lb_minion/unk_{sparkle}/",
         # 'output' : output for database
-        'database_output': "data/",
-        'reports_output': f"output/{sparkle}/",
+        'database_output': f"/scratch/sdubois/lb_minion/data/",
+        'reports_output': f"/scratch/sdubois/lb_minion/output/{sparkle}/",
         # parameters for exploration and algorithm
         'threshold': 0.10,
         'nb_boosts': 10,
         'tree_depth': 10,
         # parameters regarding results
-        'test_mode': 'min_set',  # 'no_test', 'min_set', 'verbose'
+        'test_mode': 'no_test',  # 'no_test', 'min_set', 'verbose'
         # parameter for read selection, significance for softprob
         'reads_th': 0.1,
         'selection_mode': 'delta_mean',  # 'min_max','delta_mean','delta_sum'

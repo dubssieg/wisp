@@ -525,7 +525,7 @@ def plot_some_features(my_path, listing, i, output_path):
         sds = [[0 for _ in range(16)] for _ in range(16)]
         for k, v in mapped.items():
             sds[listing.index(k[:2])][listing.index(k[2:])] = float(v)
-        fig = plt.figure()
+        plt.figure()
         cm = plt.get_cmap('rainbow')
         ax3 = plt.axes(projection='3d')
         x = np.arange(0, 16, 1)
