@@ -108,8 +108,6 @@ def build_full_db(args: Namespace) -> None:
 
 if __name__ == "__main__":
     "Executes main procedure"
-    my_logs_global_config("LOG_wisp")
-    my_logs_clear("LOG_wisp.log")  # we clean before entering loop
     parser = ArgumentParser()
 
     # declaring args
