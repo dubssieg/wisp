@@ -119,7 +119,7 @@
             1
         ]
     ],
-    "input_train": "/scratch/sdubois/genomes_lactobacillales",
+    "input_train": "/scratch/sdubois/genomes_lactobacillales/",
     "input_unk": "genomes/MinION_reads/",
     "database_output": "data/",
     "reports_output": "output/MinION3/",
