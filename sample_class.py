@@ -62,8 +62,8 @@ def make_datasets(job_name: str, input_dir: str, path: str, datas: list[str], sa
     """
     my_encoder = encoder(kmer_size)
     # iteration levels
-    taxa: dict = {'domain': 0, 'phylum': 1,
-                  'group': 2, 'order': 3, 'family': 4}
+    taxa: dict[str, int] = {'domain': 0, 'phylum': 1,
+                            'group': 2, 'order': 3, 'family': 4}
     if datas == ['train', 'test']:
         # safe creation of dir
         Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)

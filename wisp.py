@@ -10,13 +10,10 @@ from os import listdir, system
 from sys import executable
 from argparse import ArgumentParser
 from traceback import format_exc
-import shlex
-import subprocess
+from shlex import split
+from subprocess import Popen
 from wisp_tools import my_output_msg, my_function_timer, my_logs_global_config, my_futures_collector
 from wisp_lib import load_json
-
-
-# constants ; change those to select database and such
 
 
 @my_function_timer("WISP run")
@@ -27,19 +24,29 @@ def core_call(leaveoneout: bool, exclusion: str, multithreading_state: int, buil
     """
     retcodes: list = []
     try:
-        match building_state:
-            case True:
-                communicators = my_futures_collector(subprocess.Popen, [
-                    [shlex.split(f"{executable} wisp_build.py {db} {params} -l {[level]}")] for level in taxas_levels], multithreading_state)
-            case False:
-                file_list: list[str] = listdir(unk_path)
-                if leaveoneout:
-                    communicators = my_futures_collector(subprocess.Popen, [[
-                        shlex.split(f"{executable} wisp_predict.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {file} -l")] for file in file_list], multithreading_state)
-                    #communicators = my_futures_collector(system, [[f"{executable} main.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {'_'.join(file.split('_')[:-1])} -l"] for file in file_list], multithreading_state)
-                else:
-                    communicators = my_futures_collector(subprocess.Popen, [[
-                        shlex.split(f"{executable} wisp_predict.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {exclusion}")] for file in file_list], multithreading_state)
+        file_list: list[str] = listdir(unk_path)
+        match building_state, leaveoneout:
+            case False, True:
+                communicators = my_futures_collector(
+                    func=Popen,
+                    argslist=[[split(
+                        f"{executable} wisp_predict.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {file} -l")] for file in file_list],
+                    num_processes=multithreading_state
+                )
+            case False, False:
+                communicators = my_futures_collector(
+                    func=Popen,
+                    argslist=[[split(
+                        f"{executable} wisp_predict.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {exclusion}")] for file in file_list],
+                    num_processes=multithreading_state
+                )
+            case _:
+                communicators = my_futures_collector(
+                    func=Popen,
+                    argslist=[[split(
+                        f"{executable} wisp_build.py {db} {params} -l {[level]}")] for level in taxas_levels],
+                    num_processes=min(multithreading_state, len(TAXAS_LEVELS))
+                )
         retcodes = [p.communicate() for p in communicators]
     except Exception as excl:
         retcodes = ['Base error']
@@ -48,7 +55,7 @@ def core_call(leaveoneout: bool, exclusion: str, multithreading_state: int, buil
         for i, code in enumerate(retcodes):
             my_output_msg(f"Job {i} : {code}")
             # cleaning db
-            system(f"rm -r data/{DATABASE}/temp")
+        system(f"rm -r data/{DATABASE}/temp")
 
 
 if __name__ == "__main__":
@@ -84,7 +91,19 @@ if __name__ == "__main__":
         raise ValueError(
             "Incorrect or missing parameters file ; check path and/or contents of json reference.") from exc
 
-    my_logs_global_config(LOG_FILE, args.jobnumber, verbose=args.verbose)
+    my_logs_global_config(
+        filepath=LOG_FILE,
+        identifier=args.jobnumber,
+        verbose=args.verbose)
 
-    core_call(args.leaveoneout, args.exclude, args.multithreading, args.build, args.params,
-              TAXAS_LEVELS, DATABASE, SAMPLES_PATH, JOB_PREFIX)
+    core_call(
+        leaveoneout=args.leaveoneout,
+        exclusion=args.exclude,
+        multithreading_state=args.multithreading,
+        building_state=args.build,
+        params=args.params,
+        taxas_levels=TAXAS_LEVELS,
+        db=DATABASE,
+        unk_path=SAMPLES_PATH,
+        job_prefix=JOB_PREFIX
+    )

@@ -16,10 +16,9 @@ __version__ = get_versions()['version']
 del get_versions
 
 if __name__ == "__main__":
-    ############################################ ARGPARSE ###############################################
-
     filterwarnings('ignore')  # to ignore xgboost warnnings
 
+    ############################################ ARGPARSE ###############################################
     parser = ArgumentParser()
 
     # declaring args
@@ -69,10 +68,10 @@ if __name__ == "__main__":
         KMER_SIZE_MERGED_SAMPLE, PATTERN_MERGED_SAMPLE = my_params[
             f"merged_sample"]
     # if any error happens
-    except Exception as exc:
-        my_output_msg(format_exc())
-        raise ValueError(
-            "Incorrect or missing parameters file ; check path and/or contents of json reference.") from exc
+    except Exception:
+        my_output_msg(
+            f"Incorrect or missing parameters file ; check path and/or contents of json reference.\n {format_exc()}")
+        exit(24)
 
     input_file: str = f"{args.file}"
     fasta_reads: dict = my_fasta_parser(
