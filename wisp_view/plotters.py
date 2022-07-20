@@ -505,14 +505,16 @@ def compute_signatures(level, pwd, listing):
 def plot_database_features(db_path, output_path):  # ex : data/small/
     listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
                for b in ['A', 'T', 'G', 'C']]
-    files = []
-    db_path = f"data/{db_path}/"
+    Path(f"{output_path}/").mkdir(parents=True, exist_ok=True)
+    (Path(f"{output_path}/{level}").mkdir(parents=True, exist_ok=True)
+     for level in ['family', 'group', 'order'])
     for level in listdir(db_path):
+        files = []
         if level in ['family', 'group', 'order']:
             files.extend([f"{db_path}/{level}/{file}" for file in listdir(
                 f"{db_path}/{level}") if 'saved_model.json' in file])
-    for i, file in enumerate(files):
-        plot_some_features(file, listing, i, output_path)
+        for i, file in enumerate(files):
+            plot_some_features(file, listing, i, f"{output_path}/{level}")
 
 
 def plot_some_features(my_path, listing, i, output_path):
