@@ -3,9 +3,9 @@
 . /local/env/envconda.sh
 
 # init env
-conda create -p wisp_env python=3.10
+conda create -p pwd"/wisp_env" python=3.10
 
-conda activate wisp_env
+conda activate pwd"/wisp_env"
 # installing packages
 python -m pip install -r requirements.txt
 

@@ -97,6 +97,12 @@ def verificator(fasta_file: str) -> int:
     return integer
 
 
+def format_tool(genome_path):
+    pre_rename(genome_path)
+    rename_genomes(genome_path)
+    clean_rename(genome_path)
+
+
 def summary_to_dl(summary_file: str, genomes_path: str, start: int = 0) -> None:
     """Download all genomes from a file, assumming its a standard NCBI summary file
 
@@ -220,7 +226,7 @@ def executor(func: Callable, argsm: list, unpack: bool, hstring: str) -> None:
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
-        "method", type=str, choices=['aggregate', 'database_features', 'kmers_signatures', 'compare_outputs', 'clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
+        "method", type=str, choices=['format_tool', 'aggregate', 'database_features', 'kmers_signatures', 'compare_outputs', 'clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
     parser.add_argument('kwargs', nargs='*',
                         help="Args for Callable, see documentation for usage")
     args = parser.parse_args()
@@ -229,6 +235,8 @@ if __name__ == "__main__":
     plt.rcParams.update({'figure.max_open_warning': 0})
 
     match args.method:
+        case 'format_tool':
+            func, unpack, hstring = format_tool, True, "Func needs a raw NCBI-downloaded genome folder"
         case 'aggregate':
             func, unpack, hstring = retrieve, True, "Func needs a WISP output directory name (relative or absolute path)"
         case 'database_features':
