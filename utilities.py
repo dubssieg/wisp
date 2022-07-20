@@ -101,6 +101,7 @@ def format_tool(genome_path):
     pre_rename(genome_path)
     rename_genomes(genome_path)
     clean_rename(genome_path)
+    system(f"rm {genome_path}/N*")
 
 
 def summary_to_dl(summary_file: str, genomes_path: str, start: int = 0) -> None:

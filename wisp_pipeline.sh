@@ -10,7 +10,8 @@
 . /local/env/envconda.sh
 
 # variables
-ENV=pwd"/wisp-env"
+WD = pwd
+ENV=$WD"/wisp-env"
 PARAMETERS="parameters_files/"$1".json"
 INPUT_MINION="genomes/Lactobacillales_MinION/pass"
 OUTPUT_MINION="genomes/unk_"$1
@@ -24,6 +25,7 @@ mkdir -p $REF_GENOMES
 mkdir -p $TEMP_GENOMES
 mkdir -p "data"
 mkdir -p "output/"$1
+mkdir -p "logs"
 
 # use conda env
 conda activate $ENV

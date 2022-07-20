@@ -11,9 +11,11 @@ mkdir -p genomes/unk
 mkdir -p genomes/train
 mkdir -p data
 mkdir -p output
+mkdir -m logs
 
 # use conda env
-conda activate $1
+WD = pwd
+conda activate $WD"/wisp_env"
 
 ##########################
 #                        #
@@ -30,7 +32,7 @@ conda activate $1
 # calling prediction
 # wisp.py -t 8
 
-python $2
+python $1
 
 conda deactivate
 

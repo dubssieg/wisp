@@ -2,10 +2,18 @@
 #SBATCH --job-name=wisp
 . /local/env/envconda.sh
 
-# init env
-conda create -p pwd"/wisp_env" python=3.10
+WD = pwd
 
-conda activate pwd"/wisp_env"
+mkdir -p "data"
+mkdir -p "output"
+mkdir -p "logs"
+mkdir -p "genomes"
+mkdir -p "parameters_files"
+
+# init env
+conda create -p $WD"/wisp_env" python=3.10
+
+conda activate $WD"/wisp_env"
 # installing packages
 python -m pip install -r requirements.txt
 

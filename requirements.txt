@@ -4,7 +4,6 @@ numpy
 scipy
 scikit-learn
 seaborn
-khmer
 biopython
 pdflatex
 versioneer
