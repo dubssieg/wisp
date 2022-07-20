@@ -10,9 +10,9 @@
 . /local/env/envconda.sh
 
 # variables
-ENV="/home/genouest/genscale/sdubois/wisp-env"
+ENV="wisp-env"
 PARAMETERS="parameters_files/"$1".json"
-INPUT_MINION="/scratch/sdubois/Lactobacillales_MinION/pass"
+INPUT_MINION="genomes/Lactobacillales_MinION/pass"
 OUTPUT_MINION="genomes/unk_"$1
 TEMP_GENOMES="genomes/temp_"$1
 REF_GENOMES="genomes/train_"$1
@@ -44,7 +44,7 @@ conda activate $ENV
     python wisp.py $PARAMETERS -b
 
     # calling for analysis
-    python wisp.py $PARAMETERS -t 8
+    python wisp.py $PARAMETERS
 
 # exiting conda env
 conda deactivate
