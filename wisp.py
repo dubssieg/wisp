@@ -45,7 +45,8 @@ def core_call(leaveoneout: bool, exclusion: str, multithreading_state: int, buil
                     func=Popen,
                     argslist=[[split(
                         f"{executable} wisp_build.py {db} {params} -l {[level]}")] for level in taxas_levels],
-                    num_processes=min(multithreading_state, len(TAXAS_LEVELS))
+                    num_processes=min(multithreading_state,
+                                      len(TAXAS_LEVELS)+1)
                 )
         retcodes = [p.communicate() for p in communicators]
     except Exception as excl:
@@ -54,7 +55,6 @@ def core_call(leaveoneout: bool, exclusion: str, multithreading_state: int, buil
     finally:
         for i, code in enumerate(retcodes):
             my_output_msg(f"Job {i} : {code}")
-            # cleaning db
         system(f"rm -r data/{DATABASE}/temp")
 
 

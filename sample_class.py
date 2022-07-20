@@ -60,19 +60,23 @@ def make_datasets(job_name: str, input_dir: str, path: str, datas: list[str], sa
     * classif_level (str) : level of cassification we're working at
     * db_name (str) : database we need to search in
     """
-    my_encoder = encoder(kmer_size)
-    # iteration levels
-    taxa: dict[str, int] = {'domain': 0, 'phylum': 1,
-                            'group': 2, 'order': 3, 'family': 4}
+    my_encoder: dict = encoder(ksize=kmer_size)
+    taxa: dict[str, int] = {
+        'domain': 0,
+        'phylum': 1,
+        'group': 2,
+        'order': 3,
+        'family': 4
+    }
     if datas == ['train', 'test']:
         # safe creation of dir
         Path(f"{path}{db_name}/{classif_level}/").mkdir(parents=True, exist_ok=True)
         # we re-generate database, so we need to map it out
         if classif_level != 'merged':
-            sp_map = mapping_sp(f"{input_dir}", path,
+            sp_map = mapping_sp(input_dir, path,
                                 classif_level, db_name, taxa[classif_level], sp_determied)
         else:
-            sp_map = mapping_merged_sp(f"{input_dir}", path, db_name)
+            sp_map = mapping_merged_sp(input_dir, path, db_name)
     else:
         # database already generated, loading mapping without erasing it
         sp_map = load_mapping(path, db_name,

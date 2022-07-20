@@ -1,13 +1,15 @@
 "This script is rather a set of tools for downloading references genomes and renaming those"
 
 from os import listdir, rename, system
-import csv
+from csv import reader
 from random import random, choice
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
+from typing import Callable
 from Bio import SeqIO
 from wisp_tools import my_classification_mapper, my_parser, my_output_msg, my_logs_global_config, my_minion
 from wisp_view import number_of_classes, compare, compdiff_plotting, plot_database_features
 import matplotlib.pyplot as plt
+from collections import Counter
 
 
 def rename_genomes(path_to_genomes: str) -> None:
@@ -51,7 +53,7 @@ def gather(csv_file: str) -> None:
     """
     ids = []
     with open(csv_file) as file:
-        csvreader = csv.reader(file)
+        csvreader = reader(file)
         header = next(csvreader)
         for row in csvreader:
             ids = list(
@@ -192,15 +194,33 @@ def minion(genomes_path: str, output_minion: str) -> None:
         my_minion(f"{genomes_path}/{file}", output_minion)
 
 
-if __name__ == "__main__":
-    # This class aims to help to generate databases from a set of references.
-    # From an assembly_summary.txt downloaded from NCBI (obtained via ftp.ncbi)
-    # it downloads all references, renames it according to the WISP file system
-    # All you have to do after is to put those files into train folder once process is done
+def retrieve(tdir: str):
+    glbl = Counter()
+    list_of_rf = [f"{tdir}/{d}" for d in listdir(tdir)]
+    list_of_files = []
+    for rf in list_of_rf:
+        list_of_files.extend(
+            [f"{rf}/{txtfile}" for txtfile in listdir(rf) if '.txt' in txtfile])
+    for fil in list_of_files:
+        with open(fil, 'r') as reader:
+            glbl += Counter([line.split(':')[1].replace('\n', '')
+                            for line in reader])
+    with open('output.txt', 'w') as writer:
+        writer.write('\n'.join([key.split('\'')[9]+":"+str(value)
+                     for key, value in glbl.items()]))
 
+
+def executor(func: Callable, argsm: list, unpack: bool, hstring: str) -> None:
+    try:
+        func(*argsm) if unpack else func(args)
+    except:
+        my_output_msg(hstring)
+
+
+if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
-        "method", type=str, choices=['database_features', 'kmers_signatures', 'compare_outputs', 'clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
+        "method", type=str, choices=['aggregate', 'database_features', 'kmers_signatures', 'compare_outputs', 'clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
     parser.add_argument('kwargs', nargs='*',
                         help="Args for Callable, see documentation for usage")
     args = parser.parse_args()
@@ -209,28 +229,24 @@ if __name__ == "__main__":
     plt.rcParams.update({'figure.max_open_warning': 0})
 
     match args.method:
+        case 'aggregate':
+            func, unpack, hstring = retrieve, True, "Func needs a WISP output directory name (relative or absolute path)"
         case 'database_features':
-            # needs a db name
-            plot_database_features(*args.kwargs)
+            func, unpack, hstring = plot_database_features, True, "Func needs a WISP database directory name (relative or absolute path)"
         case 'kmers_signatures':
-            compdiff_plotting(*args.kwargs)
+            func, unpack, hstring = compdiff_plotting, True, "Func needs a directory name containing genomes (relative or absolute path)"
         case 'compare_outputs':
-            # takes a list so /!\ no unpacking
-            compare(args.kwargs)
+            func, unpack, hstring = compare, False, "Func needs a list of WISP output directories names (relative or absolute paths)"
         case 'clean_rename':
-            # Need to provide path to target folder
-            clean_rename(*args.kwargs)
+            func, unpack, hstring = clean_rename, True, "Func needs a directory name containing genomes (relative or absolute path)"
         case 'summary_to_dl':
-            # Need to provide mpath to accession file, output folder, number to start
-            summary_to_dl(*args.kwargs)
+            func, unpack, hstring = summary_to_dl, True, "Func needs path to a accession file, a output folder, and optionally a line number to strart from"
         case 'destroy_sequence':
-            # input folder, output folder, destruction ratio
-            destroy_sequence(*args.kwargs)
+            func, unpack, hstring = destroy_sequence, True, "Func needs a genome directory input path, and a empty directory output path (both relative or absolute paths) and a destruction ratio"
         case 'clean_minion':
-            minion(*args.kwargs)
+            func, unpack, hstring = minion, True, "Func needs a directory name containing genomes (relative or absolute path)"
         case 'extract_genomes':
-            # number, path_in, path out
-            number_of_classes(*args.kwargs)
+            func, unpack, hstring = number_of_classes, True, "Func needs a number of relatives, a genome directory input path, and a empty directory output path (both relative or absolute paths)"
         case _:
-            my_output_msg(
-                'You need to specifiy a method and its args for the program to work. See documentation for help')
+            func, unpack, hstring = exit, False, "No correct method was used. Exiting."
+    executor(func, args.kwargs, unpack, hstring)

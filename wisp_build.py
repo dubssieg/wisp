@@ -28,9 +28,9 @@ def build_full_db(args: Namespace) -> None:
         TAXAS_LEVELS: list[str] = [
             t for t in my_params['levels_list'] if t in args.levels]
         GLOBAL_TAXAS_LEVELS: list[str] = my_params['levels_list']
-        nr = int(my_params['nb_boosts'])
-        tree_depth = int(my_params['tree_depth'])
-        force_rebuild = bool(my_params['force_model_rebuild'])
+        nr: int = int(my_params['nb_boosts'])
+        tree_depth: int = int(my_params['tree_depth'])
+        force_rebuild: bool = bool(my_params['force_model_rebuild'])
         WINDOW: int = my_params['window_size']
         KMER_SIZE_MERGED_REF, SAMPLING_MERGED_REF, PATTERN_MERGED_REF = my_params[
             f"merged_ref"]
@@ -74,11 +74,26 @@ def build_full_db(args: Namespace) -> None:
 
                 if force_rebuild or not check_if_model_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
 
-                    map_sp = load_mapping(DATABASE_PATH, DATABASE,
-                                          taxa, parent_level)
+                    map_sp = load_mapping(
+                        path=DATABASE_PATH,
+                        db_name=DATABASE,
+                        classif_level=taxa,
+                        sp_determined=parent_level
+                    )
 
-                    make_model("", [], DATABASE_PATH, taxa, DATABASE,
-                               parent_level, init_parameters(len(map_sp), tree_depth), nr, JOB, False)
+                    make_model(
+                        job_name="",
+                        exclude=[],
+                        path=DATABASE_PATH,
+                        classif_level=taxa,
+                        db_name=DATABASE,
+                        sp_determined=parent_level,
+                        model_parameters=init_parameters(
+                            len(map_sp), tree_depth),
+                        number_rounds=nr,
+                        sample_name=JOB,
+                        bool_temporary=False
+                    )
         else:
 
             if not check_if_merged_database_exists(DATABASE, DATABASE_PATH):
@@ -107,9 +122,7 @@ def build_full_db(args: Namespace) -> None:
 
 
 if __name__ == "__main__":
-    "Executes main procedure"
     parser = ArgumentParser()
-
     # declaring args
     parser.add_argument(
         "database_name", help="name of database, builded if not exists", type=str)
@@ -118,7 +131,4 @@ if __name__ == "__main__":
     parser.add_argument(
         "-l", "--levels", help="specific level(s) to build", default=['domain', 'phylum', 'group', 'order', 'family', 'merged'])
 
-    # executing args
-    args = parser.parse_args()
-
-    build_full_db(args)
+    build_full_db(parser.parse_args())
