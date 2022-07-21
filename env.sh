@@ -8,6 +8,8 @@ mkdir -p "data"
 mkdir -p "output"
 mkdir -p "logs"
 mkdir -p "genomes"
+mkdir -p "genomes/train"
+mkdir -p "genomes/unk"
 mkdir -p "parameters_files"
 
 # init env
