@@ -2,7 +2,7 @@
 #SBATCH --job-name=wisp
 . /local/env/envconda.sh
 
-WD = pwd
+WD=$(pwd)
 
 mkdir -p "data"
 mkdir -p "output"

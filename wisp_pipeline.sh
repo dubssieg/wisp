@@ -10,7 +10,7 @@
 . /local/env/envconda.sh
 
 # variables
-WD = pwd
+WD=$(pwd)
 ENV=$WD"/wisp-env"
 PARAMETERS="parameters_files/"$1".json"
 INPUT_MINION="genomes/Lactobacillales_MinION/pass"

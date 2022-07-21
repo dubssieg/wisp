@@ -14,7 +14,7 @@ mkdir -p output
 mkdir -m logs
 
 # use conda env
-WD = pwd
+WD=$(pwd)
 conda activate $WD"/wisp_env"
 
 ##########################
