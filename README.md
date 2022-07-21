@@ -1,7 +1,7 @@
 # WISP : Bacterial families identification from long reads, machine learning with XGBoost
 
 [![](https://img.shields.io/badge/Build-stable-green.svg)](https://github.com/Tharos-ux/wisp/)
-[![](https://img.shields.io/badge/Wiki-unfinished-red.svg)](https://github.com/Tharos-ux/wisp/wiki)
+[![](https://img.shields.io/badge/Wiki-available-green.svg)](https://github.com/Tharos-ux/wisp/wiki)
 [![](https://img.shields.io/badge/Paper-preview-blue.svg)](preview/Bacterial_families_identification_from_long_reads___machine_learning_with_XGBoost_.pdf)
 [![](https://img.shields.io/badge/Licence-MIT-blue.svg)](https://github.com/Tharos-ux/wisp/blob/master/LICENCE)
 
@@ -36,7 +36,7 @@ This tool is requiring some reference genomes, which it will index, to create a 
 
 The remaining of this Readme will focus on WISP installation and setup, see the [wiki](https://github.com/Tharos-ux/wisp/wiki) for information 
 
-# Quick setup : see [Wiki](https://github.com/Tharos-ux/wisp/wiki/User-guide) for detailed instructions
+# Quick setup : see [Wiki](https://github.com/Tharos-ux/wisp/wiki/2.-User-guide) for detailed instructions
 
 The easiest way to install and use WISP is through conda. A script to create the conda venv is included in this repo ; sipmly run the command and you will get a clean environnment for WISP, with all its dependencies :
 
