@@ -213,7 +213,7 @@ def retrieve(tdir: str, output_folder: str):
         with open(fil, 'r') as reader:
             glbl += Counter([line.split(':')[1].replace('\n', '')
                             for line in reader])
-    with open(f"{output_folder}/output_{tdir.split('/')[-1]}.json", 'w') as writer:
+    with open(f"{output_folder}/{tdir.split('/')[-1]}.json", 'w') as writer:
         dump({k.split("'")[-2]: v for k, v in glbl.items()}, writer)
 
 
@@ -252,7 +252,7 @@ def create_mock_dataset(inpult_folder: str, output_folder: str, destruction_rati
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
-        "method", type=str, choices=['mock_dataset', 'format_tool', 'aggregate', 'database_features', 'kmers_signatures', 'compare_outputs', 'clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
+        "method", type=str, choices=['compare_metagenomic', 'mock_dataset', 'format_tool', 'aggregate', 'database_features', 'kmers_signatures', 'compare_outputs', 'clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
     parser.add_argument('kwargs', nargs='*',
                         help="Args for Callable, see documentation for usage")
     args = parser.parse_args()
