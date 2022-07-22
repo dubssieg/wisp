@@ -2,7 +2,7 @@
 
 from os import listdir, rename, system
 from csv import reader
-from random import random, choice
+from random import random, choice, randrange
 from argparse import ArgumentParser, Namespace
 from typing import Callable
 from Bio import SeqIO
@@ -224,10 +224,25 @@ def executor(func: Callable, argsm: list, unpack: bool, hstring: str) -> None:
         my_output_msg(hstring)
 
 
+def create_mock_dataset(inpult_folder: str, output_folder: str) -> None:
+    sequences = {}
+    list_of_genomes = [
+        f"{inpult_folder}/{file}" for file in listdir(inpult_folder)]
+    for genome in list_of_genomes:
+        parsed_genome = my_parser(genome, True, False, objective=300000)
+        if parsed_genome != {}:
+            range_select = randrange(150000, 300000)
+            sequences[f"> {genome.split('/')[-1][:-4]}"] = (
+                list(parsed_genome.values())[0])[0:range_select]
+    with open(f"{output_folder}/mock_dataset.fna", "w") as fna_writer:
+        fna_writer.write(
+            "\n".join([f"{k}\n{v}" for k, v in sequences.items()]))
+
+
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
-        "method", type=str, choices=['format_tool', 'aggregate', 'database_features', 'kmers_signatures', 'compare_outputs', 'clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
+        "method", type=str, choices=['mock_dataset', 'format_tool', 'aggregate', 'database_features', 'kmers_signatures', 'compare_outputs', 'clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
     parser.add_argument('kwargs', nargs='*',
                         help="Args for Callable, see documentation for usage")
     args = parser.parse_args()
@@ -236,6 +251,8 @@ if __name__ == "__main__":
     plt.rcParams.update({'figure.max_open_warning': 0})
 
     match args.method:
+        case 'mock_dataset':
+            func, unpack, hstring = create_mock_dataset, True, "Func needs a genome directory name and a output directory name"
         case 'format_tool':
             func, unpack, hstring = format_tool, True, "Func needs a raw NCBI-downloaded genome folder"
         case 'aggregate':
