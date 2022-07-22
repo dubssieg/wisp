@@ -224,7 +224,7 @@ def executor(func: Callable, argsm: list, unpack: bool, hstring: str) -> None:
         my_output_msg(hstring)
 
 
-def create_mock_dataset(inpult_folder: str, output_folder: str) -> None:
+def create_mock_dataset(inpult_folder: str, output_folder: str, destruction_ratio=0) -> None:
     sequences = {}
     list_of_genomes = [
         f"{inpult_folder}/{file}" for file in listdir(inpult_folder)]
@@ -232,8 +232,10 @@ def create_mock_dataset(inpult_folder: str, output_folder: str) -> None:
         parsed_genome = my_parser(genome, True, False, objective=300000)
         if parsed_genome != {}:
             range_select = randrange(150000, 300000)
-            sequences[f"> {genome.split('/')[-1][:-4]}"] = (
-                list(parsed_genome.values())[0])[0:range_select]
+            partial_sequence = (list(parsed_genome.values())[0])[
+                0:range_select]
+            sequences[f"> {genome.split('/')[-1][:-4]} (length:{range_select})"] = ''.join([base if random() >= 0.75*destruction_ratio else choice(
+                ['A', 'T', 'C', 'G']) for base in partial_sequence])
     with open(f"{output_folder}/mock_dataset.fna", "w") as fna_writer:
         fna_writer.write(
             "\n".join([f"{k}\n{v}" for k, v in sequences.items()]))
