@@ -217,7 +217,9 @@ def retrieve(tdir: str, output_folder: str):
         dump({k.split("'")[-2]: v for k, v in glbl.items()}, writer)
 
 
-def compare_metagenomic(output_path: str, *files_to_compare):
+def compare_metagenomic(links):
+    output_path = links[0]
+    files_to_compare = links[1:]
     dfold: dict[str, dict] = {}
     for file in files_to_compare:
         dfold[file.split('/')[-1][:-5]] = load(open(file, 'r'))
@@ -262,7 +264,7 @@ if __name__ == "__main__":
 
     match args.method:
         case 'compare_metagenomic':
-            func, unpack, hstring = compare_metagenomic, True, "Func needs a output directory and one or a list of json files to analyse (created with aggregate)"
+            func, unpack, hstring = compare_metagenomic, False, "Func needs a output directory and one or a list of json files to analyse (created with aggregate)"
         case 'mock_dataset':
             func, unpack, hstring = create_mock_dataset, True, "Func needs a genome directory name and a output directory name"
         case 'format_tool':
