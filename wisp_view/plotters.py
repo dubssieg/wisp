@@ -593,6 +593,9 @@ def mfunc(x):
 def compdiff_plotting(input_dir, output_path):
     listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
                for b in ['A', 'T', 'G', 'C']]
+    Path(f"{output_path}/").mkdir(parents=True, exist_ok=True)
+    (Path(f"{output_path}/{level}").mkdir(parents=True, exist_ok=True)
+     for level in ['domain', 'phylum', 'group', 'order', 'family'])
     for level in ['domain', 'phylum', 'group', 'order', 'family']:
         elts, raw_elts, dev_items = compute_signatures(
             level, input_dir, listing)

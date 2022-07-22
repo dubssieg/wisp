@@ -5,7 +5,7 @@
 WD=$(pwd)
 
 mkdir -p "data"
-mkdir -p "output"
+mkdir -p "output/"
 mkdir -p "logs"
 mkdir -p "genomes/train_default"
 mkdir -p "genomes/unk_default"
