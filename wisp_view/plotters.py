@@ -510,13 +510,14 @@ def plot_database_features(db_path, output_path):  # ex : data/small/
         files = []
         if level in ['family', 'group', 'order']:
             Path(f"{output_path}/{level}").mkdir(parents=True, exist_ok=True)
-            files.extend([f"{db_path}/{level}/{file}" for file in listdir(
-                f"{db_path}/{level}") if 'saved_model.json' in file])
-        for i, file in enumerate(files):
-            plot_some_features(file, listing, i, f"{output_path}/{level}")
+            files = [f"{db_path}/{level}/{file}" for file in listdir(
+                f"{db_path}/{level}") if 'saved_model.json' in file]
+            for file in files:
+                plot_some_features(file, listing, file.split(
+                    '/')[-1].split('_')[0], f"{output_path}/{level}")
 
 
-def plot_some_features(my_path, listing, i, output_path):
+def plot_some_features(my_path, listing, filename, output_path):
     bst = xgb.Booster()
     bst.load_model(my_path)
     mapped = {recode_kmer_4(str(k[1:]), 4): v for k, v in bst.get_score(
@@ -544,7 +545,7 @@ def plot_some_features(my_path, listing, i, output_path):
         ax3.view_init(60, 35)
         ax3.tick_params(axis=u'both', which=u'both', length=0)
         ax3.plot_surface(X, Y, sds, cmap=cm, edgecolor='none')
-        plt.savefig(f"{output_path}/features_3d_{i}.png",
+        plt.savefig(f"{output_path}/features_3d_{filename}.png",
                     bbox_inches='tight', transparent=True)
 
 
