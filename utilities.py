@@ -214,7 +214,7 @@ def retrieve(tdir: str, output_folder: str):
             glbl += Counter([line.split(':')[1].replace('\n', '')
                             for line in reader])
     with open(f"{output_folder}/output_{tdir.split('/')[-1]}.json", 'w') as writer:
-        dump(glbl, writer)
+        dump({str(k[-1]): v for k, v in glbl.items()}, writer)
 
 
 def compare_metagenomic(output_path: str, *files_to_compare):
