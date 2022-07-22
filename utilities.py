@@ -201,7 +201,7 @@ def minion(genomes_path: str, output_minion: str) -> None:
         my_minion(f"{genomes_path}/{file}", output_minion)
 
 
-def retrieve(tdir: str):
+def retrieve(tdir: str, output_folder: str):
     glbl = Counter()
     list_of_rf = [f"{tdir}/{d}" for d in listdir(tdir)]
     list_of_files = []
@@ -212,7 +212,7 @@ def retrieve(tdir: str):
         with open(fil, 'r') as reader:
             glbl += Counter([line.split(':')[1].replace('\n', '')
                             for line in reader])
-    with open('output.txt', 'w') as writer:
+    with open(f"{output_folder}/output_{tdir.split('/')[-1]}.txt", 'w') as writer:
         writer.write('\n'.join([key.split('\'')[9]+":"+str(value)
                      for key, value in glbl.items()]))
 
@@ -239,7 +239,7 @@ if __name__ == "__main__":
         case 'format_tool':
             func, unpack, hstring = format_tool, True, "Func needs a raw NCBI-downloaded genome folder"
         case 'aggregate':
-            func, unpack, hstring = retrieve, True, "Func needs a WISP output directory name (relative or absolute path)"
+            func, unpack, hstring = retrieve, True, "Func needs a WISP output directory name (relative or absolute path) and a output path for file"
         case 'database_features':
             func, unpack, hstring = plot_database_features, True, "Func needs a WISP database directory name (relative or absolute path)"
         case 'kmers_signatures':
