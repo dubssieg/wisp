@@ -510,9 +510,12 @@ def plot_database_features(db_path, output_path):  # ex : data/small/
         files = []
         if level in ['family', 'group', 'order']:
             Path(f"{output_path}/{level}").mkdir(parents=True, exist_ok=True)
+            Path(
+                f"{output_path}/{level}/features_3d").mkdir(parents=True, exist_ok=True)
             files = [f"{db_path}/{level}/{file}" for file in listdir(
                 f"{db_path}/{level}") if 'saved_model.json' in file]
             for file in files:
+                print(f"Making {file.split('/')[-1].split('_')[0]} graph!")
                 plot_some_features(file, listing, file.split(
                     '/')[-1].split('_')[0], f"{output_path}/{level}")
 
@@ -545,7 +548,7 @@ def plot_some_features(my_path, listing, filename, output_path):
         ax3.view_init(60, 35)
         ax3.tick_params(axis=u'both', which=u'both', length=0)
         ax3.plot_surface(X, Y, sds, cmap=cm, edgecolor='none')
-        plt.savefig(f"{output_path}/features_3d_{filename}.png",
+        plt.savefig(f"{output_path}/features_3d/{filename}_3d_features.png",
                     bbox_inches='tight', transparent=True)
 
 
@@ -596,6 +599,9 @@ def compdiff_plotting(input_dir, output_path):
     Path(f"{output_path}/").mkdir(parents=True, exist_ok=True)
     for level in ['domain', 'phylum', 'group', 'order', 'family']:
         Path(f"{output_path}/{level}").mkdir(parents=True, exist_ok=True)
+        Path(f"{output_path}/{level}/sigmadiff").mkdir(parents=True, exist_ok=True)
+        Path(f"{output_path}/{level}/compdiff").mkdir(parents=True, exist_ok=True)
+        Path(f"{output_path}/{level}/compdiff_3d").mkdir(parents=True, exist_ok=True)
         elts, raw_elts, dev_items = compute_signatures(
             level, input_dir, listing)
         for key, elt in dev_items.items():
@@ -618,7 +624,7 @@ def compdiff_plotting(input_dir, output_path):
                 '$\sigma_{freq}$')
             #cbar.ax.set_yticks([0, 1, 2])
             #cbar.ax.set_yticklabels(['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
-            plt.savefig(f"{output_path}/{level}/{key}_sigmadiff.png",
+            plt.savefig(f"{output_path}/{level}/sigmadiff/{key}_sigmadiff.png",
                         bbox_inches='tight', transparent=True)
         for key, elt in elts.items():
             print("\n"+key+"\n")
@@ -641,7 +647,7 @@ def compdiff_plotting(input_dir, output_path):
             cbar.ax.set_yticks([0, 1, 2])
             cbar.ax.set_yticklabels(
                 ['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
-            plt.savefig(f"{output_path}/{level}/{key}_compdiff.png",
+            plt.savefig(f"{output_path}/{level}/compdiff/{key}_compdiff.png",
                         bbox_inches='tight', transparent=True)
         for key, elt in raw_elts.items():
             fig3 = plt.figure()
@@ -666,7 +672,7 @@ def compdiff_plotting(input_dir, output_path):
             ax3.view_init(60, 35)
             ax3.tick_params(axis=u'both', which=u'both', length=0)
             ax3.plot_surface(X, Y, sds, cmap=cm, edgecolor='none')
-            plt.savefig(f"{output_path}/{level}/compdiff_3d_{key}.png",
+            plt.savefig(f"{output_path}/{level}/compdiff_3d/{key}_3d_compdiff.png",
                         bbox_inches='tight', transparent=True)
         eltx = np.dstack(list(raw_elts.values()))
         fig2 = plt.figure()
@@ -692,5 +698,5 @@ def compdiff_plotting(input_dir, output_path):
         ax2.view_init(60, 35)
         ax2.tick_params(axis=u'both', which=u'both', length=0)
         ax2.plot_surface(X, Y, sds, cmap=cm, edgecolor='none')
-        plt.savefig(f"{output_path}/compdiff_3d_database.png",
+        plt.savefig(f"{output_path}/database_3d_compdiff.png",
                     bbox_inches='tight', transparent=True)
