@@ -6,10 +6,12 @@ from random import random, choice, randrange
 from argparse import ArgumentParser, Namespace
 from typing import Callable
 from Bio import SeqIO
+from fsspec import filesystem
 from wisp_tools import my_classification_mapper, my_parser, my_output_msg, my_logs_global_config, my_minion
-from wisp_view import number_of_classes, compare, compdiff_plotting, plot_database_features
+from wisp_view import number_of_classes, compare, compdiff_plotting, plot_database_features, plot_stacked_values
 import matplotlib.pyplot as plt
 from collections import Counter
+from json import dump, load
 
 
 def rename_genomes(path_to_genomes: str) -> None:
@@ -212,9 +214,15 @@ def retrieve(tdir: str, output_folder: str):
         with open(fil, 'r') as reader:
             glbl += Counter([line.split(':')[1].replace('\n', '')
                             for line in reader])
-    with open(f"{output_folder}/output_{tdir.split('/')[-1]}.txt", 'w') as writer:
-        writer.write('\n'.join([key.split('\'')[9]+":"+str(value)
-                     for key, value in glbl.items()]))
+    with open(f"{output_folder}/output_{tdir.split('/')[-1]}.json", 'w') as writer:
+        dump(glbl, writer)
+
+
+def compare_metagenomic(output_path: str, *files_to_compare):
+    dfold: dict[str, dict] = {}
+    for file in files_to_compare:
+        dfold[file.split('/')[-1][:-5]] = load(open(file, 'r'))
+    plot_stacked_values(dfold, output_path)
 
 
 def executor(func: Callable, argsm: list, unpack: bool, hstring: str) -> None:
@@ -254,6 +262,8 @@ if __name__ == "__main__":
     plt.rcParams.update({'figure.max_open_warning': 0})
 
     match args.method:
+        case 'compare_metagenomic':
+            func, unpack, hstring = compare_metagenomic, True, "Func needs a output directory and one or a list of json files to analyse (created with aggregate)"
         case 'mock_dataset':
             func, unpack, hstring = create_mock_dataset, True, "Func needs a genome directory name and a output directory name"
         case 'format_tool':

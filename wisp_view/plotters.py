@@ -1,6 +1,7 @@
 "Analysis upon kmers repartition and stuff"
 
 from argparse import ArgumentParser
+from string import ascii_lowercase
 import matplotlib.pyplot as plt
 import pandas as pd
 from wisp_lib import kmer_indexing_brut, recode_kmer_4, kmer_indexing_10000
@@ -24,6 +25,7 @@ import numpy as np
 import matplotlib as mpl
 from pathlib import Path
 from mpl_toolkits import mplot3d
+from itertools import chain
 
 
 def load_json(json_file: str) -> dict:
@@ -586,6 +588,29 @@ def delta_sequence(seq1: str, seq2: str, ksize: int, output_path: str) -> None:
     plt.savefig(f"{output_path}/delta_kmers.png", bbox_inches='tight')
 
 
+def list_retirever(key, d: list[dict]) -> list:
+    my_list = []
+    for di in d:
+        if key in di:
+            my_list += di[key]
+        else:
+            my_list += [0]
+    return my_list
+
+
+def plot_stacked_values(di: dict[str, dict], output_path) -> None:
+    xi = list(di.keys())
+    aggregate_keys = set(
+        chain(l for l in [list(d.keys()) for d in di.values()]))
+    aggregator = {k: np.array(list_retirever(k, list(di.values())))
+                  for k in aggregate_keys}
+    all_others_y = np.array([0 for _ in range(len(di))])
+    for label, y in aggregator.items():
+        plt.bar(xi, y, label=label, bottom=all_others_y)
+        all_others_y += y
+    plt.savefig(f"{output_path}/compare_outputs.png", bbox_inches='tight')
+
+
 def mfunc(x):
     try:
         return stdev(x)
@@ -622,8 +647,8 @@ def compdiff_plotting(input_dir, output_path):
             cbar = fig.colorbar(cax)
             cbar.ax.set_title(
                 '$\sigma_{freq}$')
-            #cbar.ax.set_yticks([0, 1, 2])
-            #cbar.ax.set_yticklabels(['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
+            # cbar.ax.set_yticks([0, 1, 2])
+            # cbar.ax.set_yticklabels(['$f < \mu - \sigma$', '$f = \mu \pm \sigma$', '$f > \mu + \sigma$'])
             plt.savefig(f"{output_path}/{level}/sigmadiff/{key}_sigmadiff.png",
                         bbox_inches='tight', transparent=True)
         for key, elt in elts.items():
