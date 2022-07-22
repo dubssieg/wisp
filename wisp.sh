@@ -7,11 +7,11 @@
 . /local/env/envconda.sh
 
 # create mandatory dirs if not exist
-mkdir -p genomes/unk
-mkdir -p genomes/train
-mkdir -p data
-mkdir -p output
-mkdir -p logs
+mkdir -p "genomes/unk_default"
+mkdir -p "genomes/train_default"
+mkdir -p "data"
+mkdir -p "output"
+mkdir -p "logs"
 
 # use conda env
 WD=$(pwd)

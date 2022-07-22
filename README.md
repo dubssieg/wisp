@@ -3,6 +3,7 @@
 [![](https://img.shields.io/badge/Build-stable-green.svg)](https://github.com/Tharos-ux/wisp/)
 [![](https://img.shields.io/badge/Wiki-available-green.svg)](https://github.com/Tharos-ux/wisp/wiki)
 [![](https://img.shields.io/badge/Paper-preview-blue.svg)](preview/Bacterial_families_identification_from_long_reads___machine_learning_with_XGBoost_.pdf)
+[![](https://img.shields.io/badge/Report-unfinished-red.svg)](preview/report.pdf)
 [![](https://img.shields.io/badge/Licence-MIT-blue.svg)](https://github.com/Tharos-ux/wisp/blob/master/LICENCE)
 
 <img align="right" src="https://github.com/Tharos-ux/wisp/blob/master/preview/WISP.png" alt="wisp logo" width="300"/>

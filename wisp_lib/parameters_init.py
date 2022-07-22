@@ -22,7 +22,7 @@ def save_json(json_file: str, dico_save: dict) -> None:
 
 
 def my_params(filename: str):
-    sparkle: str = "mega"
+    sparkle: str = "default"
     # dict to be converted in .json file to create our parameters set
     params_job: dict = {
         # subreads size and max. of reads in sample

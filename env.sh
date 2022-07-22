@@ -7,9 +7,8 @@ WD=$(pwd)
 mkdir -p "data"
 mkdir -p "output"
 mkdir -p "logs"
-mkdir -p "genomes"
-mkdir -p "genomes/train"
-mkdir -p "genomes/unk"
+mkdir -p "genomes/train_default"
+mkdir -p "genomes/unk_default"
 mkdir -p "parameters_files"
 
 # init env
