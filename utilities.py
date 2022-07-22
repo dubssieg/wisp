@@ -225,13 +225,14 @@ def executor(func: Callable, argsm: list, unpack: bool, hstring: str) -> None:
 
 
 def create_mock_dataset(inpult_folder: str, output_folder: str, destruction_ratio=0) -> None:
+    destruction_ratio = float(destruction_ratio)
     sequences = {}
     list_of_genomes = [
         f"{inpult_folder}/{file}" for file in listdir(inpult_folder)]
     for genome in list_of_genomes:
-        parsed_genome = my_parser(genome, True, False, objective=300000)
+        parsed_genome = my_parser(genome, True, False, objective=30000)
         if parsed_genome != {}:
-            range_select = randrange(150000, 300000)
+            range_select = randrange(15000, 30000)
             partial_sequence = (list(parsed_genome.values())[0])[
                 0:range_select]
             sequences[f"> {genome.split('/')[-1][:-4]} (length:{range_select})"] = ''.join([base if random() >= 0.75*destruction_ratio else choice(
