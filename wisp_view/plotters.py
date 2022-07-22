@@ -525,31 +525,31 @@ def plot_some_features(my_path, listing, filename, output_path):
     bst.load_model(my_path)
     mapped = {recode_kmer_4(str(k[1:]), 4): v for k, v in bst.get_score(
         importance_type='gain').items()}
-    if mapped != {}:
-        # then we plot features in 3d
-        sds = [[0 for _ in range(16)] for _ in range(16)]
-        for k, v in mapped.items():
-            sds[listing.index(k[:2])][listing.index(k[2:])] = float(v)
-        plt.figure()
-        cm = plt.get_cmap('rainbow')
-        ax3 = plt.axes(projection='3d')
-        x = np.arange(0, 16, 1)
-        y = np.arange(0, 16, 1)
-        X, Y = np.meshgrid(x, y)
-        for maskd in ['AA', 'TT', 'CC', 'GG']:
-            idx = listing.index(maskd)
-            sds[idx][idx] = np.nan
-        sds = np.asarray(sds)
-        ax3.set_title(my_path.split('/')[-1].split('_')[0])
-        ax3.set_xticks([i for i in range(16)])
-        ax3.set_yticks([i for i in range(16)])
-        ax3.set_xticklabels([listing[i] for i in range(16)])
-        ax3.set_yticklabels([listing[i] for i in range(16)])
-        ax3.view_init(60, 35)
-        ax3.tick_params(axis=u'both', which=u'both', length=0)
-        ax3.plot_surface(X, Y, sds, cmap=cm, edgecolor='none')
-        plt.savefig(f"{output_path}/features_3d/{filename}_3d_features.png",
-                    bbox_inches='tight', transparent=True)
+
+    # then we plot features in 3d
+    sds = [[0 for _ in range(16)] for _ in range(16)]
+    for k, v in mapped.items():
+        sds[listing.index(k[:2])][listing.index(k[2:])] = float(v)
+    plt.figure()
+    cm = plt.get_cmap('rainbow')
+    ax3 = plt.axes(projection='3d')
+    x = np.arange(0, 16, 1)
+    y = np.arange(0, 16, 1)
+    X, Y = np.meshgrid(x, y)
+    for maskd in ['AA', 'TT', 'CC', 'GG']:
+        idx = listing.index(maskd)
+        sds[idx][idx] = np.nan
+    sds = np.asarray(sds)
+    ax3.set_title(my_path.split('/')[-1].split('_')[0])
+    ax3.set_xticks([i for i in range(16)])
+    ax3.set_yticks([i for i in range(16)])
+    ax3.set_xticklabels([listing[i] for i in range(16)])
+    ax3.set_yticklabels([listing[i] for i in range(16)])
+    ax3.view_init(60, 35)
+    ax3.tick_params(axis=u'both', which=u'both', length=0)
+    ax3.plot_surface(X, Y, sds, cmap=cm, edgecolor='none')
+    plt.savefig(f"{output_path}/features_3d/{filename}_3d_features.png",
+                bbox_inches='tight', transparent=True)
 
 
 def plot_repartition_top_kmers(number_to_plot: int, sequence: str, ksize: int, output_path: str) -> None:
