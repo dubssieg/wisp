@@ -506,11 +506,10 @@ def plot_database_features(db_path, output_path):  # ex : data/small/
     listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
                for b in ['A', 'T', 'G', 'C']]
     Path(f"{output_path}/").mkdir(parents=True, exist_ok=True)
-    (Path(f"{output_path}/{level}").mkdir(parents=True, exist_ok=True)
-     for level in ['family', 'group', 'order'])
     for level in listdir(db_path):
         files = []
         if level in ['family', 'group', 'order']:
+            Path(f"{output_path}/{level}").mkdir(parents=True, exist_ok=True)
             files.extend([f"{db_path}/{level}/{file}" for file in listdir(
                 f"{db_path}/{level}") if 'saved_model.json' in file])
         for i, file in enumerate(files):
@@ -549,7 +548,7 @@ def plot_some_features(my_path, listing, i, output_path):
                     bbox_inches='tight', transparent=True)
 
 
-def plot_repartition_top_kmers(number_to_plot: int, sequence: str, ksize: int) -> None:
+def plot_repartition_top_kmers(number_to_plot: int, sequence: str, ksize: int, output_path: str) -> None:
     # gives most common at global scale
     counter = kmer_indexing_brut(
         sequence, ksize).most_common(number_to_plot)
@@ -567,10 +566,10 @@ def plot_repartition_top_kmers(number_to_plot: int, sequence: str, ksize: int) -
     df = df.transpose()
     ax = df.plot(figsize=(
         20, 6), ylabel=f'kmers/{int(len(sequence)/5000)}bp', rot=90, colormap='cividis')
-    plt.savefig(f"{OUTPUT_PATH}kmers_repartition.svg", bbox_inches='tight')
+    plt.savefig(f"{output_path}/kmers_repartition.svg", bbox_inches='tight')
 
 
-def delta_sequence(seq1: str, seq2: str, pattern: str, ksize: int) -> None:
+def delta_sequence(seq1: str, seq2: str, ksize: int, output_path: str) -> None:
     counts_1, counts_2 = kmer_indexing_brut(
         seq1, ksize), kmer_indexing_brut(seq2, ksize)
     counts_1, counts_2 = Counter({k: v/len(seq1) for k, v in counts_1.items()}), Counter({
@@ -580,7 +579,7 @@ def delta_sequence(seq1: str, seq2: str, pattern: str, ksize: int) -> None:
     plt.plot(counts_1.values(), counts_1.keys())
     plt.xticks(fontsize=5)
     plt.yticks(fontsize=5)
-    plt.savefig(f"{OUTPUT_PATH}delta_kmers.png", bbox_inches='tight')
+    plt.savefig(f"{output_path}/delta_kmers.png", bbox_inches='tight')
 
 
 def mfunc(x):
@@ -594,9 +593,8 @@ def compdiff_plotting(input_dir, output_path):
     listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
                for b in ['A', 'T', 'G', 'C']]
     Path(f"{output_path}/").mkdir(parents=True, exist_ok=True)
-    (Path(f"{output_path}/{level}").mkdir(parents=True, exist_ok=True)
-     for level in ['domain', 'phylum', 'group', 'order', 'family'])
     for level in ['domain', 'phylum', 'group', 'order', 'family']:
+        Path(f"{output_path}/{level}").mkdir(parents=True, exist_ok=True)
         elts, raw_elts, dev_items = compute_signatures(
             level, input_dir, listing)
         for key, elt in dev_items.items():
