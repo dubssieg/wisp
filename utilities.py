@@ -6,7 +6,6 @@ from random import random, choice, randrange
 from argparse import ArgumentParser, Namespace
 from typing import Callable
 from Bio import SeqIO
-from fsspec import filesystem
 from wisp_tools import my_classification_mapper, my_parser, my_output_msg, my_logs_global_config, my_minion
 from wisp_view import number_of_classes, compare, compdiff_plotting, plot_database_features, plot_stacked_values
 import matplotlib.pyplot as plt
