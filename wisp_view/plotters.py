@@ -592,7 +592,7 @@ def list_retirever(key, d: list[dict]) -> list:
     my_list = []
     for di in d:
         if key in di:
-            my_list += di[key]
+            my_list += [di[key]]
         else:
             my_list += [0]
     return my_list
@@ -600,14 +600,19 @@ def list_retirever(key, d: list[dict]) -> list:
 
 def plot_stacked_values(di: dict[str, dict], output_path) -> None:
     xi = list(di.keys())
-    aggregate_keys = set(
-        chain(l for l in [list(d.keys()) for d in di.values()]))
+    aggregate_keys = []
+    for d in di.values():
+        aggregate_keys += d.keys()
+    aggregate_keys = set(aggregate_keys)
+    cm = sns.color_palette('rainbow', len(aggregate_keys), as_cmap=False)
     aggregator = {k: np.array(list_retirever(k, list(di.values())))
                   for k in aggregate_keys}
     all_others_y = np.array([0 for _ in range(len(di))])
-    for label, y in aggregator.items():
-        plt.bar(xi, y, label=label, bottom=all_others_y)
+    figure = plt.figure(figsize=(2*len(di), 25))
+    for i, (label, y) in enumerate(aggregator.items()):
+        plt.bar(xi, y, label=label, bottom=all_others_y, color=cm[i])
         all_others_y += y
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.savefig(f"{output_path}/compare_outputs.png", bbox_inches='tight')
 
 

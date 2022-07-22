@@ -218,19 +218,21 @@ def retrieve(tdir: str, output_folder: str):
 
 
 def compare_metagenomic(links):
-    output_path = links[0]
-    files_to_compare = links[1:]
+    output_path = links.kwargs[0]
+    files_to_compare = links.kwargs[1:]
     dfold: dict[str, dict] = {}
     for file in files_to_compare:
-        dfold[file.split('/')[-1][:-5]] = load(open(file, 'r'))
+        filepath = f"{file}.json" if not '.json' in file else file
+        dfold[file.split('/')[-1][:-5]] = load(open(filepath, 'r'))
     plot_stacked_values(dfold, output_path)
 
 
 def executor(func: Callable, argsm: list, unpack: bool, hstring: str) -> None:
     try:
         func(*argsm) if unpack else func(args)
-    except:
+    except Exception as exc:
         my_output_msg(hstring)
+        raise(exc)
 
 
 def create_mock_dataset(inpult_folder: str, output_folder: str, destruction_ratio=0) -> None:
