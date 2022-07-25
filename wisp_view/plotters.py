@@ -598,21 +598,44 @@ def list_retirever(key, d: list[dict]) -> list:
     return my_list
 
 
-def plot_stacked_values(di: dict[str, dict], output_path) -> None:
+def plot_stacked_values(di: dict[str, dict], dref: dict, output_path: str) -> None:
+    temp_counter = sum((list(di.values())[0]).values())
+    # for k, v in dref.items(): dref[k] = int((v*temp_counter)/100)
+    di['Reference'] = dref
     xi = list(di.keys())
     aggregate_keys = []
     for d in di.values():
         aggregate_keys += d.keys()
     aggregate_keys = set(aggregate_keys)
-    cm = sns.color_palette('rainbow', len(aggregate_keys), as_cmap=False)
-    aggregator = {k: np.array(list_retirever(k, list(di.values())))
-                  for k in aggregate_keys}
-    all_others_y = np.array([0 for _ in range(len(di))])
+    sample_keys = set(dref.keys())
+    cm = sns.color_palette('rainbow', len(sample_keys)+5, as_cmap=False)
+    cm_metagenomic = sns.color_palette(
+        'flare', len(aggregate_keys), as_cmap=False)
+
+    for key, rawdict in di.items():
+        if key != 'Reference':
+            di[key] = {k: float(v/sum(rawdict.values())*100)
+                       for k, v in rawdict.items()}
+
+    aggregator_falsepositive = {k: np.array(list_retirever(k, list(di.values())))
+                                for k in aggregate_keys-sample_keys}
+    aggregator_truepositive = {k: np.array(list_retirever(k, list(di.values())))
+                               for k in sample_keys}
+    all_others_y = np.array([0.0 for _ in range(len(di))])
+
     figure = plt.figure(figsize=(2*len(di), 25))
-    for i, (label, y) in enumerate(aggregator.items()):
+    for i, (label, y) in enumerate(aggregator_truepositive.items()):
         plt.bar(xi, y, label=label, bottom=all_others_y, color=cm[i])
         all_others_y += y
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    for i, (label, y) in enumerate(aggregator_falsepositive.items()):
+        plt.bar(xi, y, label=label, bottom=all_others_y,
+                color=cm_metagenomic[i])
+        all_others_y += y
+    plt.bar(xi, np.array([0 for _ in range(len(di)-1)]+[100-sum(di['Reference'].values())]),
+            label="Without barcode", bottom=all_others_y, color='grey')
+    plt.legend(loc='center left', bbox_to_anchor=(
+        1, 0.5), frameon=False)
+    plt.yticks(rotation=270)
     plt.savefig(f"{output_path}/compare_outputs.png", bbox_inches='tight')
 
 
