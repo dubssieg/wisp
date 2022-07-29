@@ -143,7 +143,7 @@
     "email": "siegfried.dubois@inria.fr",
     "annotate_path": "genomes/to_annotate",
     "accession_numbers": "genomes/assembly_summary.txt",
-    "db_name": "subsampled",
+    "db_name": "supported",
     "prefix_job": "subsampled",
     "log_file": "LOG_wisp_subsampled"
 }
