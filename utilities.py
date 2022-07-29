@@ -7,7 +7,7 @@ from argparse import ArgumentParser, Namespace
 from typing import Callable
 from Bio import SeqIO
 from wisp_tools import my_classification_mapper, my_parser, my_output_msg, my_logs_global_config, my_minion
-from wisp_view import number_of_classes, compare, compdiff_plotting, plot_database_features, plot_stacked_values, clustering_plotting
+from wisp_view import plot_prob_error, number_of_classes, compare, compdiff_plotting, plot_database_features, plot_stacked_values, clustering_plotting
 import matplotlib.pyplot as plt
 from collections import Counter
 from json import dump, load
@@ -258,7 +258,7 @@ def create_mock_dataset(inpult_folder: str, output_folder: str, destruction_rati
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
-        "method", type=str, choices=['clustering', 'compare_metagenomic', 'mock_dataset', 'format_tool', 'aggregate', 'database_features', 'kmers_signatures', 'compare_outputs', 'clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
+        "method", type=str, choices=['error_profile', 'clustering', 'compare_metagenomic', 'mock_dataset', 'format_tool', 'aggregate', 'database_features', 'kmers_signatures', 'compare_outputs', 'clean_rename', 'summary_to_dl', 'destroy_sequence', 'clean_minion', 'extract_genomes'], help="A callable func to execute")
     parser.add_argument('kwargs', nargs='*',
                         help="Args for Callable, see documentation for usage")
     args = parser.parse_args()
@@ -267,6 +267,8 @@ if __name__ == "__main__":
     plt.rcParams.update({'figure.max_open_warning': 0})
 
     match args.method:
+        case 'error_profile':
+            func, unpack, hstring = plot_prob_error, True, "Nothing."
         case 'clustering':
             func, unpack, hstring = clustering_plotting, True, "Func needs dir to subdirs"
         case 'compare_metagenomic':

@@ -120,9 +120,9 @@
         ]
     ],
     "input_train": "genomes/train_subsampled/",
-    "input_unk": "genomes/unk_subsampled/",
+    "input_unk": "genomes/unk_destroyed/",
     "database_output": "data/",
-    "reports_output": "output/subsampled/",
+    "reports_output": "output/matrices_2/",
     "threshold": 0.1,
     "nb_boosts": 10,
     "tree_depth": 10,

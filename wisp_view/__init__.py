@@ -16,6 +16,7 @@ from .plotters import compdiff_plotting
 from .plotters import plot_database_features
 from .plotters import plot_stacked_values
 from .plotters import clustering_plotting
+from .plotters import plot_prob_error
 
 #from .tree_rendering import tree_render
 #from .tree_rendering import mod_to_tree

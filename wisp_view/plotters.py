@@ -255,32 +255,32 @@ def retrieve_parent_level(current: str) -> str | None:
     return None
 
 
-def cbar_plotting(output_path):
+def cbar_plotting(output_path, c_map):
     a = np.array([[0, 100]])
     pl.figure(figsize=(9, 1.5))
-    img = pl.imshow(a, cmap="rainbow")
+    img = pl.imshow(a, cmap=c_map)
     pl.gca().set_visible(False)
     cax = pl.axes([0.1, 0.2, 0.8, 0.6])
     pl.colorbar(orientation="horizontal", cax=cax)
     pl.savefig(f"{output_path}/colorbar.png")
 
 
-def cbar_plotting_2(output_path):
+def cbar_plotting_2(output_path, c_map):
     fig, ax = plt.subplots(1, 1)
     fraction = 1  # .05
     norm = mpl.colors.Normalize(vmin=0, vmax=100)
     cbar = ax.figure.colorbar(
-        mpl.cm.ScalarMappable(norm=norm, cmap='rainbow'),
+        mpl.cm.ScalarMappable(norm=norm, cmap=c_map),
         ax=ax, pad=.05, extend='both', fraction=fraction)
     ax.axis('off')
     plt.savefig(f"{output_path}/cbar.png", bbox_inches='tight')
 
 
-def clustering_plotting(path_to_folders: str, output_path: str):
+def clustering_plotting(path_to_folders: str, output_path: str, c_map: str = 'rainbow'):
     plt.rcParams.update({'figure.max_open_warning': 0,
                         'axes.titlesize': 'x-large'})
-    cbar_plotting(output_path)
-    cbar_plotting_2(output_path)
+    cbar_plotting(output_path, c_map)
+    cbar_plotting_2(output_path, c_map)
     p = {}
     dbs = ['supported']  # , 'supported'
     for db in dbs:
@@ -290,7 +290,7 @@ def clustering_plotting(path_to_folders: str, output_path: str):
         #
         max_number = 1
         # [f'baseline_{db}_v{version}', f'leaveoneout_{db}_v{version}', f'baseline6percent_{db}_v{version}', f'leaveoneout6percent_{db}_v{version}']:
-        for extr in [f'{path_to_folders}/leaveoneout_bernard_v{version}', f'{path_to_folders}/leaveoneout6percent_bernard_v{version}', f'{path_to_folders}/leaveoneout_bernard_v2', f'{path_to_folders}/leaveoneout_supported_v{version}', f'{path_to_folders}/leaveoneout6percent_supported_v{version}', f'{path_to_folders}/leaveoneout_supported_v2']:
+        for extr in [f'{path_to_folders}/baseline6percent_supported_v1', f'{path_to_folders}/leaveoneout_bernard_v{version}', f'{path_to_folders}/leaveoneout6percent_bernard_v{version}', f'{path_to_folders}/leaveoneout_bernard_v2', f'{path_to_folders}/leaveoneout_supported_v{version}', f'{path_to_folders}/leaveoneout6percent_supported_v{version}', f'{path_to_folders}/leaveoneout_supported_v2']:
             dctx = extractor(extr)
             max_number = len(dctx)
             vals = (good_value_aggregator(good_read_value(dctx)))
@@ -311,7 +311,7 @@ def clustering_plotting(path_to_folders: str, output_path: str):
                 print(f"{extr} ({filterd})")
                 print(f"Accuracy : {tp[-1]}")
                 fig = plt.figure()
-                cm = plt.get_cmap('rainbow')
+                cm = plt.get_cmap(c_map)
                 ax = dfd.plot(x='Taxa',
                               figsize=(15, 6),
                               kind='bar',
@@ -324,7 +324,7 @@ def clustering_plotting(path_to_folders: str, output_path: str):
                     f"{output_path}/clustering/{extr.split('/')[-1]}_{filterd}.png", bbox_inches='tight')
                 ##################### seaborn clustermap #######################
                 fig, ax = plt.subplots()
-                cm = [plt.get_cmap('rainbow'), plt.get_cmap('binary', 4)]
+                cm = [plt.get_cmap(c_map), plt.get_cmap('binary', 4)]
                 dendrodf, distMatrix = crosstab_aggregator(dctx, filterd)
                 dendrodf = dendrodf.transpose()
                 classes = list(dendrodf.index)
@@ -341,7 +341,7 @@ def clustering_plotting(path_to_folders: str, output_path: str):
                 distLinkage = hierarchy.linkage(distArray)
                 dendrodf = dendrodf.div(dendrodf.sum(axis=1), axis=0) * 100
                 for i, y in enumerate([dendrodf]):
-                    cg = sns.clustermap(y, cmap=cm[i], cbar_pos=None, mask=distMatrix > 1,
+                    cg = sns.clustermap(y, cmap=cm[i], cbar_pos=None, mask=distMatrix > 1, tree_kws=dict(linewidths=2),
                                         row_linkage=distLinkage, col_linkage=distLinkage, xticklabels=True, yticklabels=True, annot=True, fmt=".2f")  #
                 # (1, 0.2, 0.01, .6)
                 # cg.ax_row_dendrogram.set_visible(False)
@@ -349,8 +349,10 @@ def clustering_plotting(path_to_folders: str, output_path: str):
                     ax = cg.ax_heatmap
                     ax.set_facecolor("#d6dbdf")
                     ax.tick_params(labelsize=7)
-                    ax.set_xlabel('Predicted')
-                    ax.set_ylabel('Actual')
+                    plt.xlabel('Predicted', fontsize=30)
+                    plt.ylabel('Actual', fontsize=30)
+                    # ax.set_xlabel('Predicted')
+                    # ax.set_ylabel('Actual')
 
                     for t in ax.texts:
                         if float(t.get_text()) > 0.0:
@@ -362,18 +364,20 @@ def clustering_plotting(path_to_folders: str, output_path: str):
                     f"{output_path}/clustering/clustermap_{extr.split('/')[-1]}_{filterd}_percentages.png", bbox_inches='tight')
                 ##################### seaborn clustermap #######################
                 fig, ax = plt.subplots()
-                cm = [plt.get_cmap('rainbow')]
+                cm = [plt.get_cmap(c_map)]
                 for i, y in enumerate([dendrodf]):
-                    cg = sns.clustermap(y, cmap=cm[0], cbar_pos=None, mask=distMatrix > 1,
-                                        row_linkage=distLinkage, col_linkage=distLinkage, xticklabels=True, yticklabels=True)  # , annot=True, fmt=".2f"
+                    cg = sns.clustermap(y, cmap=cm[0], cbar_pos=None, mask=distMatrix > 1, tree_kws=dict(linewidths=2),
+                                        row_linkage=distLinkage, col_linkage=distLinkage, xticklabels=False, yticklabels=False)  # , annot=True, fmt=".2f"
                 # (1, 0.2, 0.01, .6)
                 # cg.ax_row_dendrogram.set_visible(False)
                 # cg2 = sns.clustermap(distMatrix, cmap=cm_b, cbar_pos=None,row_linkage=distLinkage, col_linkage=distLinkage, alpha=0.4)
                     ax = cg.ax_heatmap
                     ax.set_facecolor("#d6dbdf")
                     ax.tick_params(labelsize=7)
-                    ax.set_xlabel('Predicted')
-                    ax.set_ylabel('Actual')
+                    plt.xlabel('Predicted', fontsize=30)
+                    plt.ylabel('Actual', fontsize=30)
+                    # ax.set_xlabel('Predicted')
+                    # ax.set_ylabel('Actual')
 
                     for t in ax.texts:
                         if float(t.get_text()) > 0.0:
@@ -385,8 +389,9 @@ def clustering_plotting(path_to_folders: str, output_path: str):
                     f"{output_path}/clustering/clustermap_{extr.split('/')[-1]}_{filterd}_nopercentages_transparent.png", bbox_inches='tight', transparent=True)
 
             print(f"Cumulative accuracy : {numpy.prod(tp)}")
-            p[''.join(extr.split('_')[0])+" "+''.join(extr.split('_')
-                                                      [1])+" "+''.join(extr.split('_')[2])] = raw_counts_preds(dctx, 'all')
+            if 'leaveoneout' in extr:
+                p[''.join(extr.split('_')[0])+" "+''.join(extr.split('_')
+                                                          [1])+" "+''.join(extr.split('_')[2])] = raw_counts_preds(dctx, 'all')
         df = pd.DataFrame([[kp]+[v for _, v in dt.items()]
                            for kp, dt in p.items()], columns=[f'{db.capitalize()} database (v{version})']+[col.replace('_', ' ') for col in cols[1:]])
 
@@ -418,14 +423,14 @@ def clustering_plotting(path_to_folders: str, output_path: str):
 
         print(dfp)
 
-        top = plt.get_cmap('rainbow', 128)
-        bottom = plt.get_cmap('rainbow', 128)
+        top = plt.get_cmap(c_map, 128)
+        bottom = plt.get_cmap(c_map, 128)
 
         newcolors = np.vstack((top(np.linspace(0, 0.3, 5)),
                                bottom(np.linspace(0.7, 1, 5))))
-        newcmp = ListedColormap(newcolors, name='OrangeBlue')
+        newcmp = ListedColormap(newcolors, name='custom')
         fig = plt.figure()
-        cm = plt.get_cmap('rainbow', 15)
+        cm = plt.get_cmap(c_map, 15)
         ax = dfp.plot(figsize=(9, 6),
                       kind='bar',
                       stacked=False,
@@ -445,7 +450,7 @@ def clustering_plotting(path_to_folders: str, output_path: str):
             f"{output_path}/global_results_small_form_factor.png", bbox_inches='tight')
 
         fig = plt.figure()
-        cm = plt.get_cmap('rainbow', 15)
+        cm = plt.get_cmap(c_map, 15)
         ax = dfp.plot(figsize=(14, 4),
                       kind='bar',
                       stacked=False,
@@ -659,8 +664,7 @@ def plot_stacked_values(di: dict[str, dict], dref: dict, output_path: str) -> No
             label="Without barcode", bottom=all_others_y, color='grey')
     plt.legend(loc='center left', bbox_to_anchor=(
         1, 0.5), frameon=False)
-
-    plt.yticks(rotation=270)
+    plt.yticks(rotation=270, fontsize=30)
     plt.savefig(f"{output_path}/compare_outputs.png", bbox_inches='tight')
 
 
@@ -778,3 +782,19 @@ def compdiff_plotting(input_dir, output_path):
         ax2.plot_surface(X, Y, sds, cmap=cm, edgecolor='none')
         plt.savefig(f"{output_path}/database_3d_compdiff.png",
                     bbox_inches='tight', transparent=True)
+
+
+def plot_prob_error():
+    all_values = [[((1-p)**k)*100 for k in range(3, 33, 1)]
+                  for p in [0.04, 0.05, 0.06]]
+    X = range(3, 33, 1)
+    lst = [all_values[1][1], all_values[1][2]]
+    plt.fill_between(X, all_values[0],
+                     all_values[2], alpha=0.2, color='orange')
+    plt.plot(X, all_values[1], color='orange')
+    plt.plot([4, 5], lst, 'o', color='tab:brown')
+    plt.plot([31], [all_values[1][27]], 'o', color='tab:red')
+    plt.xlabel('$k$-mer size', fontsize=12)
+    plt.ylabel('Percentage of correct $k$-mers', fontsize=12)
+    plt.savefig(f"output/stdlost.png",
+                bbox_inches='tight', transparent=True)
