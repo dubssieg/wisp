@@ -277,7 +277,8 @@ def cbar_plotting_2(output_path):
 
 
 def clustering_plotting(path_to_folders: str, output_path: str):
-    plt.rcParams.update({'figure.max_open_warning': 0, 'axes.titlesize': 'x-large'}})
+    plt.rcParams.update({'figure.max_open_warning': 0,
+                        'axes.titlesize': 'x-large'})
     cbar_plotting(output_path)
     cbar_plotting_2(output_path)
     p = {}
@@ -312,12 +313,12 @@ def clustering_plotting(path_to_folders: str, output_path: str):
                 fig = plt.figure()
                 cm = plt.get_cmap('rainbow')
                 ax = dfd.plot(x='Taxa',
-                              figsize = (15, 6),
-                              kind = 'bar',
-                              stacked = True,
-                              cmap = cm)
+                              figsize=(15, 6),
+                              kind='bar',
+                              stacked=True,
+                              cmap=cm)
                 plt.ylabel('Reads counts')
-                plt.legend(loc = 'upper center',
+                plt.legend(loc='upper center',
                            bbox_to_anchor=(0.5, 1.1), ncol=2)
                 plt.savefig(
                     f"{output_path}/clustering/{extr.split('/')[-1]}_{filterd}.png", bbox_inches='tight')
