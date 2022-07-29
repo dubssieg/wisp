@@ -5,6 +5,7 @@ from wisp_tools import my_function_timer, my_output_msg, my_logs_global_config, 
 from wisp_lib import load_mapping, load_json, check_if_database_exists, check_if_merged_model_exists, check_if_model_exists, check_if_merged_database_exists
 from argparse import ArgumentParser, Namespace
 from traceback import format_exc
+from sys import exit
 
 
 @my_function_timer("Building full database")
@@ -56,39 +57,46 @@ def build_full_db(args: Namespace) -> None:
                 if not check_if_database_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
 
                     my_output_msg(
-                        f"Building dataset at level {taxa} for parent level {parent_level}")
+                        f"Can't model at level {taxa} for parent level {parent_level} ; no database was made.")
+                    exit()
 
-                    make_datasets(
-                        job_name=JOB,
-                        input_dir=TRAIN_PATH,
+                if force_rebuild or not check_if_model_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
+
+                    map_sp = load_mapping(
                         path=DATABASE_PATH,
-                        datas=['train', 'test'],
                         db_name=DATABASE,
-                        sampling=SAMPLING_REF,
-                        kmer_size=KMER_SIZE_REF,
-                        read_size=WINDOW,
                         classif_level=taxa,
-                        sp_determied=parent_level,
-                        pattern=PATTERN_REF
+                        sp_determined=parent_level
                     )
 
+                    make_model(
+                        job_name="",
+                        exclude=[],
+                        path=DATABASE_PATH,
+                        classif_level=taxa,
+                        db_name=DATABASE,
+                        sp_determined=parent_level,
+                        model_parameters=init_parameters(
+                            len(map_sp), tree_depth),
+                        number_rounds=nr,
+                        sample_name=JOB,
+                        bool_temporary=False
+                    )
         else:
 
             if not check_if_merged_database_exists(DATABASE, DATABASE_PATH):
 
-                make_datasets(
-                    job_name=JOB,
-                    input_dir=TRAIN_PATH,
-                    path=DATABASE_PATH,
-                    datas=['train', 'test'],
-                    db_name=DATABASE,
-                    sampling=SAMPLING_MERGED_REF,
-                    kmer_size=KMER_SIZE_MERGED_REF,
-                    read_size=WINDOW,
-                    classif_level='merged',
-                    sp_determied='merged',
-                    pattern=PATTERN_MERGED_REF
-                )
+                my_output_msg(
+                    f"Can't model at level 'MERGED' ; no database was made.")
+                exit()
+
+            map_merged_sp = load_mapping(DATABASE_PATH, DATABASE,
+                                         'merged', 'merged')
+
+            if not check_if_merged_model_exists(DATABASE, DATABASE_PATH):
+                # needs to create merged database
+                make_model("", [], DATABASE_PATH, 'merged', DATABASE,
+                           'merged', init_parameters(len(map_merged_sp), tree_depth), nr, JOB, False)
 
 
 if __name__ == "__main__":

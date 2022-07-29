@@ -154,7 +154,7 @@ def pandas_confusion(test_classes, test_preds, inverted_map: dict) -> DataFrame:
         'Actual'], colnames=['Predicted'])
 
 
-def plot_pandas(path_to_save: str, cm: DataFrame, sample_name: str, clade: str, determined: str, cmap: str = 'bone') -> None:
+def plot_pandas(path_to_save: str, cm: DataFrame, sample_name: str, clade: str, determined: str, cmap: str = 'Purples') -> None:
     """Plots the confusion matrix for test data at given level
 
     Args:
@@ -179,8 +179,6 @@ def plot_pandas(path_to_save: str, cm: DataFrame, sample_name: str, clade: str, 
     cm = cm.div(cm.sum(axis=1), axis=0) * 100
     sns.heatmap(cm, annot=True, cmap=cmap,
                 fmt=f".{number_digits}f", linewidths=0.5, ax=ax)
-    # plt.yticks(fontsize=9)
-    # plt.xticks(fontsize=9)
     plt.savefig(
         f"{path_to_save}{clade}_{determined}_confusion_matrix.svg", bbox_inches='tight')
 

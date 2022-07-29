@@ -26,6 +26,7 @@ import matplotlib as mpl
 from pathlib import Path
 from mpl_toolkits import mplot3d
 from itertools import chain
+from matplotlib.colors import ListedColormap
 
 
 def load_json(json_file: str) -> dict:
@@ -254,17 +255,17 @@ def retrieve_parent_level(current: str) -> str | None:
     return None
 
 
-def cbar_plotting():
+def cbar_plotting(output_path):
     a = np.array([[0, 100]])
     pl.figure(figsize=(9, 1.5))
     img = pl.imshow(a, cmap="rainbow")
     pl.gca().set_visible(False)
     cax = pl.axes([0.1, 0.2, 0.8, 0.6])
     pl.colorbar(orientation="horizontal", cax=cax)
-    pl.savefig("output/figures/clustering/colorbar.png")
+    pl.savefig(f"{output_path}/colorbar.png")
 
 
-def cbar_plotting_2():
+def cbar_plotting_2(output_path):
     fig, ax = plt.subplots(1, 1)
     fraction = 1  # .05
     norm = mpl.colors.Normalize(vmin=0, vmax=100)
@@ -272,13 +273,13 @@ def cbar_plotting_2():
         mpl.cm.ScalarMappable(norm=norm, cmap='rainbow'),
         ax=ax, pad=.05, extend='both', fraction=fraction)
     ax.axis('off')
-    plt.savefig("output/figures/clustering/cbar.png", bbox_inches='tight')
+    plt.savefig(f"{output_path}/cbar.png", bbox_inches='tight')
 
 
-def clustering_plotting(folders_to_analyze: list[str]):
-    plt.rcParams.update({'figure.max_open_warning': 0})
-    cbar_plotting()
-    cbar_plotting_2()
+def clustering_plotting(path_to_folders: str, output_path: str):
+    plt.rcParams.update({'figure.max_open_warning': 0, 'axes.titlesize': 'x-large'}})
+    cbar_plotting(output_path)
+    cbar_plotting_2(output_path)
     p = {}
     dbs = ['supported']  # , 'supported'
     for db in dbs:
@@ -288,7 +289,7 @@ def clustering_plotting(folders_to_analyze: list[str]):
         #
         max_number = 1
         # [f'baseline_{db}_v{version}', f'leaveoneout_{db}_v{version}', f'baseline6percent_{db}_v{version}', f'leaveoneout6percent_{db}_v{version}']:
-        for extr in [f'leaveoneout_bernard_v{version}', f'leaveoneout6percent_bernard_v{version}', f'leaveoneout_supported_v{version}', f'leaveoneout6percent_supported_v{version}']:
+        for extr in [f'{path_to_folders}/leaveoneout_bernard_v{version}', f'{path_to_folders}/leaveoneout6percent_bernard_v{version}', f'{path_to_folders}/leaveoneout_bernard_v2', f'{path_to_folders}/leaveoneout_supported_v{version}', f'{path_to_folders}/leaveoneout6percent_supported_v{version}', f'{path_to_folders}/leaveoneout_supported_v2']:
             dctx = extractor(extr)
             max_number = len(dctx)
             vals = (good_value_aggregator(good_read_value(dctx)))
@@ -311,15 +312,15 @@ def clustering_plotting(folders_to_analyze: list[str]):
                 fig = plt.figure()
                 cm = plt.get_cmap('rainbow')
                 ax = dfd.plot(x='Taxa',
-                              figsize=(15, 6),
-                              kind='bar',
-                              stacked=True,
-                              cmap=cm)
+                              figsize = (15, 6),
+                              kind = 'bar',
+                              stacked = True,
+                              cmap = cm)
                 plt.ylabel('Reads counts')
-                plt.legend(loc='upper center',
+                plt.legend(loc = 'upper center',
                            bbox_to_anchor=(0.5, 1.1), ncol=2)
                 plt.savefig(
-                    f"output/figures/clustering/{extr}_{filterd}.png", bbox_inches='tight')
+                    f"{output_path}/clustering/{extr.split('/')[-1]}_{filterd}.png", bbox_inches='tight')
                 ##################### seaborn clustermap #######################
                 fig, ax = plt.subplots()
                 cm = [plt.get_cmap('rainbow'), plt.get_cmap('binary', 4)]
@@ -357,7 +358,7 @@ def clustering_plotting(folders_to_analyze: list[str]):
                             t.set_text("")
                 plt.ylabel('Actual')  # Percentage of reads
                 plt.savefig(
-                    f"output/figures/clustering/clustermap_{extr}_{filterd}_percentages.png", bbox_inches='tight')
+                    f"{output_path}/clustering/clustermap_{extr.split('/')[-1]}_{filterd}_percentages.png", bbox_inches='tight')
                 ##################### seaborn clustermap #######################
                 fig, ax = plt.subplots()
                 cm = [plt.get_cmap('rainbow')]
@@ -380,11 +381,11 @@ def clustering_plotting(folders_to_analyze: list[str]):
                             t.set_text("")
                 plt.ylabel('Actual')  # Percentage of reads
                 plt.savefig(
-                    f"clustermap_{extr}_{filterd}_nopercentages_transparent.png", bbox_inches='tight', transparent=True)
+                    f"{output_path}/clustering/clustermap_{extr.split('/')[-1]}_{filterd}_nopercentages_transparent.png", bbox_inches='tight', transparent=True)
 
             print(f"Cumulative accuracy : {numpy.prod(tp)}")
             p[''.join(extr.split('_')[0])+" "+''.join(extr.split('_')
-                                                      [1])] = raw_counts_preds(dctx, 'all')
+                                                      [1])+" "+''.join(extr.split('_')[2])] = raw_counts_preds(dctx, 'all')
         df = pd.DataFrame([[kp]+[v for _, v in dt.items()]
                            for kp, dt in p.items()], columns=[f'{db.capitalize()} database (v{version})']+[col.replace('_', ' ') for col in cols[1:]])
 
@@ -416,30 +417,51 @@ def clustering_plotting(folders_to_analyze: list[str]):
 
         print(dfp)
 
+        top = plt.get_cmap('rainbow', 128)
+        bottom = plt.get_cmap('rainbow', 128)
+
+        newcolors = np.vstack((top(np.linspace(0, 0.3, 5)),
+                               bottom(np.linspace(0.7, 1, 5))))
+        newcmp = ListedColormap(newcolors, name='OrangeBlue')
         fig = plt.figure()
         cm = plt.get_cmap('rainbow', 15)
-        ax = dfp.plot(figsize=(15, 6),
+        ax = dfp.plot(figsize=(9, 6),
                       kind='bar',
                       stacked=False,
-                      cmap=cm)
-        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+                      cmap=newcmp,
+                      width=0.9)
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left",
+                   mode="expand", borderaxespad=0, ncol=5)
         plt.ylim(0, 112)
-        plt.ylabel('Percentages of assignations')
-        plt.xticks([0, 1, 2, 3], ['Bernard $v1$', 'Bernard $v1E$',
-                   'Supported $v1$', 'Supported $v1E$'], rotation=0)
+        plt.ylabel('Percentages of assignments')
+        plt.xticks([0, 1, 2, 3, 4, 5], ['Bernard $v1$', 'Bernard $v1E$', 'Bernard $v2$',
+                   'Supported $v1$', 'Supported $v1E$', 'Supported $v2$'], rotation=0)
 
         for container in ax.containers:
             labels = [v if v > 0 else "" for v in container.datavalues]
             ax.bar_label(container, labels=labels, rotation=90, padding=3)
-        # print(good_read_percentage(dctx))
-        """
-        print(f"{extr} : {mean(averages.values())}")
-        # conf_matrix(dctx)
-        plt.bar(range(len(p)), list(p.values()), align='center')
-        plt.xticks(range(len(p)), list(p.keys()))
+        plt.savefig(
+            f"{output_path}/global_results_small_form_factor.png", bbox_inches='tight')
 
-        """
-        plt.savefig("leaveoneout_global_results.png", bbox_inches='tight')
+        fig = plt.figure()
+        cm = plt.get_cmap('rainbow', 15)
+        ax = dfp.plot(figsize=(14, 4),
+                      kind='bar',
+                      stacked=False,
+                      cmap=newcmp,
+                      width=0.9)
+        plt.legend(bbox_to_anchor=(1.02, 0.5),
+                   loc="center left", borderaxespad=0, frameon=False)
+        plt.ylim(0, 118)
+        plt.ylabel('Percentages of assignments')
+        plt.xticks([0, 1, 2, 3, 4, 5], ['Bernard $v1$', 'Bernard $v1E$', 'Bernard $v2$',
+                   'Supported $v1$', 'Supported $v1E$', 'Supported $v2$'], rotation=0)
+
+        for container in ax.containers:
+            labels = [v if v > 0 else "" for v in container.datavalues]
+            ax.bar_label(container, labels=labels, rotation=90, padding=3)
+        plt.savefig(
+            f"{output_path}/global_results_wide_form_factor.png", bbox_inches='tight')
 
 
 def my_encoder_4():
@@ -623,7 +645,8 @@ def plot_stacked_values(di: dict[str, dict], dref: dict, output_path: str) -> No
                                for k in sample_keys}
     all_others_y = np.array([0.0 for _ in range(len(di))])
 
-    figure = plt.figure(figsize=(2*len(di), 25))
+    figure = plt.figure(
+        figsize=(int(1.5*len(di)), int(len(aggregate_keys)*0.275)))
     for i, (label, y) in enumerate(aggregator_truepositive.items()):
         plt.bar(xi, y, label=label, bottom=all_others_y, color=cm[i])
         all_others_y += y
@@ -635,6 +658,7 @@ def plot_stacked_values(di: dict[str, dict], dref: dict, output_path: str) -> No
             label="Without barcode", bottom=all_others_y, color='grey')
     plt.legend(loc='center left', bbox_to_anchor=(
         1, 0.5), frameon=False)
+
     plt.yticks(rotation=270)
     plt.savefig(f"{output_path}/compare_outputs.png", bbox_inches='tight')
 

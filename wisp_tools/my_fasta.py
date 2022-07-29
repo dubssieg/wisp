@@ -1,5 +1,5 @@
 from Bio import SeqIO, Entrez
-from os import path
+from os import path, listdir
 
 
 def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_name: str = "Merged", objective: int = 10000) -> dict[str, str]:
@@ -105,11 +105,9 @@ def my_fetcher(filelist: list[str], outname: str, email: str):
                 with open(f"gen/{outname}.fna", "w") as writer:
                     writer.write(handle.read())
 
-
 """
-my_minion("/udd/sidubois/Stage/output/fastq_runid_72b9f29db5475fd8d2499feaab3eba305d6d2f07_0_0.fastq")
-fastas = my_fasta_parser(
-    "genomes/MinION_reads/fastq_runid_72b9f29db5475fd8d2499feaab3eba305d6d2f07_0_0.fna", 10000)
-my_pretty_printer(fastas)
-print(len(fastas))
+for file in listdir("output/lb_MinION"):
+    print(f"{file} : ")
+    fastas = my_parser(f"output/lb_MinION/{file}")
+    my_pretty_printer(fastas)
 """

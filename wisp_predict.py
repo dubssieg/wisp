@@ -12,6 +12,7 @@ from wisp_lib import counter_ultrafast, reverse_comp, splitting_generator, check
 from predictors import test_unk_sample, save_output, test_model
 from pathlib import Path
 from _version import get_versions
+from sys import exit
 __version__ = get_versions()['version']
 del get_versions
 
@@ -139,19 +140,9 @@ if __name__ == "__main__":
 
                         if not check_if_database_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
 
-                            make_datasets(
-                                job_name=JOB,
-                                input_dir=TRAIN_PATH,
-                                path=DATABASE_PATH,
-                                datas=['train', 'test'],
-                                db_name=DATABASE,
-                                sampling=SAMPLING_REF,
-                                kmer_size=KMER_SIZE_REF,
-                                read_size=WINDOW,
-                                classif_level=taxa,
-                                sp_determied=parent_level,
-                                pattern=PATTERN_REF
-                            )
+                            my_output_msg(
+                                "Can't predict as there's no valid database in selected database folder.")
+                            exit()
 
                         map_sp = load_mapping(DATABASE_PATH, DATABASE,
                                               taxa, parent_level)
@@ -160,8 +151,13 @@ if __name__ == "__main__":
                             map_sp.keys())
 
             ############################################ MODEL STUFF ###############################################
+                        if not check_if_model_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
 
-                        if temporary_models or force_rebuild or not check_if_model_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
+                            my_output_msg(
+                                "Can't predict as there's no valid model in selected database folder.")
+                            exit()
+
+                        if temporary_models or force_rebuild:
                             my_output_msg("MAKING MODEL", warning)
                             make_model(JOB, exclude, DATABASE_PATH, taxa, DATABASE,
                                        parent_level, init_parameters(len(map_sp), tree_depth), nr, JOB, temporary_models)

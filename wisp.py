@@ -17,7 +17,7 @@ from wisp_lib import load_json
 
 
 @my_function_timer("WISP run")
-def core_call(leaveoneout: bool, exclusion: str, multithreading_state: int, building_state: bool, params: str, taxas_levels: list[str], db: str, unk_path: str, job_prefix: str) -> None:
+def core_call(method: str, exclusion: str, params: str, taxas_levels: list[str], db: str, unk_path: str, job_prefix: str, multithreading_state: int = 1) -> None:
     """
     Calls the building and prediction functions with global constants defined above
     If a job fails, skips to the next one
@@ -25,22 +25,23 @@ def core_call(leaveoneout: bool, exclusion: str, multithreading_state: int, buil
     retcodes: list = []
     try:
         file_list: list[str] = listdir(unk_path)
-        match building_state, leaveoneout:
-            case False, True:
+        match method:
+            case 'model':
                 communicators = my_futures_collector(
                     func=Popen,
                     argslist=[[split(
-                        f"{executable} wisp_predict.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {file} -l")] for file in file_list],
-                    num_processes=multithreading_state
+                        f"{executable} wisp_model.py {db} {params} -l {[level]}")] for level in taxas_levels],
+                    num_processes=min(multithreading_state,
+                                      len(TAXAS_LEVELS)+1)
                 )
-            case False, False:
+            case 'predict':
                 communicators = my_futures_collector(
                     func=Popen,
                     argslist=[[split(
                         f"{executable} wisp_predict.py {db} {params} {job_prefix}_{file[:-4]} -f {file} -e {exclusion}")] for file in file_list],
                     num_processes=multithreading_state
                 )
-            case _:
+            case 'build':
                 communicators = my_futures_collector(
                     func=Popen,
                     argslist=[[split(
@@ -61,13 +62,11 @@ def core_call(leaveoneout: bool, exclusion: str, multithreading_state: int, buil
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
+        "method", type=str, choices=['build', 'model', 'predict'], help="A callable func to execute")
+    parser.add_argument(
         "params", help="path to a params .json file", type=str)
     parser.add_argument(
         "-v", "--verbose", help="Detailed log file", action='store_true')
-    parser.add_argument(
-        "-b", "--build", help="Calls for database building instead of prediciton", action='store_true')
-    parser.add_argument(
-        "-t", "--multithreading", type=int, default=1, help="Gives a thread number for WISP")
     parser.add_argument(
         "-j", "--jobnumber", type=str, default='0', help="Gives a job identifier for WISP logs")
     parser.add_argument(
@@ -96,12 +95,12 @@ if __name__ == "__main__":
         identifier=args.jobnumber,
         verbose=args.verbose)
 
+    parameters_path: str = f"parameters_files/{args.params}" if '/' not in args.params else args.params
+
     core_call(
-        leaveoneout=args.leaveoneout,
+        method=args.method,
         exclusion=args.exclude,
-        multithreading_state=args.multithreading,
-        building_state=args.build,
-        params=args.params,
+        params=parameters_path if '.json' in parameters_path else f"{parameters_path}.json",
         taxas_levels=TAXAS_LEVELS,
         db=DATABASE,
         unk_path=SAMPLES_PATH,
