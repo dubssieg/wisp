@@ -95,7 +95,7 @@ if __name__ == "__main__":
         identifier=args.jobnumber,
         verbose=args.verbose)
 
-    parameters_path: str = f"parameters_files/{args.params}" if '/' not in args.params else args.params
+    parameters_path: str = f"parameters_files/{args.params}" if 'parameters_files' not in args.params else args.params
 
     core_call(
         method=args.method,

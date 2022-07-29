@@ -9,7 +9,8 @@ def load_json(json_file: str) -> dict:
     Charge un fichier json en un dictionnaire
     * json_file (str) : le chemin d'accès au fichier
     """
-    return load(open(f"{json_file.split('.')[0]}.json", "r"))
+    path_to_json = f"parameters_files/{json_file.split('.')[0]}.json" if 'parameters_files' not in json_file else f"{json_file.split('.')[0]}.json"
+    return load(open(path_to_json, "r"))
 
 
 def save_json(json_file: str, dico_save: dict) -> None:
