@@ -56,7 +56,7 @@ def core_call(method: str, exclusion: str, params: str, taxas_levels: list[str],
     finally:
         for i, code in enumerate(retcodes):
             my_output_msg(f"Job {i} : {code}")
-        system(f"rm -r data/{DATABASE}/temp")
+        system(f"rm -r {DATABASE_PATH}{DATABASE}/temp")
 
 
 if __name__ == "__main__":
@@ -83,6 +83,7 @@ if __name__ == "__main__":
         TAXAS_LEVELS: list[str] = my_params['levels_list']
         SAMPLES_PATH: str = my_params['input_unk']
         JOB_PREFIX: str = my_params['prefix_job']
+        DATABASE_PATH: str = my_params['database_output']
 
     # if any error happens
     except Exception as exc:
