@@ -1,31 +1,21 @@
 "Analysis upon kmers repartition and stuff"
 
-from argparse import ArgumentParser
-from string import ascii_lowercase
+from collections import Counter
+from os import listdir
+from json import load
+from statistics import mean, stdev
+from pathlib import Path
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 from wisp_lib import kmer_indexing_brut, recode_kmer_4, kmer_indexing_10000
 from wisp_tools import my_parser
-from collections import Counter
 import xgboost as xgb
-from os import listdir
-from statistics import mean, stdev
 import numpy as np
-import matplotlib.pyplot as plt
-from json import load
-from os import listdir
-from statistics import mean
-import pandas as pd
-import numpy
 import seaborn as sns
 from scipy.cluster import hierarchy
 import scipy.spatial.distance as ssd
 import pylab as pl
-import numpy as np
-import matplotlib as mpl
-from pathlib import Path
-from mpl_toolkits import mplot3d
-from itertools import chain
 from matplotlib.colors import ListedColormap
 
 
@@ -34,22 +24,40 @@ def load_json(json_file: str) -> dict:
     Charge un fichier json en un dictionnaire
     * json_file (str) : le chemin d'accès au fichier
     """
-    return load(open(f"{json_file}", "r"))
+    return load(open(f"{json_file}", "r", encoding="utf-8"))
 
 
-def extractor(SPARKLE: str) -> dict[str, str]:
+def extractor(sparkle: str) -> dict[str, str]:
+    """Extract names of all report files
+
+    Args:
+        sparkle (str): name of job
+
+    Returns:
+        dict[str, str]: all report files paths
+    """
     dict_files: dict[str, str] = {}
-    for folder in listdir(f"{SPARKLE}/"):
-        for subf in listdir(f"{SPARKLE}/{folder}"):
+    for folder in listdir(f"{sparkle}/"):
+        for subf in listdir(f"{sparkle}/{folder}"):
             if 'read' in subf:
-                for content in listdir(f"{SPARKLE}/{folder}/{subf}"):
+                for content in listdir(f"{sparkle}/{folder}/{subf}"):
                     if '.json' in content:
                         dict_files = {**dict_files,
-                                      folder: f"{SPARKLE}/{folder}/{subf}/{content}"}
+                                      folder: f"{sparkle}/{folder}/{subf}/{content}"}
     return dict_files
 
 
 def raw_counts_preds(dict_files, style) -> dict[str, int]:
+    """Extract counts of correct and incorrect predictions
+    per level, for samples inside the dict
+
+    Args:
+        dict_files (_type_): files that must be scanned
+        style (_type_): selection if capture impossible cases or not
+
+    Returns:
+        dict[str, int]: aggregation of results for the files
+    """
     LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
     if style == 'one':
         dict_counts: dict[str, int] = {
@@ -75,6 +83,14 @@ def raw_counts_preds(dict_files, style) -> dict[str, int]:
 
 
 def good_read_percentage(dict_files) -> dict[str, dict]:
+    """Computes the percentage of reads that are correctly classified
+
+    Args:
+        dict_files (_type_): files to be computed
+
+    Returns:
+        dict[str, dict]: mapping betweeen sample and results
+    """
     LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
     taxa_list: list[str] = list(dict_files.keys())
     storage = {k: {} for k in taxa_list}
@@ -87,6 +103,14 @@ def good_read_percentage(dict_files) -> dict[str, dict]:
 
 
 def good_read_value(dict_files) -> dict[str, dict]:
+    """Computes the number of reads that are correctly classified
+
+    Args:
+        dict_files (_type_): files to be computed
+
+    Returns:
+        dict[str, dict]: mapping betweeen sample and results
+    """
     LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
     taxa_list: list[str] = list(dict_files.keys())
     storage = {k: {} for k in taxa_list}
@@ -99,6 +123,14 @@ def good_read_value(dict_files) -> dict[str, dict]:
 
 
 def bad_read_value(dict_files) -> dict[str, dict]:
+    """Computes the number of reads that are badly classified
+
+    Args:
+        dict_files (_type_): files to be computed
+
+    Returns:
+        dict[str, dict]: mapping betweeen sample and results
+    """
     LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
     taxa_list: list[str] = list(dict_files.keys())
     storage = {k: {} for k in taxa_list}
@@ -114,6 +146,14 @@ def bad_read_value(dict_files) -> dict[str, dict]:
 
 
 def dmatrix_pandas(dict_files):
+    """Creates a crosstab aggregation from the files
+
+    Args:
+        dict_files (_type_): a group of files
+
+    Returns:
+        tuple: set of possibilities + 2d array of results
+    """
     LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
     set_all_possibilities = {}
     crosstab_as_list = {}

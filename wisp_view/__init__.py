@@ -18,5 +18,6 @@ from .plotters import plot_stacked_values
 from .plotters import clustering_plotting
 from .plotters import plot_prob_error
 
+# disabled for compatibility issues
 #from .tree_rendering import tree_render
 #from .tree_rendering import mod_to_tree

@@ -1,5 +1,4 @@
-# IO tests on classes level
-
+"IO tests on classes level"
 from inspect import signature, _empty
 from typing import Callable
 
@@ -46,6 +45,11 @@ def my_types_checker(func: Callable):
 
 
 def my_class_checker(arg: Callable):
+    """Puts decorator at class level
+
+    Args:
+        arg (Callable): functions
+    """
     def wrapper(cls):
         """Application of a decorator on whole class
 

@@ -10,7 +10,7 @@ def load_json(json_file: str) -> dict:
     * json_file (str) : le chemin d'accès au fichier
     """
     path_to_json = f"parameters_files/{json_file.split('.')[0]}.json" if 'parameters_files' not in json_file else f"{json_file.split('.')[0]}.json"
-    return load(open(path_to_json, "r"))
+    return load(open(path_to_json, "r", encoding="utf-8"))
 
 
 def save_json(json_file: str, dico_save: dict) -> None:
@@ -19,10 +19,15 @@ def save_json(json_file: str, dico_save: dict) -> None:
     * json_file (str) : le chemin d'accès au fichier
     * dico_save (dict) : le dictionnaire à sauvegarder
     """
-    dump(dico_save, open(f"{json_file}.json", "w"), indent=4)
+    dump(dico_save, open(f"{json_file}.json", "w", encoding="utf-8"), indent=4)
 
 
 def my_params(filename: str):
+    """Creates parameters file with parameters given
+
+    Args:
+        filename (str): name to output file
+    """
     sparkle: str = "default"
     # dict to be converted in .json file to create our parameters set
     params_job: dict = {
@@ -48,7 +53,7 @@ def my_params(filename: str):
         # 'input_unk' : location of unk genomes
         'input_unk': f"/scratch/sdubois/lb_minion/unk_{sparkle}/",
         # 'output' : output for database
-        'database_output': f"/scratch/sdubois/lb_minion/data/",
+        'database_output': "/scratch/sdubois/lb_minion/data/",
         'reports_output': f"/scratch/sdubois/lb_minion/output/{sparkle}/",
         # parameters for exploration and algorithm
         'threshold': 0.10,

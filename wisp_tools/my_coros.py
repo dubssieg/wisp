@@ -1,3 +1,4 @@
+"Tools to handle multithreading"
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 

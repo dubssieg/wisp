@@ -1,3 +1,4 @@
+"Math stuff (unused for now)"
 from math import log
 
 

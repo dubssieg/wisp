@@ -1,5 +1,5 @@
+from os import path
 from Bio import SeqIO, Entrez
-from os import path, listdir
 
 
 def my_parser(filename: str, clean: bool = False, merge: bool = False, merge_name: str = "Merged", objective: int = 10000) -> dict[str, str]:
@@ -45,12 +45,27 @@ def my_fasta_parser(filename: str, length: int) -> dict[str, str]:
 
 
 def my_pretty_printer(seq_dict: dict, size: int = 10) -> None:
+    """Serves to show if sequences are correctly loaded
+
+    Args:
+        seq_dict (dict): sequences
+        size (int, optional): size of window to show. Defaults to 10.
+    """
     for key, value in seq_dict.items():
         print(
             f"{key} -> [{value[:size]} --- {value[-size:]}] : {len(value)} bp")
 
 
 def my_classification_mapper(file: str, email: str):
+    """Fetches the classification from NCBI taxonomy using accession number
+
+    Args:
+        file (str): name of the file
+        email (str): identity
+
+    Returns:
+        str|none: taxonomy or none
+    """
     Entrez.email = email
     # skipping unnecessary calls for already processed files
     if('Bacteria' not in file and 'Archaea' not in file):
@@ -71,14 +86,19 @@ def my_classification_mapper(file: str, email: str):
                 return f"{classif[0]}_{classif[1]}_{group}_{order}_{sub.split(' ')[0]}_{sub.split(' ')[1]}"
             else:
                 return None
-        except Exception as exc:
+        except Exception:
             return None
-            #raise BaseException(f"Can't get data for {file}") from exc
 
 
 def my_minion(filename: str, output_minion: str):
+    """Purges MinION from unecessary stuff
+
+    Args:
+        filename (str): input file
+        output_minion (str): output file
+    """
     header, sequence, collection = '', '', {}
-    with open(filename, 'r') as minion_reader:
+    with open(filename, 'r', encoding="utf-8") as minion_reader:
         for i, line in enumerate(minion_reader):
             if i % 4 == 0:
                 header = line.split(' ')[0]
@@ -86,7 +106,7 @@ def my_minion(filename: str, output_minion: str):
                 sequence = line[:-1]
             else:
                 collection[header] = sequence
-    with open(f"{output_minion}/{(filename.split('/')[-1]).split('.')[0]}.fna", 'w') as minion_writer:
+    with open(f"{output_minion}/{(filename.split('/')[-1]).split('.')[0]}.fna", 'w', encoding="utf-8") as minion_writer:
         minion_writer.write(
             '\n'.join([f"> {k}\n{v}" for k, v in collection.items()]))
 
@@ -102,12 +122,5 @@ def my_fetcher(filelist: list[str], outname: str, email: str):
 
             with Entrez.efetch(db="nucleotide", id=file,
                                rettype="fasta", retmode="text") as handle:
-                with open(f"gen/{outname}.fna", "w") as writer:
+                with open(f"gen/{outname}.fna", "w", encoding="utf-8") as writer:
                     writer.write(handle.read())
-
-"""
-for file in listdir("output/lb_MinION"):
-    print(f"{file} : ")
-    fastas = my_parser(f"output/lb_MinION/{file}")
-    my_pretty_printer(fastas)
-"""

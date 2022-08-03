@@ -1,15 +1,13 @@
 "Functions to manipulate data such as JSON, LIBSVM..."
-
-from logging import warning
-from xgboost import DMatrix
-from os import listdir, path
-from pathlib import Path
-from os.path import exists
 from json import load
+from os import listdir, path
+from os.path import exists
+from pathlib import Path
+from xgboost import DMatrix
 from wisp_tools import my_output_msg
 
 
-def load_mapping(path: str, db_name: str, classif_level: str, sp_determined: str | None) -> dict:
+def load_mapping(db_path: str, db_name: str, classif_level: str, sp_determined: str | None) -> dict:
     """Check the classification level we're working at, and load corresponding mapping file
 
     Args:
@@ -21,15 +19,15 @@ def load_mapping(path: str, db_name: str, classif_level: str, sp_determined: str
     Returns:
         dict: mapping from clade names to int
     """
-    if sp_determined == None:
-        my_path = f"{path}{db_name}/{classif_level}/saved_mapping.json"
+    if sp_determined is None:
+        my_path = f"{db_path}{db_name}/{classif_level}/saved_mapping.json"
     else:
-        my_path = f"{path}{db_name}/{classif_level}/{sp_determined}_saved_mapping.json"
-    with open(my_path, "r") as file_manager:
+        my_path = f"{db_path}{db_name}/{classif_level}/{sp_determined}_saved_mapping.json"
+    with open(my_path, "r", encoding="utf-8") as file_manager:
         return load(file_manager)
 
 
-def species_list(input_dir: str, filter: str | None = None) -> list:
+def species_list(input_dir: str, filter_sp: str | None = None) -> list:
     """Return the list of all species in a given dir, based upon their filenames
 
     Args:
@@ -39,16 +37,16 @@ def species_list(input_dir: str, filter: str | None = None) -> list:
     Returns:
         list: all species matching our filter
     """
-    if filter == None:
+    if filter_sp is None:
         list_match = [file.split('.')[0] for file in listdir(input_dir)]
         return list_match
     else:
         list_match = [file.split('.')[0] for file in listdir(
-            input_dir) if file.find(filter) != -1]
+            input_dir) if file.find(filter_sp) != -1]
         return list_match
 
 
-def species_map(input_dir: str, int_level: int, filter: str | None = None) -> dict:
+def species_map(input_dir: str, int_level: int, filter_sp: str | None = None) -> dict:
     """Return a dict, association of a species name and a code for species
 
     Args:
@@ -59,11 +57,11 @@ def species_map(input_dir: str, int_level: int, filter: str | None = None) -> di
         dict: _description_
     """
     species_listed = list(set([file.split('_')[int_level]
-                          for file in species_list(input_dir, filter)]))
+                          for file in species_list(input_dir, filter_sp)]))
     return {species_listed[i]: i for i in range(len(species_listed))}
 
 
-def load_xgboost_data(dpath: str, classif_level: str, suffix: str, db_name: str, sp_determined: str | None, sample_name: str, exclude: list[str] = []):
+def load_xgboost_data(dpath: str, classif_level: str, suffix: str, db_name: str, sp_determined: str | None, sample_name: str, exclude: list | None = None):
     """
     Return the target dataframe
 
@@ -73,6 +71,8 @@ def load_xgboost_data(dpath: str, classif_level: str, suffix: str, db_name: str,
     * db_name (str) : database we need to search in
     * sp_determined (str | None): upper level we've already determined
     """
+    if exclude is None:
+        exclude = []
     # path handling
     if suffix == 'unk':
         my_path = f"{dpath}{db_name}/temp/{sample_name}/data.txt.{suffix}"
@@ -84,7 +84,7 @@ def load_xgboost_data(dpath: str, classif_level: str, suffix: str, db_name: str,
     # exclusion list handling
     if exclude != [] and suffix != 'unk':
         keep = []
-        with open(my_path, 'r') as reader:
+        with open(my_path, 'r', encoding="utf-8") as reader:
             for line in reader:
                 skip = False
                 for ex in exclude:
@@ -94,12 +94,9 @@ def load_xgboost_data(dpath: str, classif_level: str, suffix: str, db_name: str,
                     keep.append(line)
         Path(f"{dpath}{db_name}/temp/{sample_name}/").mkdir(parents=True, exist_ok=True)
         my_path = f"{dpath}{db_name}/temp/{sample_name}/data.txt.{suffix}"
-        with open(my_path, "w") as writer:
+        with open(my_path, "w", encoding="utf-8") as writer:
             writer.write('\n'.join(keep))
-    try:
-        return DMatrix(my_path)
-    except:
-        my_output_msg(f"Job failed for {exclude[0]}", warning)
+    return DMatrix(my_path)
 
 
 def write_xgboost_data(data: list[str], dpath: str, classif_level: str, suffix: str, db_name: str, sample_name: str, sp_determined: str | None) -> None:
@@ -128,11 +125,11 @@ def write_xgboost_data(data: list[str], dpath: str, classif_level: str, suffix: 
     else:
         mode = 'w'
     if data != []:
-        with open(my_path, mode) as writer:
+        with open(my_path, mode, encoding="utf-8") as writer:
             writer.write('\n'.join(data))
 
 
-def check_if_merged_database_exists(db_name: str, path: str) -> bool:
+def check_if_merged_database_exists(db_name: str, db_path: str) -> bool:
     """Checks if train and test files exists for current situation
 
     Args:
@@ -144,8 +141,11 @@ def check_if_merged_database_exists(db_name: str, path: str) -> bool:
     Returns:
         bool: if all files are present in targeted folder
     """
-    files_to_check = [f"{path}{db_name}/merged/merged_data.txt.train",
-                      f"{path}{db_name}/merged/merged_data.txt.test", f"{path}{db_name}/merged/merged_saved_mapping.json"]
+    files_to_check = [
+        f"{db_path}{db_name}/merged/merged_data.txt.train",
+        f"{db_path}{db_name}/merged/merged_data.txt.test",
+        f"{db_path}{db_name}/merged/merged_saved_mapping.json"
+    ]
     all_correct = True
     for file in files_to_check:
         if not exists(file):
@@ -156,7 +156,7 @@ def check_if_merged_database_exists(db_name: str, path: str) -> bool:
     return all_correct
 
 
-def check_if_database_exists(db_name: str, path: str, taxa_level: str, sp_determined: str | None) -> bool:
+def check_if_database_exists(db_name: str, db_path: str, taxa_level: str, sp_determined: str | None) -> bool:
     """Checks if train and test files exists for current situation
 
     Args:
@@ -168,8 +168,14 @@ def check_if_database_exists(db_name: str, path: str, taxa_level: str, sp_determ
     Returns:
         bool: if all files are present in targeted folder
     """
-    files_to_check = [f"{path}{db_name}/{taxa_level}/data.txt.train", f"{path}{db_name}/{taxa_level}/data.txt.test", f"{path}{db_name}/{taxa_level}/saved_mapping.json"] if sp_determined == None else [
-        f"{path}{db_name}/{taxa_level}/{sp_determined}_data.txt.train", f"{path}{db_name}/{taxa_level}/{sp_determined}_data.txt.test", f"{path}{db_name}/{taxa_level}/{sp_determined}_saved_mapping.json"]
+    files_to_check = [
+        f"{db_path}{db_name}/{taxa_level}/data.txt.train",
+        f"{db_path}{db_name}/{taxa_level}/data.txt.test",
+        f"{db_path}{db_name}/{taxa_level}/saved_mapping.json"] if sp_determined is None else [
+        f"{db_path}{db_name}/{taxa_level}/{sp_determined}_data.txt.train",
+        f"{db_path}{db_name}/{taxa_level}/{sp_determined}_data.txt.test",
+        f"{db_path}{db_name}/{taxa_level}/{sp_determined}_saved_mapping.json"
+    ]
     all_correct = True
     for file in files_to_check:
         if not exists(file):
@@ -180,7 +186,7 @@ def check_if_database_exists(db_name: str, path: str, taxa_level: str, sp_determ
     return all_correct
 
 
-def check_if_model_exists(db_name: str, path: str, taxa_level: str, sp_determined: str | None) -> bool:
+def check_if_model_exists(db_name: str, db_path: str, taxa_level: str, sp_determined: str | None) -> bool:
     """Checks if a XGBoost model as already been build for current situation
 
     Args:
@@ -192,8 +198,12 @@ def check_if_model_exists(db_name: str, path: str, taxa_level: str, sp_determine
     Returns:
         bool: if all files are present in targeted folder
     """
-    files_to_check = [f"{path}{db_name}/{taxa_level}/saved_params.json", f"{path}{db_name}/{taxa_level}/saved_model.json"] if sp_determined == None else [
-        f"{path}{db_name}/{taxa_level}/{sp_determined}_saved_params.json", f"{path}{db_name}/{taxa_level}/{sp_determined}_saved_model.json"]
+    files_to_check = [
+        f"{db_path}{db_name}/{taxa_level}/saved_params.json",
+        f"{db_path}{db_name}/{taxa_level}/saved_model.json"] if sp_determined is None else [
+        f"{db_path}{db_name}/{taxa_level}/{sp_determined}_saved_params.json",
+        f"{db_path}{db_name}/{taxa_level}/{sp_determined}_saved_model.json"
+    ]
     all_correct = True
     for file in files_to_check:
         if not exists(file):
@@ -204,8 +214,9 @@ def check_if_model_exists(db_name: str, path: str, taxa_level: str, sp_determine
     return all_correct
 
 
-def check_if_merged_model_exists(db_name: str, path: str) -> bool:
-    """Checks if a XGBoost merged model (whole family collection) as already been build for current situation
+def check_if_merged_model_exists(db_name: str, db_path: str) -> bool:
+    """Checks if a XGBoost merged model (whole family collection)
+    as already been build for current situation
 
     Args:
         db_name (str): name of db, user imput
@@ -216,8 +227,9 @@ def check_if_merged_model_exists(db_name: str, path: str) -> bool:
     Returns:
         bool: if all files are present in targeted folder
     """
-    files_to_check = [f"{path}{db_name}/merged/merged_saved_params.json",
-                      f"{path}{db_name}/merged/merged_saved_model.json"]
+    files_to_check = [f"{db_path}{db_name}/merged/merged_saved_params.json",
+                      f"{db_path}{db_name}/merged/merged_saved_model.json"
+                      ]
     all_correct = True
     for file in files_to_check:
         if not exists(file):

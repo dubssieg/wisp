@@ -1,6 +1,7 @@
+"Logging facilities"
 from time import monotonic
 from datetime import timedelta
-from logging import basicConfig, INFO, WARNING, info, warning
+from logging import basicConfig, INFO, WARNING, info
 from typing import Callable
 
 
@@ -11,7 +12,7 @@ def my_output_msg(string: str, severity: Callable = info) -> None:
 
 def my_logs_clear(filepath: str):
     "Cleans out log file if run was success"
-    with open(f"logs/{filepath}", 'w'):
+    with open(f"logs/{filepath}", 'w', encoding="utf-8"):
         pass
 
 
