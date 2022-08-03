@@ -8,6 +8,7 @@ from typing import Callable
 def my_output_msg(string: str, severity: Callable = info) -> None:
     "Date and time of action + info specified in str"
     severity(f"{string}")
+    print(string)
 
 
 def my_logs_clear(filepath: str):
