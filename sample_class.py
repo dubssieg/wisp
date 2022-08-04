@@ -1,10 +1,10 @@
 "This class is about the computing of DNA samples"
 from typing import Callable
-from wisp_tools import my_parser, my_function_timer
-from wisp_lib import species_map, encoder, write_xgboost_data, load_mapping, splitting_generator, counter_ultrafast
 from os import listdir
 from json import dump
 from pathlib import Path
+from wisp_tools import my_parser, my_function_timer
+from wisp_lib import species_map, encoder, write_xgboost_data, load_mapping, splitting_generator, counter_ultrafast
 
 
 def mapping_sp(input_dir: str, path: str, classif_level: str, db_name: str, int_level: int, taxa: str | None) -> dict:
@@ -22,8 +22,8 @@ def mapping_sp(input_dir: str, path: str, classif_level: str, db_name: str, int_
         dict: a map of species for gien taxa
     """
     list_sp = species_map(input_dir, int_level, taxa)
-    my_path = f"{path}{db_name}/{classif_level}/{taxa}_saved_mapping.json" if taxa != None else f"{path}{db_name}/{classif_level}/saved_mapping.json"
-    with open(my_path, 'w') as file_manager:
+    my_path = f"{path}{db_name}/{classif_level}/{taxa}_saved_mapping.json" if taxa is not None else f"{path}{db_name}/{classif_level}/saved_mapping.json"
+    with open(my_path, 'w', encoding='utf-8') as file_manager:
         dump(list_sp, file_manager)
     return list_sp
 
@@ -44,7 +44,7 @@ def mapping_merged_sp(input_dir: str, path: str, db_name: str) -> dict:
     """
     list_sp = species_map(input_dir, 4)
     my_path = f"{path}{db_name}/merged/merged_saved_mapping.json"
-    with open(my_path, 'w') as file_manager:
+    with open(my_path, 'w', encoding='utf-8') as file_manager:
         dump(list_sp, file_manager)
     return list_sp
 

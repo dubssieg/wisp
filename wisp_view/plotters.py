@@ -166,6 +166,7 @@ def dmatrix_pandas(dict_files):
 
 
 def conf_matrix(dict_files):
+    """Unused"""
     LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
     references, tableaux = dmatrix_pandas(dict_files)
     taxa_list: list[str] = list(dict_files.keys())
@@ -231,16 +232,27 @@ def read_number_aggregator(storage: dict[str, dict]):
 
 
 def int_level(level: str) -> int:
+    "Returns index of target level"
     return ['domain', 'phylum', 'group', 'order', 'family'].index(level)
 
 
 def ancestor(dim, level, keyset):
+    "Get parent level for current targeted level"
     upper_level = int_level(level) - 1
     current_level = int_level(level)
     return [k.split('_')[upper_level] for k in keyset if k.split('_')[current_level] == dim][0]
 
 
 def crosstab_aggregator(storage: dict[str, str], level: str):
+    """aggregates results as matrices
+
+    Args:
+        storage (dict[str, str]): parsed outputs from files
+        level (str): target level to compare
+
+    Returns:
+        tuple: matrice and distance in-between parents
+    """
     levels = ['family', 'order', 'group', 'phylum', 'domain']
     # increment de -1 sur le retrieve d'origine
     "Rend les pourcentages de bonnes attributions de reads"
@@ -290,12 +302,14 @@ def crosstab_aggregator(storage: dict[str, str], level: str):
 
 
 def retrieve_parent_level(current: str) -> str | None:
+    "Get parent level intcode for current level"
     if int_level(current)-1 >= 0:
         return ['domain', 'phylum', 'group', 'order', 'family'][int_level(current)-1]
     return None
 
 
 def cbar_plotting(output_path, c_map):
+    "Plots a horizontal colorbar"
     a = np.array([[0, 100]])
     pl.figure(figsize=(9, 1.5))
     img = pl.imshow(a, cmap=c_map)
@@ -306,6 +320,7 @@ def cbar_plotting(output_path, c_map):
 
 
 def cbar_plotting_2(output_path, c_map):
+    "Plots a vertical colorbar"
     fig, ax = plt.subplots(1, 1)
     fraction = 1  # .05
     norm = mpl.colors.Normalize(vmin=0, vmax=100)
@@ -317,6 +332,7 @@ def cbar_plotting_2(output_path, c_map):
 
 
 def clustering_plotting(path_to_folders: str, output_path: str, c_map: str = 'rainbow'):
+    "Calls for global plot and crosstab aggregations with clustering"
     plt.rcParams.update({'figure.max_open_warning': 0,
                         'axes.titlesize': 'x-large'})
     cbar_plotting(output_path, c_map)
@@ -511,11 +527,12 @@ def clustering_plotting(path_to_folders: str, output_path: str, c_map: str = 'ra
 
 
 def my_encoder_4():
-    # maybe this can help gain speed ? specific to k=4
+    "Creates a mapping between a number (0) and every 4-mer"
     return {f"{a}{b}{c}{d}": 0 for a in ['A', 'T', 'G', 'C'] for b in ['A', 'T', 'G', 'C'] for c in ['A', 'T', 'G', 'C']for d in ['A', 'T', 'G', 'C']}
 
 
 def signatures(list_sequences):
+    "Counts signatures"
     alphabet = Counter(my_encoder_4())
     total_len = 0
     for sequence in list_sequences:
@@ -525,6 +542,7 @@ def signatures(list_sequences):
 
 
 def signatures_sd(list_sequences):
+    "Counts standard deviation of signatures"
     alphabet = {k: [] for k in my_encoder_4().keys()}
     for sequence in list_sequences:
         for kmer, kval in kmer_indexing_10000(sequence, 4).items():
@@ -533,6 +551,7 @@ def signatures_sd(list_sequences):
 
 
 def code(value, mn, sd):
+    "Encode in mu+/-sigma"
     if value < mn - sd:
         return 0
     elif value > mn + sd:
@@ -542,6 +561,7 @@ def code(value, mn, sd):
 
 
 def compute_signatures(level, pwd, listing):
+    "Creates the matrices of signatures"
     rets, raw_rets, dev_rets = {}, {}, {}
     LEVELS: list[str] = ['domain', 'phylum', 'group', 'order', 'family']
     splitting = LEVELS.index(level)
@@ -573,6 +593,7 @@ def compute_signatures(level, pwd, listing):
 
 
 def plot_database_features(db_path, output_path):  # ex : data/small/
+    "Calls for plotting all exisiting signatures of a database"
     listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
                for b in ['A', 'T', 'G', 'C']]
     Path(f"{output_path}/").mkdir(parents=True, exist_ok=True)
@@ -591,6 +612,7 @@ def plot_database_features(db_path, output_path):  # ex : data/small/
 
 
 def plot_some_features(my_path, listing, filename, output_path):
+    "Calls for a single plot (do not call directly)"
     bst = xgb.Booster()
     bst.load_model(my_path)
     mapped = {recode_kmer_4(str(k[1:]), 4): v for k, v in bst.get_score(
@@ -623,6 +645,7 @@ def plot_some_features(my_path, listing, filename, output_path):
 
 
 def plot_repartition_top_kmers(number_to_plot: int, sequence: str, ksize: int, output_path: str) -> None:
+    "Plots kmer repartition"
     # gives most common at global scale
     counter = kmer_indexing_brut(
         sequence, ksize).most_common(number_to_plot)
@@ -640,10 +663,11 @@ def plot_repartition_top_kmers(number_to_plot: int, sequence: str, ksize: int, o
     df = df.transpose()
     ax = df.plot(figsize=(
         20, 6), ylabel=f'kmers/{int(len(sequence)/5000)}bp', rot=90, colormap='cividis')
-    plt.savefig(f"{output_path}/kmers_repartition.svg", bbox_inches='tight')
+    plt.savefig(f"{output_path}/kmers_repartition.png", bbox_inches='tight')
 
 
 def delta_sequence(seq1: str, seq2: str, ksize: int, output_path: str) -> None:
+    "computes base delta kmers"
     counts_1, counts_2 = kmer_indexing_brut(
         seq1, ksize), kmer_indexing_brut(seq2, ksize)
     counts_1, counts_2 = Counter({k: v/len(seq1) for k, v in counts_1.items()}), Counter({
@@ -657,6 +681,7 @@ def delta_sequence(seq1: str, seq2: str, ksize: int, output_path: str) -> None:
 
 
 def list_retirever(key, d: list[dict]) -> list:
+    "Gets list of val associaited to key if key in dict else skips it"
     my_list = []
     for di in d:
         if key in di:
@@ -667,6 +692,7 @@ def list_retirever(key, d: list[dict]) -> list:
 
 
 def plot_stacked_values(di: dict[str, dict], dref: dict, output_path: str) -> None:
+    "Plots values from a series of MinION output files"
     temp_counter = sum((list(di.values())[0]).values())
     # for k, v in dref.items(): dref[k] = int((v*temp_counter)/100)
     di['Reference'] = dref
@@ -709,6 +735,7 @@ def plot_stacked_values(di: dict[str, dict], dref: dict, output_path: str) -> No
 
 
 def mfunc(x):
+    "Tries to return standard deviation"
     try:
         return stdev(x)
     except TypeError:
@@ -716,6 +743,7 @@ def mfunc(x):
 
 
 def compdiff_plotting(input_dir, output_path):
+    "outputs the compdiff"
     listing = [f"{a}{b}" for a in ['A', 'T', 'G', 'C']
                for b in ['A', 'T', 'G', 'C']]
     Path(f"{output_path}/").mkdir(parents=True, exist_ok=True)
@@ -825,6 +853,7 @@ def compdiff_plotting(input_dir, output_path):
 
 
 def plot_prob_error():
+    "evaluates the esm. loss on different ksizes"
     all_values = [[((1-p)**k)*100 for k in range(3, 33, 1)]
                   for p in [0.04, 0.05, 0.06]]
     X = range(3, 33, 1)

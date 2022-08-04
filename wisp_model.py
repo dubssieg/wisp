@@ -63,7 +63,7 @@ def build_full_db(args: Namespace) -> None:
                 if force_rebuild or not check_if_model_exists(DATABASE, DATABASE_PATH, taxa, parent_level):
 
                     map_sp = load_mapping(
-                        path=DATABASE_PATH,
+                        db_path=DATABASE_PATH,
                         db_name=DATABASE,
                         classif_level=taxa,
                         sp_determined=parent_level
