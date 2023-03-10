@@ -1,33 +1,33 @@
-from pathlib import Path
-import setuptools
-import versioneer
+#!/usr/bin/env python3
+from sys import version_info, stderr
+from setuptools import setup, find_packages
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
-with open("requirements.txt", "r") as fh:
+NAME = 'wisp'
+CURRENT_PYTHON = version_info[:2]
+REQUIRED_PYTHON = (3, 10)
+
+if CURRENT_PYTHON < REQUIRED_PYTHON:
+    stderr.write(
+        f"{NAME} requires Python 3.10 or higher and your current version is {CURRENT_PYTHON}.")
+    exit(1)
+
+with open("requirements.txt", "r", encoding='utf-8') as fh:
     requirements = [line.strip() for line in fh]
 
-setuptools.setup(
-    name="WISP",
-    version=versioneer.get_version(),
-    cmdclass=versioneer.get_cmdclass(),
-    author="Siegfried Dubois",
-    author_email="siegfried.dubois@inria.fr",
-    description="A Python application for bacterial families identification from long reads.",
-    long_description=long_description,
-    long_description_content_type="text/md",
-    packages=setuptools.find_packages(),
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-    ],
-    python_requires='>=3.10',
+setup(
+    name=NAME,
+    version='0.1.0',
+    description='XGBoost bacteria families identification',
+    url='https://github.com/Tharos-ux/wisp',
+    author='Tharos',
+    author_email='dubois.siegfried@gmail.com',
+    packages=['workspace'],  # find_packages(),
+    package_data={'': ['parameters_files/params.json']},
+    include_package_data=True,
+    zip_safe=False,
+    license="LICENSE",
+    long_description=open("README.md", encoding='utf-8').read(),
+    long_description_content_type='text/markdown',
     install_requires=requirements,
+    entry_points={'console_scripts': [f'{NAME}=workspace.main:main']}
 )
-
-# creating env path
-Path(f"output/").mkdir(parents=True, exist_ok=True)
-Path(f"genomes/").mkdir(parents=True, exist_ok=True)
-Path(f"genomes/train/").mkdir(parents=True, exist_ok=True)
-Path(f"genomes/unk/").mkdir(parents=True, exist_ok=True)
