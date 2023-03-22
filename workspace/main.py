@@ -6,6 +6,7 @@ from rich.traceback import install
 from rich import print
 from tharospytools import futures_collector
 from workspace.create_database import build_database
+from workspace.create_model import make_model
 install(show_locals=True)
 
 parser: ArgumentParser = ArgumentParser(
@@ -55,6 +56,18 @@ parser_model.add_argument(
 )
 
 parser_model.add_argument(
+    "classification_level",
+    help="Level of classification we're working at",
+    type=str
+)
+
+parser_model.add_argument(
+    "target_taxa",
+    help="Level of taxa we're working at",
+    type=str
+)
+
+parser_model.add_argument(
     "-p",
     "--parameters",
     help="Specifies a parameter file",
@@ -71,17 +84,34 @@ def main() -> None:
     "Main call for subprograms"
     if len(argv) == 1:
         print(
-            "[dark_orange]You need to provide a command and its arguments for the program to work.\n"
+            "[red]You need to provide a command and its arguments for the program to work.\n"
             "Try to use -h or --help to get list of available commands."
         )
         exit()
 
     if args.subcommands == 'build':
-        print("[dark_orange]Starting database creation")
-        output_path: str = build_database(args.parameters, args.database_name,
-                                          [path.abspath(path.join(dirpath, f)) for dirpath, _, filenames in walk(args.input_folder) for f in filenames])
         print(
-            f"[dark_orange]Database sucessfully built @ {output_path}")
+            "[dark_orange]Starting database creation"
+        )
+        output_path: str = build_database(
+            args.parameters,
+            args.database_name,
+            [path.abspath(path.join(dirpath, f)) for dirpath, _, filenames in walk(
+                args.input_folder) for f in filenames]
+        )
+        print(
+            f"[dark_orange]Database sucessfully built @ {output_path}"
+        )
 
     if args.subcommands == 'model':
-        pass
+        print(
+            "[dark_orange]Starting model creation"
+        )
+        output_path: str = make_model(
+            args.database_path,
+            args.classification_level,
+            args.target_taxa
+        )
+        print(
+            f"[dark_orange]Model sucessfully built @ {output_path}"
+        )
