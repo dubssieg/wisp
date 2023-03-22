@@ -121,3 +121,15 @@ def main() -> None:
             print(
                 f"[dark_orange]Model sucessfully built @ {retcode}"
             )
+
+    if args.subcommands == 'predict':
+        print(
+            "[red]Currently non implemented."
+        )
+
+        # Loading the phylogenetic tree
+
+        # Loading the model in a booster
+
+        # Evaluate at one level
+        # Use the tree to select next level
