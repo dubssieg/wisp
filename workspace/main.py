@@ -2,9 +2,11 @@
 from argparse import ArgumentParser
 from sys import argv
 from os import walk, path
+from treelib import Tree
 from rich.traceback import install
 from rich import print
 from tharospytools import futures_collector
+from json import load
 from workspace.create_database import build_database
 from workspace.create_model import make_model
 install(show_locals=True)
@@ -39,40 +41,36 @@ parser_database.add_argument(
 
 parser_database.add_argument(
     "input_folder",
-    help="Input folder containig genomes",
+    help="Input folder containig reference genomes",
     type=str
 )
 
-## Subparser for model creation ##
+#######################################
 
-parser_model: ArgumentParser = subparsers.add_parser(
-    'model',
-    help="Creates the model from the specified database.")
+## Subparser for prediction ##
 
-parser_model.add_argument(
-    "database_path",
-    help="Path for database",
-    type=str
-)
+parser_database: ArgumentParser = subparsers.add_parser(
+    'predict',
+    help="Creates the samples and evaluates them.")
 
-parser_model.add_argument(
-    "classification_level",
-    help="Level of classification we're working at",
-    type=str
-)
-
-parser_model.add_argument(
-    "target_taxa",
-    help="Level of taxa we're working at",
-    type=str
-)
-
-parser_model.add_argument(
+parser_database.add_argument(
     "-p",
     "--parameters",
     help="Specifies a parameter file",
     type=str,
     default=f'{path.dirname(__file__)}/parameters_files/params.json'
+)
+
+parser_database.add_argument(
+    "database_name",
+    help="Name for database",
+    type=str
+)
+
+parser_database.add_argument(
+    "input_folder",
+    help="Input folder containig unknown genomes",
+    type=str
 )
 
 #######################################
@@ -93,7 +91,7 @@ def main() -> None:
         print(
             "[dark_orange]Starting database creation"
         )
-        output_path: str = build_database(
+        output_path, phylo_tree = build_database(
             args.parameters,
             args.database_name,
             [path.abspath(path.join(dirpath, f)) for dirpath, _, filenames in walk(
@@ -103,15 +101,23 @@ def main() -> None:
             f"[dark_orange]Database sucessfully built @ {output_path}"
         )
 
-    if args.subcommands == 'model':
+        print(phylo_tree)
+
+        nodes_per_level: dict = {level: [node.tag for node in list(phylo_tree.filter_nodes(
+            lambda x: phylo_tree.depth(x) == i))] for i, level in enumerate(['domain', 'phylum', 'group', 'order'], start=1)}
+
         print(
             "[dark_orange]Starting model creation"
         )
-        output_path: str = make_model(
-            args.database_path,
-            args.classification_level,
-            args.target_taxa
-        )
-        print(
-            f"[dark_orange]Model sucessfully built @ {output_path}"
-        )
+
+        # Loading data => should be put in the main call to escape loading it at each iteration
+        with open(output_path, 'r', encoding='utf-8') as jdb:
+            datas = load(jdb)
+
+        retcodes: list = futures_collector(make_model, [(datas, output_path, taxonomic_level, target_taxa)
+                                                        for taxonomic_level, targets in nodes_per_level.items() for target_taxa in targets])
+
+        for retcode in retcodes:
+            print(
+                f"[dark_orange]Model sucessfully built @ {retcode}"
+            )

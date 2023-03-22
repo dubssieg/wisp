@@ -1,13 +1,14 @@
 "Creates the XGB models"
-from json import load
 from os import path
 from pathlib import Path
-from shutil import rmtree
+from typing import Any
 from xgboost import Booster, config_context, DMatrix, train
+# from shutil import rmtree
 
 
 def make_model(
-        path_to_database: str,
+        datas: Any,
+        model_name: str,
         classification_level: str,
         target_dataset: str,
         num_rounds_boosting: int = 10,
@@ -25,10 +26,6 @@ def make_model(
 
     next_level: str = (levels := ["root", "domain", "phylum", "group", "order", "family", "specie"])[
         (levels).index(classification_level)+1]
-
-    # Loading data => should be put in the main call to esacpe loading it at each iteration
-    with open(path_to_database, 'r', encoding='utf-8') as jdb:
-        datas = load(jdb)
 
     if not classification_level in datas['mappings']:
         raise ValueError(
@@ -51,7 +48,7 @@ def make_model(
          f"{path.dirname(__file__)}/tmp").mkdir(parents=True, exist_ok=True)
 
     # We create the dir to store the database
-    Path(model_dir := f"{path.dirname(__file__)}/model/{Path(path_to_database).stem}").mkdir(
+    Path(model_dir := f"{path.dirname(__file__)}/model/{Path(model_name).stem}").mkdir(
         parents=True, exist_ok=True)
 
     # We create temporary files
@@ -76,7 +73,7 @@ def make_model(
     bst.save_model(output_path := f"{model_dir}/{target_dataset}.json")
 
     # Destroying the temporary directory and its contents
-    rmtree(temp_dir)
+    # rmtree(temp_dir)
 
     # returning the target file
     return output_path

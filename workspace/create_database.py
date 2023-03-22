@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Generator
 from itertools import product
 from Bio import SeqIO
+from treelib import Tree
+from treelib.exceptions import DuplicatedNodeIdError
 from tharospytools import revcomp
 
 
@@ -49,19 +51,26 @@ def encode_kmer(kmer: str) -> int:
     return int(''.join([mapper[k] for k in kmer]))
 
 
-def taxonomy_information(genome_path: str) -> dict:
+def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tree]:
     "Returns taxonomy position information"
     taxo_info: list = Path(genome_path).stem.split('_')
+    for i, x in enumerate(parents := (['Root']+taxo_info)):
+        if x != 'Root':
+            try:
+                tree_struct.create_node(
+                    x, x.lower(), parent=parents[i-1].lower())
+            except DuplicatedNodeIdError:
+                pass
     return {
         'domain': taxo_info[0],
         'phylum': taxo_info[1],
         'group': taxo_info[2],
         'order': taxo_info[3],
         'family': taxo_info[4]
-    }
+    }, tree_struct
 
 
-def build_database(params_file: str, database_name: str, input_data: list[str]) -> str:
+def build_database(params_file: str, database_name: str, input_data: list[str]) -> tuple[str, Tree]:
     "Builds a json file with taxa levels as dict information"
     # Loading params file
     with open(params_file, 'r', encoding='utf-8') as pfile:
@@ -73,6 +82,10 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
 
     # creating encoder
     my_encoder: dict = encoder(ksize=params['ksize'])
+
+    # creating phylogenetic tree
+    phylo_tree: Tree = Tree()
+    phylo_tree.create_node('Root', 'root')
 
     # Writing the database
     json_datas: list = list()
@@ -108,11 +121,14 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
                     del counters
 
                     # Dumping in output file
+                    taxonomy, phylo_tree = taxonomy_information(
+                        genome, phylo_tree)
                     json_datas.append(
-                        {**taxonomy_information(genome), 'datas': encoded})
+                        {**taxonomy, 'datas': encoded})
                     del encoded
         dump({"mappings": mapping_sp(json_datas), "datas": json_datas}, jdb)
-    return output_path
+
+    return output_path, phylo_tree
 
 
 def mapping_sp(datas: list[dict]) -> dict:
@@ -195,7 +211,8 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
     del rev_counts
     if not all(pattern):
         # All positions in pattern should not be kept, we apply filter
-        counts = Counter({pattern_filter(k, pattern): v for k, v in counts.items()})
+        counts = Counter({pattern_filter(k, pattern)
+                         : v for k, v in counts.items()})
     for filtered_kmer in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
         del counts[filtered_kmer]
     return counts
