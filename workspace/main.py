@@ -2,13 +2,15 @@
 from argparse import ArgumentParser
 from sys import argv
 from os import walk, path
+from json import load
 from treelib import Tree
 from rich.traceback import install
 from rich import print
 from tharospytools import futures_collector
-from json import load
 from workspace.create_database import build_database
 from workspace.create_model import make_model
+from workspace.create_sample import build_sample
+from workspace.create_prediction import make_prediction
 install(show_locals=True)
 
 parser: ArgumentParser = ArgumentParser(
@@ -85,7 +87,7 @@ def main() -> None:
             "[red]You need to provide a command and its arguments for the program to work.\n"
             "Try to use -h or --help to get list of available commands."
         )
-        exit()
+        exit(2)
 
     if args.subcommands == 'build':
         print(
@@ -101,10 +103,10 @@ def main() -> None:
             f"[dark_orange]Database sucessfully built @ {output_path}"
         )
 
-        print(phylo_tree)
+        phylo_tree.show()
 
         nodes_per_level: dict = {level: [node.tag for node in list(phylo_tree.filter_nodes(
-            lambda x: phylo_tree.depth(x) == i))] for i, level in enumerate(['domain', 'phylum', 'group', 'order'], start=1)}
+            lambda x: phylo_tree.depth(x) == i))] for i, level in enumerate(['root', 'domain', 'phylum', 'group', 'order'], start=0)}
 
         print(
             "[dark_orange]Starting model creation"
@@ -114,18 +116,48 @@ def main() -> None:
         with open(output_path, 'r', encoding='utf-8') as jdb:
             datas = load(jdb)
 
-        retcodes: list = futures_collector(make_model, [(datas, output_path, taxonomic_level, target_taxa)
-                                                        for taxonomic_level, targets in nodes_per_level.items() for target_taxa in targets])
+        retcodes: list = futures_collector(make_model, fargs := [(datas, output_path, taxonomic_level, target_taxa)
+                                                                 for taxonomic_level, targets in nodes_per_level.items() for target_taxa in targets])
 
-        for retcode in retcodes:
-            print(
-                f"[dark_orange]Model sucessfully built @ {retcode}"
-            )
+        for i, (model_path, config_path) in enumerate(retcodes):
+            _, _, _, target_taxa = fargs[i]
+
+            try:
+                node = phylo_tree[target_taxa.lower()]
+                node.data.model_path = model_path
+                node.data.config_path = config_path
+            except KeyError:
+                pass
+
+            # print(f"[dark_orange]Model for {target_taxa} (level {taxonomic_level}) sucessfully built @ {model_path}")
+
+        phylo_tree.show(data_property="model_path")
+        exit(0)
 
     if args.subcommands == 'predict':
         print(
-            "[red]Currently non implemented."
+            "[red]Currently non fully implemented."
         )
+        print(
+            "[dark_orange]Starting database creation"
+        )
+        output_path = build_sample(
+            args.parameters,
+            [path.abspath(path.join(dirpath, f)) for dirpath, _, filenames in walk(
+                args.input_folder) for f in filenames]
+        )
+        print(
+            f"[dark_orange]Query sucessfully built @ {output_path}"
+        )
+        exit(126)
+        results = make_prediction(
+            "/usr/local/lib/python3.11/site-packages/workspace/model/test/Lactobacillales.json",
+            "/usr/local/lib/python3.11/site-packages/workspace/model/test/Lactobacillales_params.json",
+            output_path,
+            normalisation_func='delta_mean',
+            read_identity_threshold=0.8
+        )
+        print(results)
 
         # Loading the phylogenetic tree
 

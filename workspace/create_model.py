@@ -14,7 +14,7 @@ def make_model(
         num_rounds_boosting: int = 10,
         eta: float = 0.3,
         maximum_depth: int = 10
-) -> str:
+) -> tuple[str, str]:
     "Builds the model and saves it"
     # Creating the booster
     config_context(
@@ -27,7 +27,7 @@ def make_model(
     next_level: str = (levels := ["root", "domain", "phylum", "group", "order", "family", "specie"])[
         (levels).index(classification_level)+1]
 
-    if not classification_level in datas['mappings']:
+    if not classification_level in datas['mappings'] and classification_level != 'root':
         raise ValueError(
             f"Database does not contain {classification_level} level.")
 
@@ -54,7 +54,7 @@ def make_model(
     # We create temporary files
     with open(temp_dataset := f"{temp_dir}/{target_dataset}.txt", 'w', encoding='utf-8') as libsvm_writer:
         for sample in datas['datas']:
-            if sample[classification_level] == target_dataset:
+            if classification_level == 'root' or sample[classification_level] == target_dataset:
                 # Sample should be kept for model
                 for read in sample['datas']:
                     # Each read is a dict with code:count for kmer
@@ -70,10 +70,13 @@ def make_model(
 
     # Saving the model and its params
     # Must go to model_dir
-    bst.save_model(output_path := f"{model_dir}/{target_dataset}.json")
+    bst.save_model(model_output_path := f"{model_dir}/{target_dataset}.json")
+
+    with open(config_output_path := f"{model_dir}/{target_dataset}_params.json", 'w', encoding='utf-8') as jwriter:
+        jwriter.write(bst.save_config())
 
     # Destroying the temporary directory and its contents
     # rmtree(temp_dir)
 
     # returning the target file
-    return output_path
+    return model_output_path, config_output_path

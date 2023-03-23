@@ -8,7 +8,16 @@ from itertools import product
 from Bio import SeqIO
 from treelib import Tree
 from treelib.exceptions import DuplicatedNodeIdError
+from dataclasses import dataclass
 from tharospytools import revcomp
+
+
+@dataclass
+class Taxonomy:
+    level: str
+    name: str
+    model_path: str | None
+    config_path: str | None
 
 
 def validate_parameters(params: dict) -> bool:
@@ -58,7 +67,7 @@ def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tre
         if x != 'Root':
             try:
                 tree_struct.create_node(
-                    x, x.lower(), parent=parents[i-1].lower())
+                    x, x.lower(), parent=parents[i-1].lower(), data=Taxonomy(['domain', 'phylum', 'group', 'order', 'familiy', 'genus'][i-1], x, None, None))
             except DuplicatedNodeIdError:
                 pass
     return {
@@ -85,7 +94,8 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
 
     # creating phylogenetic tree
     phylo_tree: Tree = Tree()
-    phylo_tree.create_node('Root', 'root')
+    phylo_tree.create_node(
+        'Root', 'root', data=Taxonomy('Root', 'Root', None, None))
 
     # Writing the database
     json_datas: list = list()
@@ -211,8 +221,7 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
     del rev_counts
     if not all(pattern):
         # All positions in pattern should not be kept, we apply filter
-        counts = Counter({pattern_filter(k, pattern)
-                         : v for k, v in counts.items()})
+        counts = Counter({pattern_filter(k, pattern)                         : v for k, v in counts.items()})
     for filtered_kmer in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
         del counts[filtered_kmer]
     return counts
