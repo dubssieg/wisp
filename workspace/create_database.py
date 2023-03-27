@@ -244,14 +244,16 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
     del rev_counts
     if not all(pattern):
         # All positions in pattern should not be kept, we apply filter
-        counts = Counter({pattern_filter(k, pattern): v for k, v in counts.items()})
+        counts = Counter({pattern_filter(k, pattern)
+                         : v for k, v in counts.items()})
     for filtered_kmer in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
         if filtered_kmer in counts:
             del counts[filtered_kmer]
     # We treat cases where sequence alphabet is not ATCG
+    counts_purged: dict = {}
     for key, count in counts.items():
         list_of_keys: list = list()
-        splitted_key: list = key.split()
+        splitted_key: list = [*key]
         for x in splitted_key:
             if x in ['A', 'T', 'C', 'G']:
                 nuct: list = [x]
@@ -289,9 +291,10 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
         # Updating counts to stay with only ATGC counts
         for prob_key in list_of_keys:
             kmer_number: int = count//len(list_of_keys)
-            if prob_key in counts:
-                counts[prob_key] += kmer_number
+            if prob_key in counts_purged:
+                counts_purged[prob_key] += kmer_number
             else:
-                counts[prob_key] = kmer_number
+                counts_purged[prob_key] = kmer_number
+    del counts
     # We divide count by the number of keys we end up with to normalize
-    return counts
+    return Counter(counts_purged)
