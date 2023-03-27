@@ -5,15 +5,16 @@ from os import path
 from pathlib import Path
 from typing import Generator
 from itertools import product
+from dataclasses import dataclass
 from Bio import SeqIO
 from treelib import Tree
 from treelib.exceptions import DuplicatedNodeIdError
-from dataclasses import dataclass
 from tharospytools import revcomp
 
 
 @dataclass
 class Taxonomy:
+    "Modelizes a taxa level"
     level: str
     name: str
     model_path: str | None
@@ -105,9 +106,9 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
         # iterating over input genomes
         for genome in input_data:
             with open(genome, 'r', encoding='utf-8') as freader:
-                genome_data: dict = {fasta.id: str(fasta.seq)
-                                     for fasta in SeqIO.parse(freader, 'fasta')}
-            for id_sequence, dna_sequence in genome_data.items():
+                genome_data: list = [str(fasta.seq).replace('N', '')
+                                     for fasta in SeqIO.parse(freader, 'fasta')]
+            for dna_sequence in genome_data:
                 # Splitting of reads
                 if len(dna_sequence) >= params['read_size']:
                     all_reads = splitting(
@@ -221,7 +222,7 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
     del rev_counts
     if not all(pattern):
         # All positions in pattern should not be kept, we apply filter
-        counts = Counter({pattern_filter(k, pattern)                         : v for k, v in counts.items()})
+        counts = Counter({pattern_filter(k, pattern): v for k, v in counts.items()})
     for filtered_kmer in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
         del counts[filtered_kmer]
     return counts
