@@ -105,7 +105,7 @@ def main() -> None:
         phylo_tree.show()
 
         nodes_per_level: dict = {level: [node.tag for node in list(phylo_tree.filter_nodes(
-            lambda x: phylo_tree.depth(x) == i))] for i, level in enumerate(['root', 'domain', 'phylum', 'group', 'order'], start=0)}
+            lambda x: phylo_tree.depth(x) == i))] for i, level in enumerate(['root', 'domain', 'phylum', 'group'], start=0)}
 
         print(
             "[dark_orange]Starting model creation"
