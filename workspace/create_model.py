@@ -2,6 +2,7 @@
 from os import path
 from pathlib import Path
 from typing import Any
+from copy import copy
 from xgboost import Booster, config_context, DMatrix, train
 # from shutil import rmtree
 
@@ -31,8 +32,13 @@ def make_model(
         raise ValueError(
             f"Database does not contain {classification_level} level.")
 
-    mappings: dict = datas['mappings'][next_level]
-    number_taxa: int = mappings.pop('number_taxa')
+    mappings: dict = copy(datas['mappings'][next_level])
+    try:
+        number_taxa: int = mappings.pop('number_taxa')
+    except KeyError:
+        print("Key 'number_taxa was missing, for unknown reason")
+        # Defining default value
+        number_taxa: int = len(mappings)
 
     model_parameters: dict = {
         'max_depth': maximum_depth,

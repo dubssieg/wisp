@@ -69,5 +69,7 @@ if __name__ == '__main__':
 
     install(show_locals=True)
 
+    # system(f"wget https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt -o {args.output}")
+
     download_from_ncbi(args.summary_file, args.output,
                        args.email, start=args.start)

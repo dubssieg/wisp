@@ -3,7 +3,6 @@ from argparse import ArgumentParser
 from sys import argv
 from os import walk, path
 from json import load
-from treelib import Tree
 from rich.traceback import install
 from rich import print
 from tharospytools import futures_collector
