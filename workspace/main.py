@@ -123,10 +123,10 @@ def main() -> None:
                                                                  for taxonomic_level, targets in nodes_per_level.items() for target_taxa in targets])
 
         for i, (model_path, config_path) in enumerate(retcodes):
-            _, _, _, target_taxa = fargs[i]
+            _, _, taxonomic_level, target_taxa = fargs[i]
 
             try:
-                node = phylo_tree[target_taxa.lower()]
+                node = phylo_tree[f"{target_taxa.lower()}_{taxonomic_level}"]
                 node.data.model_path = model_path
                 node.data.config_path = config_path
             except KeyError:

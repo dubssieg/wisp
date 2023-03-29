@@ -63,12 +63,20 @@ def encode_kmer(kmer: str) -> int:
 
 def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tree]:
     "Returns taxonomy position information"
+    taxa: list[str] = [
+        'root',
+        'domain',
+        'phylum',
+        'group',
+        'order',
+        'family'
+    ]
     taxo_info: list = Path(genome_path).stem.split('_')[:-1]
     for i, x in enumerate(parents := (['Root']+taxo_info)):
         if x != 'Root':
             try:
                 tree_struct.create_node(
-                    x, x.lower(), parent=parents[i-1].lower(), data=Taxonomy(['domain', 'phylum', 'group', 'order', 'family'][i-1], x, None, None))
+                    x, f"{x.lower()}_{taxa[i]}", parent=f"{parents[i-1].lower()}_{taxa[i-1]}", data=Taxonomy(['domain', 'phylum', 'group', 'order', 'family'][i-1], x, None, None))
             except DuplicatedNodeIdError:
                 pass
     return {
@@ -96,7 +104,7 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
     # creating phylogenetic tree
     phylo_tree: Tree = Tree()
     phylo_tree.create_node(
-        'Root', 'root', data=Taxonomy('Root', 'Root', None, None))
+        'Root', 'root_root', data=Taxonomy('Root', 'Root', None, None))
 
     # Writing the database
     json_datas: list = list()

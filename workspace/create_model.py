@@ -28,8 +28,6 @@ def make_model(
     next_level: str = (levels := ["root", "domain", "phylum", "group", "order", "family", "specie"])[
         (levels).index(classification_level)+1]
 
-    print(f"Building {target_dataset} for next level {next_level}")
-
     if not classification_level in datas['mappings'] and not classification_level == 'root':
         raise ValueError(
             f"Database does not contain {classification_level} level.")
@@ -60,7 +58,7 @@ def make_model(
         parents=True, exist_ok=True)
 
     # We create temporary files
-    with open(temp_dataset := f"{temp_dir}/{target_dataset}.txt", 'w', encoding='utf-8') as libsvm_writer:
+    with open(temp_dataset := f"{temp_dir}/{target_dataset}_{classification_level}.txt", 'w', encoding='utf-8') as libsvm_writer:
         for sample in datas['datas']:
             if classification_level == 'root' or sample[classification_level] == target_dataset:
                 # Sample should be kept for model
@@ -78,9 +76,10 @@ def make_model(
 
     # Saving the model and its params
     # Must go to model_dir
-    bst.save_model(model_output_path := f"{model_dir}/{target_dataset}.json")
+    bst.save_model(model_output_path :=
+                   f"{model_dir}/{target_dataset}_{classification_level}.json")
 
-    with open(config_output_path := f"{model_dir}/{target_dataset}_params.json", 'w', encoding='utf-8') as jwriter:
+    with open(config_output_path := f"{model_dir}/{target_dataset}_{classification_level}_params.json", 'w', encoding='utf-8') as jwriter:
         jwriter.write(bst.save_config())
 
     # Destroying the temporary directory and its contents
