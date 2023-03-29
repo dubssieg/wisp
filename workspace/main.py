@@ -10,10 +10,12 @@ from workspace.create_database import build_database
 from workspace.create_model import make_model
 from workspace.create_sample import build_sample
 from workspace.create_prediction import make_prediction
-install(show_locals=True)
+
 
 parser: ArgumentParser = ArgumentParser(
     description='Bacteria family identification tool.', add_help=True)
+parser.add_argument(
+    "-l", "--locals", help="Display locals on error.", action='store_true')
 subparsers = parser.add_subparsers(
     help='Available subcommands', dest="subcommands")
 
@@ -88,6 +90,8 @@ def main() -> None:
         )
         exit(2)
 
+    install(show_locals=args.locals)
+
     if args.subcommands == 'build':
         print(
             "[dark_orange]Starting database creation"
@@ -105,7 +109,7 @@ def main() -> None:
         phylo_tree.show()
 
         nodes_per_level: dict = {level: [node.tag for node in list(phylo_tree.filter_nodes(
-            lambda x: phylo_tree.depth(x) == i))] for i, level in enumerate(['root', 'domain', 'phylum', 'group'], start=0)}
+            lambda x: phylo_tree.depth(x) == i))] for i, level in enumerate(['root', 'domain', 'phylum', 'group', 'order'], start=0)}
 
         print(
             "[dark_orange]Starting model creation"
@@ -126,7 +130,7 @@ def main() -> None:
                 node.data.model_path = model_path
                 node.data.config_path = config_path
             except KeyError:
-                pass
+                phylo_tree.remove_node(target_taxa.lower())
 
             # print(f"[dark_orange]Model for {target_taxa} (level {taxonomic_level}) sucessfully built @ {model_path}")
 

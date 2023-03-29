@@ -63,12 +63,12 @@ def encode_kmer(kmer: str) -> int:
 
 def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tree]:
     "Returns taxonomy position information"
-    taxo_info: list = Path(genome_path).stem.split('_')
+    taxo_info: list = Path(genome_path).stem.split('_')[:-1]
     for i, x in enumerate(parents := (['Root']+taxo_info)):
         if x != 'Root':
             try:
                 tree_struct.create_node(
-                    x, x.lower(), parent=parents[i-1].lower(), data=Taxonomy(['domain', 'phylum', 'group', 'order', 'familiy', 'genus'][i-1], x, None, None))
+                    x, x.lower(), parent=parents[i-1].lower(), data=Taxonomy(['domain', 'phylum', 'group', 'order', 'family'][i-1], x, None, None))
             except DuplicatedNodeIdError:
                 pass
     return {

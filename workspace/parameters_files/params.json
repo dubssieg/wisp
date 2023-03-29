@@ -1,5 +1,5 @@
 {
-    "read_size": 10000,
+    "read_size": 7000,
     "ksize": 4,
     "pattern": [
         1,

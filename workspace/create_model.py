@@ -28,7 +28,9 @@ def make_model(
     next_level: str = (levels := ["root", "domain", "phylum", "group", "order", "family", "specie"])[
         (levels).index(classification_level)+1]
 
-    if not classification_level in datas['mappings'] and classification_level != 'root':
+    print(f"Building {target_dataset} for next level {next_level}")
+
+    if not classification_level in datas['mappings'] and not classification_level == 'root':
         raise ValueError(
             f"Database does not contain {classification_level} level.")
 
