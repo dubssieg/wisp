@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 from sys import argv
 from os import walk, path
 from json import load
+from pickle import dump as pdump, load as pload
 from rich.traceback import install
 from rich import print
 from tharospytools import futures_collector
@@ -134,7 +135,10 @@ def main() -> None:
 
             # print(f"[dark_orange]Model for {target_taxa} (level {taxonomic_level}) sucessfully built @ {model_path}")
 
-        phylo_tree.show(data_property="model_path")
+        with open(phylo_path := f"{path.dirname(__file__)}/model/{args.database_name}_phylo_tree.txt", 'wb') as jtree:
+            pdump(phylo_tree, jtree)
+
+        print(f"[dark_orange]Finished computing models, tree @ {phylo_path}")
         exit(0)
 
     if args.subcommands == 'predict':
@@ -152,7 +156,14 @@ def main() -> None:
         print(
             f"[dark_orange]Query sucessfully built @ {output_path}"
         )
+
+        # Loading the phylogenetic tree
+        with open(phylo_path := f"{path.dirname(__file__)}/model/{args.database_name}_phylo_tree.txt", 'rb') as jtree:
+            tree = pload(jtree)
+
+        # tree.show(data_property="model_path")
         exit(126)
+
         results = make_prediction(
             "/usr/local/lib/python3.11/site-packages/workspace/model/test/Lactobacillales.json",
             "/usr/local/lib/python3.11/site-packages/workspace/model/test/Lactobacillales_params.json",
