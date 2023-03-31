@@ -162,7 +162,7 @@ def main() -> None:
         )
         print(results)
 
-        # Loading the phylogenetic tree
+        # Loading the phylogenetic tree from db file by parsing data
 
         # Loading the model in a booster
 

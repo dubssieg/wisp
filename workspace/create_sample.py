@@ -150,17 +150,85 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
     Returns:
         Counter: counts of kmers inside subread
     """
+    # Defining custom complementarity
+    complements: dict = {
+        'A': 'T',
+        'T': 'A',
+        'C': 'G',
+        'G': 'C',
+        'U': 'A',
+        'R': 'Y',
+        'Y': 'R',
+        'K': 'M',
+        'M': 'K',
+        'S': 'W',
+        'W': 'S',
+        'B': 'V',
+        'V': 'B',
+        'D': 'H',
+        'H': 'D',
+        'N': 'N'
+    }
 
     all_kmers: Generator = (entry[i:i+len(pattern)]
                             for i in range(len(entry)-len(pattern)-1))
     counts: Counter = Counter(all_kmers)
-    rev_counts: Counter = Counter({revcomp(k): v for k, v in counts.items()})
+    rev_counts: Counter = Counter(
+        {revcomp(k, compl=complements): v for k, v in counts.items()})
     counts += rev_counts
     del rev_counts
     if not all(pattern):
         # All positions in pattern should not be kept, we apply filter
-        counts = Counter({pattern_filter(k, pattern)
-                         : v for k, v in counts.items()})
+        counts = Counter({pattern_filter(k, pattern): v for k, v in counts.items()})
     for filtered_kmer in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
-        del counts[filtered_kmer]
-    return counts
+        if filtered_kmer in counts:
+            del counts[filtered_kmer]
+    # We treat cases where sequence alphabet is not ATCG
+    counts_purged: dict = {}
+    for key, count in counts.items():
+        list_of_keys: list = list()
+        splitted_key: list = [*key]
+        for x in splitted_key:
+            if x in ['A', 'T', 'C', 'G']:
+                nuct: list = [x]
+            elif x == 'U':
+                nuct: list = ['T']
+            elif x == 'R':
+                nuct: list = ['G', 'A']
+            elif x == 'Y':
+                nuct: list = ['C', 'T']
+            elif x == 'K':
+                nuct: list = ['G', 'T']
+            elif x == 'M':
+                nuct: list = ['A', 'C']
+            elif x == 'S':
+                nuct: list = ['G', 'C']
+            elif x == 'W':
+                nuct: list = ['A', 'T']
+            elif x == 'B':
+                nuct: list = ['G', 'T', 'C']
+            elif x == 'D':
+                nuct: list = ['G', 'T', 'A']
+            elif x == 'H':
+                nuct: list = ['A', 'T', 'C']
+            elif x == 'V':
+                nuct: list = ['G', 'A', 'C']
+            else:
+                nuct: list = ['A', 'T', 'C', 'G']
+            # Adding to the keys
+            # If list empty
+            if len(list_of_keys) == 0:
+                list_of_keys = nuct
+            else:
+                list_of_keys = [
+                    new_key+n for n in nuct for new_key in list_of_keys]
+        # Updating counts to stay with only ATGC counts
+        for prob_key in list_of_keys:
+            kmer_number: int = count//len(list_of_keys)
+            if prob_key in counts_purged:
+                counts_purged[prob_key] += kmer_number
+            else:
+                counts_purged[prob_key] = kmer_number
+    del counts
+    # We divide count by the number of keys we end up with to normalize
+    return Counter(counts_purged)
