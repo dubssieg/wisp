@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 from copy import copy
 from xgboost import Booster, config_context, DMatrix, train
-# from shutil import rmtree
 
 
 def make_model(
@@ -65,7 +64,7 @@ def make_model(
                 for read in sample['datas']:
                     # Each read is a dict with code:count for kmer
                     libsvm_writer.write(
-                        f"{mappings[sample[next_level]]} {' '.join([str(k)+':'+str(v) for k,v in read.items()])} #{sample[next_level]}")
+                        f"{mappings[sample[next_level]]} {' '.join([str(k)+':'+str(v) for k,v in read.items()])} #{sample[next_level]}\n")
 
     # Creating the model
     bst: Booster = train(

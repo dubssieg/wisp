@@ -50,7 +50,7 @@ def encode_kmer(kmer: str) -> int:
     return int(''.join([mapper[k] for k in kmer]))
 
 
-def build_sample(params_file: str, input_data: list[str]) -> str:
+def build_sample(params_file: str, dna_sequence: str, id_sequence: str) -> str:
     "Builds a json file with taxa levels as dict information"
     # Loading params file
     with open(params_file, 'r', encoding='utf-8') as pfile:
@@ -67,40 +67,32 @@ def build_sample(params_file: str, input_data: list[str]) -> str:
     Path(f"{path.dirname(__file__)}/databases/").mkdir(parents=True, exist_ok=True)
     with open(output_path := f"{path.dirname(__file__)}/databases/unk_sample_{str(time()).replace('.','_')}.txt", 'w', encoding='utf-8') as jdb:
 
-        # iterating over input genomes
-        for genome in input_data:
-            with open(genome, 'r', encoding='utf-8') as freader:
-                genome_data: dict = {fasta.id: str(fasta.seq)
-                                     for fasta in SeqIO.parse(freader, 'fasta')}
-            for id_sequence, dna_sequence in genome_data.items():
-                # Splitting of reads
-                if len(dna_sequence) >= params['read_size']:
-                    all_reads = splitting(
-                        dna_sequence,
-                        params['read_size'],
-                        params['sampling']
-                    )
-                    # Counting kmers inside each read
-                    counters: list[Counter] = [
-                        counter(
-                            read,
-                            params['ksize'],
-                            params['pattern']
-                        ) for read in all_reads
-                    ]
-                    del all_reads
+        all_reads = splitting(
+            dna_sequence,
+            params['read_size'],
+            params['sampling']
+        )
+        # Counting kmers inside each read
+        counters: list[Counter] = [
+            counter(
+                read,
+                params['ksize'],
+                params['pattern']
+            ) for read in all_reads
+        ]
+        del all_reads
 
-                    # Encoding reads for XGBoost
-                    encoded: list = [{my_encoder[k]:v for k, v in cts.items()}
-                                     for cts in counters]
-                    del counters
+        # Encoding reads for XGBoost
+        encoded: list = [{my_encoder[k]:v for k, v in cts.items()}
+                         for cts in counters]
+        del counters
 
-                    for sample in encoded:
-                        # Each read is a dict with code:count for kmer
-                        jdb.write(
-                            f"0 {' '.join([str(k)+':'+str(v) for k,v in sample.items()])} #{id_sequence}\n")
+        for sample in encoded:
+            # Each read is a dict with code:count for kmer
+            jdb.write(
+                f"0 {' '.join([str(k)+':'+str(v) for k,v in sample.items()])} #{id_sequence}\n")
 
-                    del encoded
+        del encoded
 
     return output_path
 

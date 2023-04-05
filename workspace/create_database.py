@@ -15,6 +15,7 @@ from tharospytools import revcomp
 @dataclass
 class Taxonomy:
     "Modelizes a taxa level"
+    code: int | None
     level: str
     name: str
     model_path: str | None
@@ -76,7 +77,7 @@ def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tre
         if x != 'Root':
             try:
                 tree_struct.create_node(
-                    x, f"{x.lower()}_{taxa[i]}", parent=f"{parents[i-1].lower()}_{taxa[i-1]}", data=Taxonomy(['domain', 'phylum', 'group', 'order', 'family'][i-1], x, None, None))
+                    x, f"{x.lower()}_{taxa[i]}", parent=f"{parents[i-1].lower()}_{taxa[i-1]}", data=Taxonomy(None, ['domain', 'phylum', 'group', 'order', 'family'][i-1], x, None, None))
             except DuplicatedNodeIdError:
                 pass
     return {
@@ -104,7 +105,7 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
     # creating phylogenetic tree
     phylo_tree: Tree = Tree()
     phylo_tree.create_node(
-        'Root', 'root_root', data=Taxonomy('Root', 'Root', None, None))
+        'Root', 'root_root', data=Taxonomy(0, 'Root', 'Root', None, None))
 
     # Writing the database
     json_datas: list = list()
@@ -147,7 +148,13 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
                     json_datas.append(
                         {**taxonomy, 'datas': encoded})
                     del encoded
-        dump({"mappings": mapping_sp(json_datas), "datas": json_datas}, jdb)
+        dump({"mappings": (taxa_codes := mapping_sp(
+            json_datas)), "datas": json_datas}, jdb)
+
+        for i, level in enumerate(['root', 'domain', 'phylum', 'group', 'order', 'family']):
+            for node in list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i)):
+                if node.data.code is None:
+                    node.data.code = taxa_codes[level][node.tag]
 
     return output_path, phylo_tree
 
@@ -252,8 +259,7 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
     del rev_counts
     if not all(pattern):
         # All positions in pattern should not be kept, we apply filter
-        counts = Counter({pattern_filter(k, pattern)
-                         : v for k, v in counts.items()})
+        counts = Counter({pattern_filter(k, pattern)                         : v for k, v in counts.items()})
     for filtered_kmer in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
         if filtered_kmer in counts:
             del counts[filtered_kmer]

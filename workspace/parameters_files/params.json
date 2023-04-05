@@ -1,5 +1,5 @@
 {
-    "read_size": 7000,
+    "read_size": 10000,
     "ksize": 4,
     "pattern": [
         1,
@@ -7,5 +7,6 @@
         1,
         1
     ],
-    "sampling": 1
+    "sampling": 500,
+    "threshold": 0.6
 }

@@ -35,7 +35,19 @@ def make_prediction(
 
 
 def softmax(predictions: ndarray, func: str, reads_threshold: float) -> list:
-    "Given a set of predictions, computes the consensus within it by ignoring some low-signifiance scores."
+    """Given a set of predictions, computes the consensus within it by ignoring some low-signifiance scores.
+
+    Args:
+        predictions (ndarray): array containing returns from the booster
+        func (str): the function used to discriminate reads
+        reads_threshold (float): between 0 and 1
+
+    Raises:
+        ValueError: if no read prediction is given (empty predictions array)
+
+    Returns:
+        list: a class for each read
+    """
 
     if reads_threshold <= 0:
         return [argmax(a) for a in predictions]
@@ -62,8 +74,7 @@ def softmax(predictions: ndarray, func: str, reads_threshold: float) -> list:
         raise ValueError(
             "There's no read to evaluate, your entry data might be broken.")
     elif not all(not p for p in ret):
-        print(
-            f"All reads with a threshold inferior at {reads_threshold} for function {func} have been purged.")
+        # print(f"All reads with a threshold inferior at {round(reads_threshold,ndigits=2)} for function {func} have been purged.")
         return ret
     else:
         return softmax(predictions, func, reads_threshold-0.05)
