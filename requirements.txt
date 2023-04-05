@@ -6,6 +6,5 @@ scipy
 scikit-learn
 seaborn
 biopython
-pdflatex
 rich
 treelib
