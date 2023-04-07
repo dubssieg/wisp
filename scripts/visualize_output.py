@@ -2,12 +2,39 @@
 from pickle import load as pload
 from json import load as jload
 from argparse import ArgumentParser, SUPPRESS
-from rich.traceback import install
-from treelib import Tree
 from pathlib import Path
 from os import path
+from rich.traceback import install
+from treelib import Tree
 from tharospytools import get_palette
-import plotly.graph_objects as go
+from plotly import graph_objects as go
+from dash import Dash, dcc, html
+
+
+def dash_app(fig, fig2, job_name: str = 'Job report'):
+
+    app: Dash = Dash()
+    app.layout = html.Div(
+        [html.H1(
+            children=job_name,
+            style={
+                'textAlign': 'center',
+                'color': 'deepslateblue'
+            }
+        ),
+            # html.Div([dcc.Graph(figure=fig)], style={'display': 'inline-block', 'width': '100%'}),
+            html.Div([
+                html.Div([
+                    dcc.Graph(figure=fig)], style={'display': 'inline-block', 'width': '70%'}
+                ),
+                html.Div([
+                    dcc.Graph(figure=fig2)], style={'display': 'inline-block', 'width': '30%'}
+                )
+            ], style={'align': 'center'})
+        ]
+    )
+
+    app.run_server(debug=True, use_reloader=True)
 
 
 def plot_report(phylo_path: str, json_report: str, output_path: str, reads_per_sample: int = 500) -> None:
@@ -43,9 +70,9 @@ def plot_report(phylo_path: str, json_report: str, output_path: str, reads_per_s
     color_links: list = list()
 
     palette_links = get_palette(
-        len(output_data)*2, cmap_name='Greens', as_hex=True)[::-1]
+        len(output_data)*2, cmap_name='Greens', as_hex=True)[:: -1]
     for idx_col, col in enumerate(palette_links):
-        r, g, b = tuple(int(col[1:][i:i+2], 16) for i in (0, 2, 4))
+        r, g, b = tuple(int(col[1:][i: i+2], 16) for i in (0, 2, 4))
         palette_links[idx_col] = f"rgba({r},{g},{b},0.2)"
 
     for idx_sample, (sequence, values) in enumerate(output_data.items()):
@@ -68,12 +95,48 @@ def plot_report(phylo_path: str, json_report: str, output_path: str, reads_per_s
                             value.append(count)
                             color_links.append(palette_links[idx_sample])
 
+    sunburst_counts: dict = dict()
+    for idx, v in enumerate(value):
+        if target[idx] in inv_map:
+            if inv_map[target[idx]] in sunburst_counts:
+                sunburst_counts[inv_map[target[idx]]] += v
+            else:
+                sunburst_counts[inv_map[target[idx]]] = v
+        else:
+            if 'REJECTED' in sunburst_counts:
+                sunburst_counts['REJECTED'] += v
+            else:
+                sunburst_counts['REJECTED'] = v
+
     value = [(v/reads_per_sample)*100 for v in value]
 
-    data = go.Sankey(link=dict(source=source, target=target, value=value, label=seqnames, color=color_links), node=dict(label=labels, color=color), valueformat=".0f",
-                     valuesuffix="%")
+    data_sankey = go.Sankey(link=dict(source=source, target=target, value=value, label=seqnames, color=color_links), node=dict(label=labels, color=color), valueformat=".0f",
+                            valuesuffix="%")
 
-    fig = go.Figure(data)
+    mappings_ancestors: dict = {
+        f"{node.tag}_{tree.depth(node)}": f"{tree.get_node(tree.ancestor(node.identifier)).tag}_{tree.depth(node)-1}" for i, node in enumerate(tree.all_nodes_itr()) if tree.depth(node) > 0
+    }
+    mappings_ancestors["REJECTED"] = "Root_0"
+    sunburst_points: list[str] = [
+        x for x in mappings_ancestors.keys()]
+    sunburst_parents: list[str] = [mappings_ancestors[x]
+                                   for x in sunburst_points]
+    sunburst_values: list[int] = [sunburst_counts[x]
+                                  if x in sunburst_counts else 0 for x in sunburst_points]
+    sunburst_labels: list[str] = [
+        f"{label.split('_')[0]}<br>{sunburst_values[i]}" for i, label in enumerate(sunburst_points)]
+
+    data_sunburst = go.Sunburst(ids=sunburst_points, labels=sunburst_labels,
+                                parents=sunburst_parents, values=sunburst_values, insidetextorientation='radial')
+
+    fig = go.Figure(data_sankey)
+
+    fig2 = go.Figure(data_sunburst)
+
+    fig2.update_layout(
+        margin=dict(t=0, l=0, r=0, b=0)
+    )
+    dash_app(fig, fig2)
 
     fig.write_html(
         path.join(output_path, f"{Path(json_report).stem}_graph.html"))
