@@ -117,7 +117,7 @@ def main() -> None:
             f"[dark_orange]Database sucessfully built @ {output_path}"
         )
 
-        phylo_tree.show(data_property='code')
+        phylo_tree.show()  # data_property='code'
 
         nodes_per_level: dict = {level: [node.tag for node in list(phylo_tree.filter_nodes(
             lambda x: phylo_tree.depth(x) == i))] for i, level in enumerate(['root', 'domain', 'phylum', 'group', 'order'], start=0)}

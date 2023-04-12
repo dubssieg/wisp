@@ -1,6 +1,6 @@
 "Creates a json database"
 from collections import Counter
-from json import load, dump
+from json import load, dumps
 from os import path
 from pathlib import Path
 from typing import Generator
@@ -111,13 +111,15 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
     json_datas: list = list()
     Path(f"{path.dirname(__file__)}/databases/").mkdir(parents=True, exist_ok=True)
     with open(output_path := f'{path.dirname(__file__)}/databases/{database_name}.json', 'w', encoding='utf-8') as jdb:
+        jdb.write("{\n")
+        jdb.write("\"datas\":[")
 
         # iterating over input genomes
-        for genome in input_data:
+        for id_genome, genome in enumerate(input_data):
             with open(genome, 'r', encoding='utf-8') as freader:
                 genome_data: list = [str(fasta.seq)
                                      for fasta in SeqIO.parse(freader, 'fasta')]
-            for dna_sequence in genome_data:
+            for id_dna, dna_sequence in enumerate(genome_data):
                 # Splitting of reads
                 if len(dna_sequence) >= params['read_size']:
                     all_reads = splitting(
@@ -145,11 +147,22 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
                     # Dumping in output file
                     taxonomy, phylo_tree = taxonomy_information(
                         genome, phylo_tree)
-                    json_datas.append(
-                        {**taxonomy, 'datas': encoded})
+
+                    if id_dna or id_genome:
+                        jdb.write(','+dumps({**taxonomy, 'datas': encoded}))
+                    else:
+                        jdb.write(dumps({**taxonomy, 'datas': encoded}))
+
                     del encoded
-        dump({"mappings": (taxa_codes := mapping_sp(
-            json_datas)), "datas": json_datas}, jdb)
+
+            if 'taxonomy' in locals():
+                json_datas.append({**taxonomy})
+            del genome_data
+
+        # Writing taxonomy to file
+        jdb.write("],\"mappings\": ")
+        jdb.write(dumps(taxa_codes := mapping_sp(json_datas)))
+        jdb.write("\n}")
 
         for i, level in enumerate(['root', 'domain', 'phylum', 'group', 'order', 'family']):
             for node in list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i)):
@@ -259,7 +272,8 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
     del rev_counts
     if not all(pattern):
         # All positions in pattern should not be kept, we apply filter
-        counts = Counter({pattern_filter(k, pattern)                         : v for k, v in counts.items()})
+        counts = Counter({pattern_filter(k, pattern)
+                         : v for k, v in counts.items()})
     for filtered_kmer in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
         if filtered_kmer in counts:
             del counts[filtered_kmer]
