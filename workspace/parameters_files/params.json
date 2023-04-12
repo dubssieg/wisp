@@ -7,6 +7,6 @@
         1,
         1
     ],
-    "sampling": 500,
+    "sampling": 100,
     "threshold": 0.6
 }
