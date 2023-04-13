@@ -119,41 +119,43 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
             with open(genome, 'r', encoding='utf-8') as freader:
                 genome_data: list = [str(fasta.seq)
                                      for fasta in SeqIO.parse(freader, 'fasta')]
-            for id_dna, dna_sequence in enumerate(genome_data):
-                # Splitting of reads
-                if len(dna_sequence) >= params['read_size']:
-                    all_reads = splitting(
-                        dna_sequence,
-                        params['read_size'],
-                        params['sampling']
-                    )
-                    # Counting kmers inside each read
-                    counters: list[Counter] = [
-                        counter(
-                            read,
-                            params['ksize'],
-                            params['pattern']
-                        ) for read in all_reads
-                    ]
-                    del all_reads
+                # Merging all seqs together
+                dna_sequence = ''.join([seq for seq in genome_data])
 
-                    # Cleaning
+            # Splitting of reads
+            if len(dna_sequence) >= params['read_size']:
+                all_reads = splitting(
+                    dna_sequence,
+                    params['read_size'],
+                    params['sampling']
+                )
+                # Counting kmers inside each read
+                counters: list[Counter] = [
+                    counter(
+                        read,
+                        params['ksize'],
+                        params['pattern']
+                    ) for read in all_reads
+                ]
+                del all_reads
 
-                    # Encoding reads for XGBoost
-                    encoded: list = [{my_encoder[k]:v for k, v in cts.items()}
-                                     for cts in counters]
-                    del counters
+                # Cleaning
 
-                    # Dumping in output file
-                    taxonomy, phylo_tree = taxonomy_information(
-                        genome, phylo_tree)
+                # Encoding reads for XGBoost
+                encoded: list = [{my_encoder[k]:v for k, v in cts.items()}
+                                 for cts in counters]
+                del counters
 
-                    if id_dna or id_genome:
-                        jdb.write(','+dumps({**taxonomy, 'datas': encoded}))
-                    else:
-                        jdb.write(dumps({**taxonomy, 'datas': encoded}))
+                # Dumping in output file
+                taxonomy, phylo_tree = taxonomy_information(
+                    genome, phylo_tree)
 
-                    del encoded
+                if id_genome:
+                    jdb.write(','+dumps({**taxonomy, 'datas': encoded}))
+                else:
+                    jdb.write(dumps({**taxonomy, 'datas': encoded}))
+
+                del encoded
 
             if 'taxonomy' in locals():
                 json_datas.append({**taxonomy})
@@ -272,8 +274,7 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
     del rev_counts
     if not all(pattern):
         # All positions in pattern should not be kept, we apply filter
-        counts = Counter({pattern_filter(k, pattern)
-                         : v for k, v in counts.items()})
+        counts = Counter({pattern_filter(k, pattern)                         : v for k, v in counts.items()})
     for filtered_kmer in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
         if filtered_kmer in counts:
             del counts[filtered_kmer]
