@@ -68,7 +68,7 @@ def build_sample(params_file: str, dna_sequence: str, id_sequence: str) -> str:
     with open(output_path := f"{path.dirname(__file__)}/databases/unk_sample_{str(time()).replace('.','_')}.txt", 'w', encoding='utf-8') as jdb:
 
         all_reads = splitting(
-            dna_sequence,
+            dna_sequence.upper(),
             params['read_size'],
             params['sampling']
         )

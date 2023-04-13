@@ -120,7 +120,7 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
                 genome_data: list = [str(fasta.seq)
                                      for fasta in SeqIO.parse(freader, 'fasta')]
                 # Merging all seqs together
-                dna_sequence = ''.join([seq for seq in genome_data])
+                dna_sequence = (''.join([seq for seq in genome_data])).upper()
 
             # Splitting of reads
             if len(dna_sequence) >= params['read_size']:
