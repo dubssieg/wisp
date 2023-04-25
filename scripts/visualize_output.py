@@ -4,11 +4,13 @@ from json import load as jload
 from argparse import ArgumentParser, SUPPRESS
 from pathlib import Path
 from os import path
+from random import choice
 from rich.traceback import install
 from treelib import Tree
 from tharospytools import get_palette
 from plotly import graph_objects as go
 from dash import Dash, dcc, html
+from warnings import filterwarnings
 
 
 def dash_app(fig, fig2, job_name: str = 'Job report'):
@@ -37,7 +39,7 @@ def dash_app(fig, fig2, job_name: str = 'Job report'):
     app.run_server(debug=True, use_reloader=True)
 
 
-def plot_report(phylo_path: str, json_report: str, output_path: str, reads_per_sample: int = 500) -> None:
+def plot_report(phylo_path: str, json_report: str, output_path: str, reads_per_sample: int = 100, showing_rejected: bool = False, cutoff: int = 50) -> None:
     """Plots a interactive diagram for reads
 
     Args:
@@ -76,24 +78,25 @@ def plot_report(phylo_path: str, json_report: str, output_path: str, reads_per_s
         palette_links[idx_col] = f"rgba({r},{g},{b},0.2)"
 
     for idx_sample, (sequence, values) in enumerate(output_data.items()):
-        if values == "REJECTED":
+        if values == "REJECTED" and showing_rejected:
             seqnames.append(sequence)
             source.append(0)
             target.append(len(labels)-1)
             value.append(reads_per_sample)
-            color_links.append(palette_links[idx_sample])
-        else:
+            color_links.append('black')
+        elif values != 'REJECTED':
             for idx_level, level in enumerate(values):
                 for taxa_level, results_per_level in level.items():
                     for taxunum, count in results_per_level.items():
-                        if f"{taxunum}_{idx_level+1}" in mappings_taxa:
-                            seqnames.append(sequence)
-                            source.append(
-                                mappings_taxa[f"{taxa_level}_{idx_level}"])
-                            target.append(
-                                mappings_taxa[f"{taxunum}_{idx_level+1}"])
-                            value.append(count)
-                            color_links.append(palette_links[idx_sample])
+                        if count >= cutoff:
+                            if f"{taxunum}_{idx_level+1}" in mappings_taxa:
+                                seqnames.append(sequence)
+                                source.append(
+                                    mappings_taxa[f"{taxa_level}_{idx_level}"])
+                                target.append(
+                                    mappings_taxa[f"{taxunum}_{idx_level+1}"])
+                                value.append(count)
+                                color_links.append(choice(palette_links))
 
     sunburst_counts: dict = dict()
     for idx, v in enumerate(value):
@@ -156,5 +159,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     install(show_locals=True)
+    filterwarnings("ignore", category=DeprecationWarning)
 
     plot_report(args.taxonomy, args.report, args.output)

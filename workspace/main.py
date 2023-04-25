@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from argparse import ArgumentParser
 from sys import argv
-from os import walk, path
+from os import walk, path, remove
 from json import load, dump
 from pickle import dump as pdump, load as pload
 from rich.traceback import install
@@ -143,7 +143,7 @@ def main() -> None:
             except KeyError:
                 phylo_tree.remove_node(target_taxa.lower())
 
-            # print(f"[dark_orange]Model for {target_taxa} (level {taxonomic_level}) sucessfully built @ {model_path}")
+        # Cleaning temp files
 
         with open(phylo_path := f"{path.dirname(__file__)}/model/{args.database_name}_phylo_tree.txt", 'wb') as jtree:
             pdump(phylo_tree, jtree)
@@ -219,6 +219,9 @@ def main() -> None:
                     kept_taxas = [lower_taxa for counter in results[i].values(
                     ) for lower_taxa, count in counter.items() if count > threshold*sum(list(counter.values()))]
                 prediction_results[id_read] = results
+
+                # Cleaning temp files
+                remove(sample_path)
 
             with open(report_path := path.join(args.output_folder, f"{Path(genome).stem}_job_output.json"), 'w', encoding='utf-8') as jwriter:
                 dump(prediction_results, jwriter)

@@ -1,7 +1,7 @@
 "Creates a json database"
 from collections import Counter
 from json import load, dumps
-from os import path
+from os import path, remove
 from pathlib import Path
 from typing import Generator
 from itertools import product
@@ -139,8 +139,6 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
                 ]
                 del all_reads
 
-                # Cleaning
-
                 # Encoding reads for XGBoost
                 encoded: list = [{my_encoder[k]:v for k, v in cts.items()}
                                  for cts in counters]
@@ -274,7 +272,7 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
     del rev_counts
     if not all(pattern):
         # All positions in pattern should not be kept, we apply filter
-        counts = Counter({pattern_filter(k, pattern)                         : v for k, v in counts.items()})
+        counts = Counter({pattern_filter(k, pattern): v for k, v in counts.items()})
     for filtered_kmer in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
         if filtered_kmer in counts:
             del counts[filtered_kmer]

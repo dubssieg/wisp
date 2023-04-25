@@ -1,5 +1,5 @@
 "Creates the XGB models"
-from os import path
+from os import path, remove
 from pathlib import Path
 from typing import Any
 from copy import copy
@@ -82,7 +82,7 @@ def make_model(
         jwriter.write(bst.save_config())
 
     # Destroying the temporary directory and its contents
-    # rmtree(temp_dir)
+    remove(temp_dataset)
 
     # returning the target file
     return model_output_path, config_output_path
