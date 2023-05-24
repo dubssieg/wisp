@@ -111,6 +111,9 @@ def plot_report(phylo_path: str, json_report: str, output_path: str, reads_per_s
             else:
                 sunburst_counts['REJECTED'] = v
 
+    print(sunburst_counts, file=open(path.join(output_path,
+          f"{Path(json_report).stem}_counts.json"), 'w', encoding='utf-8'))
+
     value = [(v/reads_per_sample)*100 for v in value]
 
     data_sankey = go.Sankey(link=dict(source=source, target=target, value=value, label=seqnames, color=color_links), node=dict(label=labels, color=color), valueformat=".0f",
@@ -135,6 +138,11 @@ def plot_report(phylo_path: str, json_report: str, output_path: str, reads_per_s
     fig = go.Figure(data_sankey)
 
     fig2 = go.Figure(data_sunburst)
+
+    fig.write_image(
+        path.join(output_path, f"{Path(json_report).stem}_sankey_diag.svg"))
+    fig2.write_image(
+        path.join(output_path, f"{Path(json_report).stem}_sunburst_diag.svg"))
 
     fig2.update_layout(
         margin=dict(t=0, l=0, r=0, b=0)
