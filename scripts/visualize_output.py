@@ -135,22 +135,46 @@ def plot_report(phylo_path: str, json_report: str, output_path: str, reads_per_s
     data_sunburst = go.Sunburst(ids=sunburst_points, labels=sunburst_labels,
                                 parents=sunburst_parents, values=sunburst_values, insidetextorientation='radial')
 
-    fig = go.Figure(data_sankey)
+    layout = go.Layout(
+        autosize=False,
+        width=800,
+        height=2000
+    )
+    layout2 = go.Layout(
+        autosize=False,
+        width=1000,
+        height=1000
+    )
 
-    fig2 = go.Figure(data_sunburst)
+    fig = go.Figure(data_sankey, layout=layout)
+
+    fig2 = go.Figure(data_sunburst, layout=layout2)
+
+    fig.update_layout(
+        margin=dict(t=0, l=0, r=0, b=0),
+        font=dict(
+            # family="Courier New, monospace",
+            size=8,  # Set the font size here
+            color="RebeccaPurple"
+        )
+    )
+    fig2.update_layout(
+        margin=dict(t=0, l=0, r=0, b=0),
+        font=dict(
+            # family="Courier New, monospace",
+            size=8,  # Set the font size here
+            color="RebeccaPurple"
+        )
+    )
 
     fig.write_image(
         path.join(output_path, f"{Path(json_report).stem}_sankey_diag.svg"))
     fig2.write_image(
         path.join(output_path, f"{Path(json_report).stem}_sunburst_diag.svg"))
 
-    fig2.update_layout(
-        margin=dict(t=0, l=0, r=0, b=0)
-    )
-    dash_app(fig, fig2)
+    # dash_app(fig, fig2)
 
-    fig.write_html(
-        path.join(output_path, f"{Path(json_report).stem}_graph.html"))
+    # fig.write_html(path.join(output_path, f"{Path(json_report).stem}_graph.html"))
 
 
 if __name__ == '__main__':

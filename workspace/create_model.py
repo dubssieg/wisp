@@ -82,7 +82,7 @@ def make_model(
         jwriter.write(bst.save_config())
 
     # Destroying the temporary directory and its contents
-    remove(temp_dataset)  # pas au bon moment dans la loop?
+    # remove(temp_dataset)  # pas au bon moment dans la loop?
 
     # returning the target file
     return model_output_path, config_output_path
