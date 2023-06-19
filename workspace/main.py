@@ -136,14 +136,14 @@ def main() -> None:
         for i, (model_path, config_path) in enumerate(retcodes):
             _, _, taxonomic_level, target_taxa = fargs[i]
 
-            try:
-                node = phylo_tree[f"{target_taxa.lower()}_{taxonomic_level}"]
-                node.data.model_path = model_path
-                node.data.config_path = config_path
-            except KeyError:
-                phylo_tree.remove_node(target_taxa.lower())
+            if model_path is not None and config_path is not None:
 
-        # Cleaning temp files
+                try:
+                    node = phylo_tree[f"{target_taxa.lower()}_{taxonomic_level}"]
+                    node.data.model_path = model_path
+                    node.data.config_path = config_path
+                except KeyError:
+                    phylo_tree.remove_node(target_taxa.lower())
 
         with open(phylo_path := f"{path.dirname(__file__)}/model/{args.database_name}_phylo_tree.txt", 'wb') as jtree:
             pdump(phylo_tree, jtree)
@@ -229,6 +229,4 @@ def main() -> None:
             print(
                 f"[dark_orange]Job on file {Path(genome).stem} ended sucessfully, report @ {report_path}"
             )
-
         exit(0)
-<
