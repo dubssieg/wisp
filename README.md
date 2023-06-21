@@ -1,10 +1,8 @@
-<p align="center">
 [![](https://img.shields.io/badge/python-3.10-blue.svg)]()
 [![](https://img.shields.io/badge/python-3.11-blue.svg)]()
 [![](https://img.shields.io/badge/documentation-unfinished-orange.svg)]()
 [![](https://img.shields.io/badge/comments-finished-green.svg)]()
 [![](https://img.shields.io/badge/build-stable-green.svg)]()
-</p>
 
 # WISP : binning of bacterial long-read signatures
 
