@@ -80,6 +80,12 @@ Two scripts come along, in the `scripts` folder.
 - `download_refseq.py` downloads, from a refseq assembly file, the representative genomes, and annotates them by thier classification (NCBI taxonomy)
 - `visualize_output.py` renders a html file with graphs from a .json, output of the `wisp predict` command
 
+URL to [refseq assembly file for **bacteria**](https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt)
+
+## Core idea
+
+Given a set of reference genomes, annotated with their taxonomy, this program samples a set of 10kb lectures in each reference genome. Each sample is fractured in k-mers, which are counted : those counts are the features for the model. We train the model on many samples, in order to try to extract a k-mer signature for each specie in our reference genomes.
+Then, when we want to predict, we apply the same treatment to our lectures, and we try to compute a list of classes that can be associated to the unknown sample. Once the upper classification level is determined, we move on to a lower one, until we reach family. If the confidence score is high enough, we may explore multiple branches of the taxonomy.
 
 ## Tasks
 
@@ -91,7 +97,8 @@ Two scripts come along, in the `scripts` folder.
 - [x] Build files + new argument parser (#9a6a118)
 - [ ] Put the remaining parameters in code in the parameters file
 - [ ] Validation of parameters + definition of default parameters in parameters file
-- [ ] Validate scalability (currently database holds with 14k reference genomes/prediction holds with 1M+ reads)
+- [ ] Explore if using the full DNA alphabet (implemented) is better than solely A, T, C and G
+- [ ] Validate scalability (database build holds with 14k reference genomes/prediction with 1M+ reads)
 - [ ] Find ways to reject less reads (assembly?) because all reads inferior to length threshold are rejected
 - [ ] Otherwise, find appropriate parameters for shorter reads, and validate those
 - [ ] Validate quality of results with mock communities, damaged mock communities, then real data
