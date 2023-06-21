@@ -9,7 +9,6 @@
 - [ ] Trouver un moyen de rejeter moins de lectures (pour le moment, ce qui est en dessous du seuil est rejeté : penser à de l'assemblage en amont ?)
 - [ ] Effectuer les prédictions par batches et plus une à une
 
-
 ## Tests
 
 - [ ] Tests unitaires sur les fonctions d'encodage, de gestion des arbres taxonomiques
