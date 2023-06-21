@@ -1,5 +1,10 @@
+"Builds predictions from reads"
+from os import remove
+from collections import Counter
 from xgboost import Booster, DMatrix
 from numpy import argmax, amax, mean, ndarray
+from treelib import Tree
+from workspace.create_sample import build_sample
 
 
 def make_prediction(
@@ -78,3 +83,53 @@ def softmax(predictions: ndarray, func: str, reads_threshold: float) -> list:
         return ret
     else:
         return softmax(predictions, func, reads_threshold-0.05)
+
+
+def prediction(id_sequence: str, dna_sequence: str, params: dict, tree: Tree, threshold: float, parameters: str) -> str | list:
+    """Creates a prediction for a read.
+
+    Args:
+        id_sequence (str): identifier for sequence (fasta header)
+        dna_sequence (str): the full DNA sequence
+        params (dict): params global dict
+        tree (Tree): taxonomy tree built before
+        threshold (float): threshold to consider a taxa as accurate
+        parameters (str): path to parameters file
+
+    Returns:
+        str | list: prediction results
+    """
+    if len(dna_sequence) >= params['read_size']:
+        # Creating the sample
+        sample_output_path: str = build_sample(
+            parameters,
+            dna_sequence,
+            id_sequence
+        )
+    else:
+        return 'REJECTED'
+
+    # Evaluate at one level
+    results: list[dict] = [{} for _ in range(5)]
+    kept_taxas: list = ['Root']
+    for i, _ in enumerate(['root', 'domain', 'phylum', 'group', 'order'], start=0):
+        mappings_taxa: dict = {
+            node.data.code: node.tag for node in tree.filter_nodes(lambda x: tree.depth(x) == i+1)}
+        # Use the tree to select next level
+        for taxa in tree.filter_nodes(lambda x: tree.depth(x) == i):
+            if taxa.tag in kept_taxas:
+                # print(f"Processing {taxa.tag} @ {level}")
+                results[i][taxa.tag] = {mappings_taxa[key]: value for key, value in Counter(make_prediction(
+                    taxa.data.model_path,
+                    taxa.data.config_path,
+                    sample_output_path,
+                    normalisation_func='delta_mean',
+                    read_identity_threshold=0.8
+                )).items() if key is not False}
+        kept_taxas = [lower_taxa for counter in results[i].values(
+        ) for lower_taxa, count in counter.items() if count > threshold*sum(list(counter.values()))]
+
+    # Cleaning temp files
+    remove(sample_output_path)
+
+    return results
