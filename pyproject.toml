@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wisp"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
   { name="Tharos", email="dubois.siegfried@gmail.com" },
 ]

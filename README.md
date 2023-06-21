@@ -1,8 +1,17 @@
+<p align="center">
+[![](https://img.shields.io/badge/python-3.10-blue.svg)]()
+[![](https://img.shields.io/badge/python-3.11-blue.svg)]()
+[![](https://img.shields.io/badge/documentation-unfinished-orange.svg)]()
+[![](https://img.shields.io/badge/comments-finished-green.svg)]()
+[![](https://img.shields.io/badge/build-stable-green.svg)]()
+</p>
+
 # WISP : binning of bacterial long-read signatures
 
 <img align="right" src=https://github.com/Tharos-ux/wisp/blob/master/preview/WISP.png alt="wisp logo" width="300"/>
 
 This Python program is meant to determine to which taxa a bacteria is belonginig to, from long reads (>10.000bp), solely based upon alignment-free methods. As of now, the main focus is upon kmers proportions. It aims to do binning over a collection of samples, giving possible class to each read.
+It is a rebranching of a [master 1 internship project](https://github.com/Tharos-ux/wisp/tree/master), done on free time. Concept has not evolved since, but code was redesign for better comprehension.
 
 Currently, five levels of taxa are implemented : **domain**, **phylum**, **group**, **order** and **family**.
 Once a model finished at a given taxa level, it aims to do another iteration from previous results, excluding non-matching reference genomes.
@@ -14,8 +23,8 @@ The core functionnalities relies on a class probabiliy attribution to discrimina
 ## Installing software
 
 ```bash
-git clone git@github.com:Tharos-ux/wisp.git
-cd wisp
+git clone -b v0.1.0 --single-branch git@github.com:Tharos-ux/wisp.git
+cd wisp/
 python -m pip install . --quiet
 ```
 
@@ -96,9 +105,11 @@ Then, when we want to predict, we apply the same treatment to our lectures, and 
 - [x] Report system (#c07c7af)
 - [x] Build files + new argument parser (#9a6a118)
 - [ ] Put the remaining parameters in code in the parameters file
+- [ ] Test coverage
 - [ ] Validation of parameters + definition of default parameters in parameters file
 - [ ] Explore if using the full DNA alphabet (implemented) is better than solely A, T, C and G
 - [ ] Validate scalability (database build holds with 14k reference genomes/prediction with 1M+ reads)
 - [ ] Find ways to reject less reads (assembly?) because all reads inferior to length threshold are rejected
 - [ ] Otherwise, find appropriate parameters for shorter reads, and validate those
+- [ ] Increase speed by computing predictions by batches instead of one-by-one
 - [ ] Validate quality of results with mock communities, damaged mock communities, then real data

@@ -13,7 +13,7 @@ if CURRENT_PYTHON < REQUIRED_PYTHON:
 
 setup(
     name=NAME,
-    version='0.1.0',
+    version='0.1.1',
     description='XGBoost bacteria families identification',
     url='https://github.com/Tharos-ux/wisp',
     author='Tharos',
