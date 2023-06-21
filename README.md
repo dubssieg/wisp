@@ -112,3 +112,4 @@ Then, when we want to predict, we apply the same treatment to our lectures, and 
 - [ ] Otherwise, find appropriate parameters for shorter reads, and validate those
 - [ ] Increase speed by computing predictions by batches instead of one-by-one
 - [ ] Validate quality of results with mock communities, damaged mock communities, then real data
+- [ ] Integrate result plotting module to command line tool
