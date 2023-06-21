@@ -65,7 +65,7 @@ def build_sample(params_file: str, dna_sequence: str, id_sequence: str) -> str:
 
     # Writing the database
     Path(f"{path.dirname(__file__)}/databases/").mkdir(parents=True, exist_ok=True)
-    with open(output_path := f"{path.dirname(__file__)}/databases/unk_sample_{str(time()).replace('.','_')}.txt", 'w', encoding='utf-8') as jdb:
+    with open(output_path := f"{path.dirname(__file__)}/databases/unk_sample_{str(time()).replace('.','_')}_{id_sequence.replace(' ','_')}.txt", 'w', encoding='utf-8') as jdb:
 
         all_reads = splitting(
             dna_sequence.upper(),

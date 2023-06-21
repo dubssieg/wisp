@@ -1,4 +1,4 @@
-# WISP : binning of bacterial long-read signatures with XGBoost 
+# WISP : binning of bacterial long-read signatures
 
 <img align="right" src=https://github.com/Tharos-ux/wisp/blob/master/preview/WISP.png alt="wisp logo" width="300"/>
 
@@ -10,3 +10,88 @@ Once a model finished at a given taxa level, it aims to do another iteration fro
 The core functionnalities relies on a class probabiliy attribution to discriminate reads that might not be good indicators for our specie to be determined. As many other options, you can choose the ratio and the selection function to suit best your biological context.
 
 **WISP is research software**. If you want to use it, please source the code. 
+
+## Installing software
+
+```bash
+git clone git@github.com:Tharos-ux/wisp.git
+cd wisp
+python -m pip install . --quiet
+```
+
+## Usage
+
+```bash
+usage: wisp [-h] [-l] {build,predict} ...
+
+Bacteria family identification tool.
+
+Subcommands:
+  {build,predict}  Available subcommands
+    build          Creates the database from the specified set of files.
+    predict        Creates the samples and evaluates them.
+
+Global Arguments:
+  -h, --help       show this help message and exit
+  -l, --locals     Display locals on error.
+```
+
+The command `build` allows to create models from a set of reference genomes.
+
+```bash
+usage: wisp build [-h] [-p PARAMETERS] database_name input_folder
+
+positional arguments:
+  database_name         Name for database
+  input_folder          Input folder containig reference genomes
+
+options:
+  -h, --help            show this help message and exit
+  -p PARAMETERS, --parameters PARAMETERS
+                        Specifies a parameter file
+```
+
+The command `predict` offers to predict taxonomy of sample from computed models.
+
+```bash
+usage: wisp predict [-h] [-p PARAMETERS] database_name input_folder output_folder
+
+positional arguments:
+  database_name         Name for database
+  input_folder          Input folder containig unknown genomes
+  output_folder         Input folder containig reference genomes
+
+options:
+  -h, --help            show this help message and exit
+  -p PARAMETERS, --parameters PARAMETERS
+                        Specifies a parameter file
+```
+
+## Project architecture
+
+All code about binning is in the `workspace` folder.
+- `main.py` is the main loop and argument parser
+- `create_database.py` contains function to index the reference genomes
+- `create_model.py` contains the functions to create XGboost models from the index
+- `create_sample.py` contains the functions to create the dataset for the reads we want to predict
+- `create_prediction.py` contains the functions to make prediction on the sample dataset with models
+
+Two scripts come along, in the `scripts` folder.
+- `download_refseq.py` downloads, from a refseq assembly file, the representative genomes, and annotates them by thier classification (NCBI taxonomy)
+- `visualize_output.py` renders a html file with graphs from a .json, output of the `wisp predict` command
+
+
+## Tasks
+
+- [x] Proof-of-concept
+- [x] Minimal docs + docstings
+- [x] Add multithreading on database build (#2fab1e3)
+- [x] Add multithreading on prediction (#9dbf868)
+- [x] Report system (#c07c7af)
+- [x] Build files + new argument parser (#9a6a118)
+- [ ] Put the remaining parameters in code in the parameters file
+- [ ] Validation of parameters + definition of default parameters in parameters file
+- [ ] Validate scalability (currently database holds with 14k reference genomes/prediction holds with 1M+ reads)
+- [ ] Find ways to reject less reads (assembly?) because all reads inferior to length threshold are rejected
+- [ ] Otherwise, find appropriate parameters for shorter reads, and validate those
+- [ ] Validate quality of results with mock communities, damaged mock communities, then real data
