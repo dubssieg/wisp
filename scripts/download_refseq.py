@@ -21,9 +21,14 @@ def download_from_ncbi(summary_file: str, genomes_path: str, email: str, start: 
         # Skipping the two first lines
         next(summary_reader)
         next(summary_reader)
+
         for i, line in enumerate(summary_reader):
-            if i > start and 'representative genome' in line:  # Only keeping representative genomes
+            if i == 0 :
+                print(line)
+            if i > start and 'complete genome' in line.lower():  # Only keeping representative genomes
+
                 split = line.split()
+
                 try:
                     https_wget = [
                         elt for elt in split if elt.startswith('https')][0]
