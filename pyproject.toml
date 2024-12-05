@@ -16,7 +16,28 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+license = { file = "LICENSE" }  # Ajoutez cette ligne
+
+dependencies = [
+    "tharos-pytools",
+    "xgboost",
+    "matplotlib",
+    "numpy",
+    "scipy",
+    "scikit-learn",
+    "seaborn",
+    "biopython",
+    "rich",
+    "treelib",
+    "plotly"
+]
+
 
 [project.urls]
 "Homepage" = "https://github.com/Tharos-ux/wisp"
 "Bug Tracker" = "https://github.com/Tharos-ux/wisp/issues"
+
+
+[project.scripts]
+wisp = "workspace.main:main"
+

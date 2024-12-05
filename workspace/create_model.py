@@ -1,4 +1,4 @@
-"Creates the XGB models"
+"""Creates the XGB models"""
 from os import path, remove
 from pathlib import Path
 from typing import Any
@@ -16,7 +16,7 @@ def make_model(
         eta: float = 0.3,
         maximum_depth: int = 10
 ) -> tuple[str | None, str | None]:
-    "Builds the model and saves it"
+    """Builds the model and saves it"""
     # Creating the booster
     config_context(
         booster='gbtree',

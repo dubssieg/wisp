@@ -9,10 +9,14 @@ from rich.traceback import install
 from rich import print
 from treelib import Tree
 from Bio import SeqIO
-from tharospytools import futures_collector
+from tharospytools.multithreading import futures_collector
 from workspace.create_database import build_database
 from workspace.create_model import make_model
 from workspace.create_prediction import prediction
+
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+
 
 
 parser: ArgumentParser = ArgumentParser(
@@ -89,9 +93,13 @@ parser_prediction.add_argument(
 
 args = parser.parse_args()
 
+from rich.traceback import install
+install(show_locals=args.locals)
 
 def main() -> None:
     "Main call for subprograms"
+    print("ARGS_"*10)
+    print(args)
     if len(argv) == 1:
         print(
             "[red]You need to provide a command and its arguments for the program to work.\n"
@@ -114,8 +122,11 @@ def main() -> None:
         print(
             f"[dark_orange]Database sucessfully built @ {output_path}"
         )
-
+        # phylo_tree.show(data_property='ascii')
         phylo_tree.show()  # data_property='code'
+        tree_dict = phylo_tree.to_dict()
+        print(tree_dict)
+        # phylo_tree.save("phylo_tree.txt")
 
         nodes_per_level: dict = {level: [node.tag for node in list(phylo_tree.filter_nodes(
             lambda x: phylo_tree.depth(x) == i))] for i, level in enumerate(['root', 'domain', 'phylum', 'group', 'order'], start=0)}
@@ -142,8 +153,9 @@ def main() -> None:
                     node.data.config_path = config_path
                 except KeyError:
                     phylo_tree.remove_node(target_taxa.lower())
-
-        with open(phylo_path := f"{path.dirname(__file__)}/model/{args.database_name}_phylo_tree.txt", 'wb') as jtree:
+        phylo_path = "/home/hcourtei/Projects/MicroTaxo/codes/envwisp/lib/python3.12/site-packages/workspace/model/resfseq_phylo_tree.txt"
+        # = f"{path.dirname(__file__)}/model/{args.database_name}_phylo_tree.txt"
+        with open(phylo_path, 'wb') as jtree:
             pdump(phylo_tree, jtree)
 
         print(f"[dark_orange]Finished computing models, tree @ {phylo_path}")
@@ -190,3 +202,5 @@ def main() -> None:
                 f"[dark_orange]Job on file {Path(genome).stem} ended sucessfully, report @ {report_path}"
             )
         exit(0)
+
+main()

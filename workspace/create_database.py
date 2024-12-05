@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from Bio import SeqIO
 from treelib import Tree
 from treelib.exceptions import DuplicatedNodeIdError
-from tharospytools import revcomp
+from tharospytools.bio_tools import revcomp
 
 
 @dataclass

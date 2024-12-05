@@ -1,9 +1,9 @@
-"Download genomes from NCBI."
+"""Download genomes from NCBI."""
 from os import system
 from argparse import ArgumentParser, SUPPRESS
 from rich.traceback import install
 from Bio import SeqIO, Entrez
-
+import time
 
 def download_from_ncbi(summary_file: str, genomes_path: str, email: str, start: int = 0) -> None:
     """Download all genomes from a file, assumming its a standard NCBI summary file
@@ -14,6 +14,9 @@ def download_from_ncbi(summary_file: str, genomes_path: str, email: str, start: 
         start (int, optional): A line number where to start from. Defaults to 0.
     """
     Entrez.email = email
+    nb = 0
+    all_duration = list()
+    time_start = time.time()
     with open(summary_file, "r", encoding='utf-8') as summary_reader:
         # Skipping the two first lines
         next(summary_reader)

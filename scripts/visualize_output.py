@@ -1,4 +1,4 @@
-"Aims to display results in a Sankey graph"
+"""Aims to display results in a Sankey graph"""
 from pickle import load as pload
 from json import load as jload
 from argparse import ArgumentParser, SUPPRESS
@@ -7,7 +7,7 @@ from os import path
 from random import choice
 from rich.traceback import install
 from treelib import Tree
-from tharospytools import get_palette
+from tharospytools.matplotlib_tools import get_palette
 from plotly import graph_objects as go
 from dash import Dash, dcc, html
 from warnings import filterwarnings
@@ -111,8 +111,7 @@ def plot_report(phylo_path: str, json_report: str, output_path: str, reads_per_s
             else:
                 sunburst_counts['REJECTED'] = v
 
-    print(sunburst_counts, file=open(path.join(output_path,
-          f"{Path(json_report).stem}_counts.json"), 'w', encoding='utf-8'))
+    print(sunburst_counts, file=open(path.join(output_path, f"{Path(json_report).stem}_counts.json"), 'w', encoding='utf-8'))
 
     value = [(v/reads_per_sample)*100 for v in value]
 

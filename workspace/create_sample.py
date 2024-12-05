@@ -7,7 +7,7 @@ from os import path
 from json import load
 from collections import Counter
 from Bio import SeqIO
-from tharospytools import revcomp
+from tharospytools.bio_tools import revcomp
 
 
 def validate_parameters(params: dict) -> bool:

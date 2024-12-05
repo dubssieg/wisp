@@ -22,7 +22,7 @@ setup(
     package_data={'': ['parameters_files/params.json']},
     include_package_data=True,
     zip_safe=False,
-    license="LICENSE",
+    license="MIT",
     long_description=open("README.md", encoding='utf-8').read(),
     long_description_content_type='text/markdown',
     install_requires=['tharos-pytools', 'xgboost', 'matplotlib', 'numpy',
