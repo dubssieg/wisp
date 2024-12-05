@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from argparse import ArgumentParser, SUPPRESS
 
 def download_genome(genomes_path, partial_url, end_url):
-    command = f"wget -P {genomes_path} {partial_url}/{end_url}_genomic.fna.gz -nv"  # && gzip -d {genomes_path}/{end_url}_genomic.fna.gz")
+    command = f"wget -P {genomes_path} {partial_url}/{end_url}_genomic.fna.gz -nv > /dev/null 2>&1"  # && gzip -d {genomes_path}/{end_url}_genomic.fna.gz")
     process = subprocess.Popen(command, shell=True)
     process.wait()  # Wait for the process to finish before returning
     return process.returncode, partial_url
@@ -58,7 +58,7 @@ def download_from_ncbi(summary_file: str, genomes_path: str, start: int = 0, max
 
                     if nb % logging_time == 0:
                         avg_time = round((time.time() - time_start) / nb, 1)
-                        print(f"Global download time at iter {nb} : {avg_time} s")
+                        print(f"avg download time per file, at iter {nb} : {avg_time} s")
             # Wait for all futures to complete
             for future in as_completed(futures):
                 try:
@@ -86,6 +86,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     download_from_ncbi(args.summary_file, args.output, args.start, args.nbThreads)
+    # >> python download_refseq_optim.py  assembly_summary.txt -o /groups/microtaxo/data/refseq/ -s 0 -n 10
     # download_from_ncbi('assembly_summary.txt',
     #                    '/home/hcourtei/Projects/MicroTaxo/codes/data/refseq',
     #                    0,
