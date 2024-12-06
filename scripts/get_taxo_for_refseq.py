@@ -3,6 +3,8 @@ import os
 from Bio import SeqIO, Entrez
 from argparse import ArgumentParser
 import tqdm
+
+
 def get_taxo_name_refseq(genomes_dir: str) -> None:
     """get taxonomy name for genomes from NCBI
     Args:
