@@ -3,7 +3,7 @@
 import time
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from argparse import ArgumentParser, SUPPRESS
+from argparse import ArgumentParser
 
 
 def download_genome(genomes_path, https_wget):
@@ -60,6 +60,7 @@ def download_all_url_from_ncbi(summary_file: str,
                                chunk_size: int = 5000,
                                max_parallel: int = 5,
                                logging_time: int = 100) -> None:
+
     all_url_file = get_valid_urls_from_ncbi(summary_file)
     grouped_urls_list = [all_url_file[i:i + chunk_size] for i in range(0, len(all_url_file), chunk_size)]
 
@@ -104,11 +105,9 @@ def get_valid_urls_from_ncbi(summary_file: str):
 if __name__ == '__main__':
     parser = ArgumentParser(add_help=False)
     parser.add_argument("summary_file", type=str, help="Path to NCBI summary ftp file.")
-    parser.add_argument('-h', '--help', action='help', default=SUPPRESS,
-                        help='Download and rename a set of reference genomes')
     parser.add_argument("-o", "--output", help="Specify a output folder", required=True)
     args = parser.parse_args()
-
+    ## python assembly_summary.txt -o /groups/microtaxo/data/refseq
 
     download_all_url_from_ncbi(summary_file=args.summary_file,
                                genomes_rootdir=args.output,
