@@ -2,11 +2,11 @@
 import os
 from Bio import SeqIO, Entrez
 from argparse import ArgumentParser
-from multiprocessing import Pool
+# from multiprocessing import Pool
 from tqdm import tqdm
 import logging
 from functools import partial
-import time
+# import time
 import gzip
 import shutil
 
@@ -93,16 +93,16 @@ def get_taxo_name_refseq(input_dir: str , subgroup: str) -> None:
 
 if __name__ == '__main__':
 
-    # parser = ArgumentParser(add_help=False)
+    parser = ArgumentParser(add_help=False)
     # parser.add_argument(
     #     "-d", "--datadir", help="Specify a output folder", required=True)
-    #
-    # args = parser.parse_args()
-    id_group = 1
-    datadir = "/groups/microtaxo/data/refseq"\
+    parser.add_argument(
+        "-i", "--id_group", help="Specify a output folder", required=True, type=int, default=0)
+    args = parser.parse_args()
+    id_group = args.id_group
+    datadir = "/groups/microtaxo/data/refseq"
               #"/home/hcourtei/Projects/MicroTaxo/codes/data/refseq"  # args.datadir
-    subgroups = sorted(os.listdir(datadir))
-    print(subgroups)
+
 
     log_file = f"{datadir}/taxonomy_downloader{id_group}.log"
     logging.basicConfig(
@@ -115,7 +115,8 @@ if __name__ == '__main__':
         ]
     )
     logger = logging.getLogger(__name__)
-
+    subgroups = sorted(os.listdir(datadir))
+    logger.info(f"subdir {subgroups}")
     # max_processes = 4  # Nombre de processus parallèles
     # logger.info(f"Starting processing with {max_processes} processes for {len(subgroups)} subgroups")
 
