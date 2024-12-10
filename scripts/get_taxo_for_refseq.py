@@ -99,7 +99,8 @@ if __name__ == '__main__':
     #
     # args = parser.parse_args()
     id_group = 1
-    datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq"  # args.datadir
+    datadir = "/groups/microtaxo/data/refseq"\
+              #"/home/hcourtei/Projects/MicroTaxo/codes/data/refseq"  # args.datadir
     subgroups = sorted(os.listdir(datadir))
     print(subgroups)
 
