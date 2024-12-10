@@ -1,10 +1,24 @@
 """Download genomes from NCBI."""
-
+import os
 import time
 import subprocess
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from argparse import ArgumentParser
 
+log_file = "genome_downloader.log"
+if os.path.exists(log_file):
+    os.remove(log_file)
+
+logging.basicConfig(
+    level=logging.INFO,  # Change to DEBUG for more detailed logs
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%H:%M",  # Format de l'heure : heures et minutes
+    handlers=[logging.FileHandler("genome_downloader.log"),  # Logs to a file
+              logging.StreamHandler()  # Logs to consol
+             ]
+)
+logger = logging.getLogger(__name__)
 
 def download_genome(genomes_path, https_wget):
     partial_url = https_wget[8:]
@@ -44,16 +58,14 @@ def download_grouped_url_from_ncbi(grouped_url: list,
 
             if nb % logging_time == 0:
                 avg_time = round((time.time() - time_start) / nb, 1)
-                print(f"Avg download time per file, at iter {nb} : {avg_time} s")
-        # Wait for all futures to complete
+                logger.info(f"Avg download time per file, at iter {nb}: {avg_time} s")        # Wait for all futures to complete
         for future in as_completed(futures):
             try:
                 return_code, url = future.result()
                 if return_code != 0:
-                    print(f"Error downloading {url}, return code: {return_code}")
+                    logger.error(f"Error downloading {url}, return code: {return_code}")
             except Exception as exc:
-                print(f"Exception occurred during download: {exc}")
-
+                logger.exception(f"Exception occurred during download: {exc}")
 
 def download_all_url_from_ncbi(summary_file: str,
                                genomes_rootdir: str,
@@ -67,12 +79,12 @@ def download_all_url_from_ncbi(summary_file: str,
     for id_group, grouped_urls in enumerate(grouped_urls_list):
         genomes_dir = f"{genomes_rootdir}/group_{id_group}"
         start = time.time()
-        print("=" * 60)
-        print(f"Download group {id_group} of url to {genomes_dir}")
+        logger.info("=" * 60)
+        logger.info(f"Download group {id_group} of url to {genomes_dir}")
         download_grouped_url_from_ncbi(grouped_urls, genomes_dir, max_parallel, logging_time)
         duration = time.time() - start
-        print(f"Downloaded group {id_group} of size {chunk_size} in {round(duration / 60)} min ")
-        print("=" * 60)
+        logger.info(f"Downloaded group {id_group} of size {chunk_size} in {round(duration / 60)} min ")
+        logger.info("=" * 60)
 
 
 def get_valid_urls_from_ncbi(summary_file: str):
@@ -96,8 +108,8 @@ def get_valid_urls_from_ncbi(summary_file: str):
                 https_wget = https_urls[0]
                 all_url_file.append(https_wget)
         nb_lines = idx
-        print(f" Extracted from {summary_file} Nb entries : {nb_lines}, "
-              f"nb with 'complete genome' {nb_complete} , and with https {nb_complete_with_https}")
+        logger.info(f"Extracted from {summary_file} Nb entries: {nb_lines}, "
+                    f"nb with 'complete genome': {nb_complete}, and with https: {nb_complete_with_https}")
 
     return all_url_file
 
@@ -107,10 +119,16 @@ if __name__ == '__main__':
     parser.add_argument("summary_file", type=str, help="Path to NCBI summary ftp file.")
     parser.add_argument("-o", "--output", help="Specify a output folder", required=True)
     args = parser.parse_args()
-    ## python assembly_summary.txt -o /groups/microtaxo/data/refseq
+    # > python download_refseq_optim.py assembly_summary.txt -o /groups/microtaxo/data/refseq
 
-    download_all_url_from_ncbi(summary_file=args.summary_file,
-                               genomes_rootdir=args.output,
-                               chunk_size=5000,
-                               max_parallel=10,
+    # summary_file = "assembly_summary.txt" #args.summary_file
+    # genomes_rootdir = args.outputs #"/home/hcourtei/Projects/MicroTaxo/codes/data/refseq"
+    # all_url_file = get_valid_urls_from_ncbi("assembly_summary.txt")
+    # chunk_size = 5000
+    # grouped_urls_list = [all_url_file[i:i + chunk_size] for i in range(0, len(all_url_file), chunk_size)]
+
+    download_all_url_from_ncbi(summary_file=args.summary_file ,
+                               genomes_rootdir= args.output,
+                               chunk_size=1000,
+                               max_parallel=5,
                                logging_time=200)
