@@ -10,7 +10,16 @@ from tqdm import tqdm
 from argparse import ArgumentParser
 import yaml
 
-log_file = "unzip_and_get_taxo.log"
+parser = ArgumentParser(add_help=False)
+parser.add_argument( "-datadir", type=str, help="Path to refseq zipped data .gz")
+parser.add_argument("-group_id", type=int,  help="Specify a output folder")
+parser.add_argument("-batchsize", type=int,  help="Specify a output folder")
+
+args = parser.parse_args()
+# > python get_taxo_by_batch.py -datadir /groups/microtaxo/data/refseq -group_id 0 -batchsize 100
+
+
+log_file = f"unzip_and_get_taxo_group_{args.group_id}.log"
 if os.path.exists(log_file):
     os.remove(log_file)
 
@@ -26,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 
-def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100, api_key=None, mail=None) -> int:
+def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100, api_key=None, mail=None, verbose=False) -> int:
     """
     Get taxonomy name for genomes from NCBI using batch requests.
 
@@ -74,7 +83,8 @@ def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100, api_
 
     # Étape 2 : Récupération des informations de taxonomie par batch
     accessions = list(accession_map.keys())
-    logger.info(f"Nb input acessions {len(accessions)} , unique {len(np.unique(np.array(accessions)))}")
+    if verbose:
+        logger.info(f"Nb input acessions {len(accessions)} , unique {len(np.unique(np.array(accessions)))}")
     for i in tqdm(range(0, len(accessions), batch_size), desc="Fetching taxonomy data"):
         batch = accessions[i:i + batch_size]
         try:
@@ -86,7 +96,8 @@ def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100, api_
                     decompressed_path = accession_map.get(accession)
                     taxonomy = record.annotations.get('taxonomy', [])
                     organism = record.annotations.get('organism', "Unknown Organism")
-                    logger.info(f"Batch{i}, idx {idx }record.id {record.id} accession {accession} taxo len {len(taxonomy)}")
+                    if verbose:
+                        logger.info(f"Batch {i}, idx {idx} record.id {record.id} taxo len {len(taxonomy)}")
 
                     if not taxonomy:
                         logger.warning(f"Warning: No taxonomy found for accession {accession}.")
@@ -113,7 +124,8 @@ def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100, api_
 
                         try:
                             os.rename(decompressed_path, final_path)
-                            logger.info(f"Renamed: {os.path.basename(decompressed_path)} -> {os.path.basename(final_path)}")
+                            if verbose:
+                                logger.info(f"Renamed: {os.path.basename(decompressed_path)} -> {os.path.basename(final_path)}")
                             nb_convert += 1
                         except Exception as e:
                             logger.error(f"Error renaming file {os.path.basename(decompressed_path)} "
@@ -132,14 +144,6 @@ def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100, api_
 
 time_start = time.time()
 
-parser = ArgumentParser(add_help=False)
-parser.add_argument( "-datadir", type=str, help="Path to refseq zipped data .gz")
-parser.add_argument("-group_id", type=int,  help="Specify a output folder")
-parser.add_argument("-batchsize", type=int,  help="Specify a output folder")
-
-args = parser.parse_args()
-# > python get_taxo_by_batch.py -datadir /groups/microtaxo/data/refseq -group_id 0 -batchsize 100
-
 datadir = args.datadir #"/home/hcourtei/Projects/MicroTaxo/codes/data/refseq"  # args.datadir "/groups/microtaxo/data/refseq"
 subgroups = natsorted(os.listdir(datadir))
 group_id = args.group_id #1
@@ -153,7 +157,8 @@ with open(yaml_file, 'r') as file:
 mail = credentials.get("mail")
 api_key = credentials.get("api_key")
 
-nb_convert = get_taxo_by_batch(datadir, subgroups[group_id], batchsize, api_key, mail)
+nb_convert = get_taxo_by_batch(datadir, subgroups[group_id], batchsize, api_key, mail, verbose=False)
 duration = time.time() - time_start
 logger.info(f" Get Taxo for {datadir}, 'group_id' {group_id}")
-logger.info(f" {nb_convert} files with taxo, extract in {duration} s")
+logger.info(f" {nb_convert} files with taxo, extract in {round(duration/60)} min")
+# 19:13 - INFO -  5000 files with taxo, extract in 91 min
