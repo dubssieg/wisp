@@ -4,20 +4,29 @@ import shutil
 import time
 from natsort import natsorted
 from Bio import Entrez, SeqIO
-from tqdm import tqdm
 import logging
-
-# Configuration du logger
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-from Bio import Entrez, SeqIO
-import os
-import gzip
-import shutil
+import numpy as np
 from tqdm import tqdm
+from argparse import ArgumentParser
+import yaml
+
+log_file = "unzip_and_get_taxo.log"
+if os.path.exists(log_file):
+    os.remove(log_file)
+
+logging.basicConfig(
+    level=logging.INFO,  # Change to DEBUG for more detailed logs
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%H:%M",  # Format de l'heure : heures et minutes
+    handlers=[logging.FileHandler(log_file),  # Logs to a file
+              logging.StreamHandler()  # Logs to consol
+             ]
+)
+logger = logging.getLogger(__name__)
 
 
-def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100) -> None:
+
+def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100, api_key=None, mail=None) -> int:
     """
     Get taxonomy name for genomes from NCBI using batch requests.
 
@@ -27,8 +36,8 @@ def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100) -> N
         batch_size (int): Number of accessions to fetch in a single request.
     """
     # Configurer les paramètres Bio.Entrez
-    Entrez.email = "hermann.courteille@inria.fr"  # Remplacez par votre email
-    Entrez.api_key = "b55513ab1634ec527ccf1ec084f3b1c78108"
+    Entrez.email = mail  # Remplacez par votre email
+    Entrez.api_key = api_key #""
     Entrez.max_tries = 5
     Entrez.sleep_between_tries = 15
     nb_convert = 0
@@ -58,94 +67,93 @@ def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100) -> N
                 decompressed_files.append(decompressed_path)
 
             if decompressed_path is None:
-                print(f"Warning: Accession {accession} not found in accession_map {decompressed_files}")
+                logger.warning(f"Warning: Accession {accession} not found in accession_map {decompressed_files}")
 
         except Exception as e:
-            print(f"Error decompressing {genome_file}: {e}")
+            logger.error(f"Error decompressing {genome_file}: {e}")
 
     # Étape 2 : Récupération des informations de taxonomie par batch
     accessions = list(accession_map.keys())
-    print(accessions)
-    import numpy as np
-    A = np.array(accessions)
-    print(f"Nb input acessions {len(accessions)} , unique {len(np.unique(A))}")
+    logger.info(f"Nb input acessions {len(accessions)} , unique {len(np.unique(np.array(accessions)))}")
     for i in tqdm(range(0, len(accessions), batch_size), desc="Fetching taxonomy data"):
         batch = accessions[i:i + batch_size]
-
-        # try:
-        #     with Entrez.efetch(db="nucleotide", id=batch, rettype="gb", retmode="text") as taxo_handle:
-        #         records = SeqIO.parse(taxo_handle, 'genbank')
-
         try:
             with Entrez.efetch(db="nucleotide", id=batch, rettype="gb", retmode="text") as taxo_handle:
                 # records = SeqIO.read(taxo_handle, 'genbank')
                 records = SeqIO.parse(taxo_handle, 'genbank')
-                # for record in records:
-                #     accession = record.id.split('.')[0]
-                #     classif = record.annotations.get('taxonomy', [])
-                #     organism = record.annotations.get('organism', "Unknown Organism")
                 for idx , record in enumerate(records):
                     accession = record.id.split('.')[0]  # Exclure la partie après le point
                     decompressed_path = accession_map.get(accession)
                     taxonomy = record.annotations.get('taxonomy', [])
                     organism = record.annotations.get('organism', "Unknown Organism")
-                    print(f"Batch{i}, idx {idx }record.id {record.id} accession {accession} taxo len {len(taxonomy)}")
+                    logger.info(f"Batch{i}, idx {idx }record.id {record.id} accession {accession} taxo len {len(taxonomy)}")
+
                     if not taxonomy:
-                        print(f"Warning: No taxonomy found for accession {accession}.")
+                        logger.warning(f"Warning: No taxonomy found for accession {accession}.")
                         os.remove(decompressed_path)
                         continue
 
                     order = next((e for e in taxonomy if e.endswith('ales')), None)
-                    group = taxonomy[2] if len(taxonomy) > 2 and not taxonomy[2].endswith('ales') else taxonomy[1]
+
                     if order:
+                        regne, phylum = taxonomy[0], taxonomy[1]
+                        group = taxonomy[2] if len(taxonomy) > 2 and not taxonomy[2].endswith('ales') else taxonomy[1]
+
                         # Construction du nom de fichier de sortie
-                        file_name = f"{taxonomy[0]}_{taxonomy[1]}_{group}_{order}_{organism.replace(' ', '_')}.fna"
+                        file_name = f"{regne}_{phylum}_{group}_{order}_{organism.replace(' ', '_')}.fna"
                         final_path = os.path.join(output_dir, subgroup, file_name)
-                        print(f"order {order} group {group} ")
-                        id_file = 0
+                        logger.info(f"order {order} group {group} ")
+                        id_file = 1
                         temp_final_path = final_path
                         while os.path.exists(temp_final_path):
+                            temp_final_path = f"{final_path.rsplit('.fna', 1)[0]}_{id_file}.fna"
                             id_file +=1
-                            temp_final_path =f"{final_path}_{id_file}"
 
-                        final_path =temp_final_path
-                        if id_file>0:
-                            print(f"Target file rename with id_file {id_file} ")
+                        final_path = temp_final_path
 
                         try:
                             os.rename(decompressed_path, final_path)
-                            print(f"Renamed: {decompressed_path} -> {final_path}")
+                            logger.info(f"Renamed: {decompressed_path} -> {final_path}")
                             nb_convert += 1
                         except Exception as e:
-                            print(
-                                f"Error renaming file {os.path.basename(decompressed_path)} -> {os.path.basename(final_path)}: {e}")
+                            logger.error(f"Error renaming file {os.path.basename(decompressed_path)} "
+                                  f"-> {os.path.basename(final_path)}: {e}")
                     else:
-                        print(f" no order {order} group {group} ")
-
+                        logger.warning(f" no order {order} group {group} e.endswith('ales')")
                         # Suppression des fichiers sans ordre ales valide
                         os.remove(decompressed_path)
-                        print(f"Removed {os.path.basename(decompressed_path)} (sans ordre ales)")
-
+                        logger.warning(f"Removed {os.path.basename(decompressed_path)}")
 
         except Exception as e:
-                print(f"Error fetching or parsing data for accession {accession}: {e}")
+                logger.error(f"Error fetching or parsing data for accession {accession}: {e}")
                 continue
 
-
     return  nb_convert
-    # # Nettoyage des fichiers restants non traités
-    # for file in decompressed_files:
-    #     if os.path.exists(file):
-    #         os.remove(file)
-    #         print(f"Removed unprocessed file: {file}")
 
 time_start = time.time()
 
-datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq"  # args.datadir "/groups/microtaxo/data/refseq"
+parser = ArgumentParser(add_help=False)
+parser.add_argument( "-datadir", type=str, help="Path to refseq zipped data .gz")
+parser.add_argument("-group_id", type=int,  help="Specify a output folder")
+parser.add_argument("-batchsize", type=int,  help="Specify a output folder")
+
+args = parser.parse_args()
+
+datadir = args.datadir #"/home/hcourtei/Projects/MicroTaxo/codes/data/refseq"  # args.datadir "/groups/microtaxo/data/refseq"
 subgroups = natsorted(os.listdir(datadir))
-group_id = 1
-batch_size = 10
-nb_convert = get_taxo_by_batch(datadir, subgroups[group_id], batch_size)
+group_id = args.group_id #1
+batch_size = args.batchsize
+# Chemin vers le fichier YAML
+yaml_file = "NCBI_credentials.yaml"
+
+with open(yaml_file, 'r') as file:
+    credentials = yaml.safe_load(file)
+
+mail = credentials.get("mail")
+api_key = credentials.get("api_key")
+
+nb_convert = get_taxo_by_batch(datadir, subgroups[group_id], batch_size, api_key, mail)
+
 duration = time.time() - time_start
-print(f" Get Taxo for {datadir}, 'group_id' {group_id}")
-print(f" nb_convert in output dir : {nb_convert}")
+logger.info(f" Get Taxo for {datadir}, 'group_id' {group_id}")
+logger.info(f" {nb_convert} files with taxo, extract in {duration} s")

@@ -14,7 +14,7 @@ logging.basicConfig(
     level=logging.INFO,  # Change to DEBUG for more detailed logs
     format="%(asctime)s - %(levelname)s - %(message)s",
     datefmt="%H:%M",  # Format de l'heure : heures et minutes
-    handlers=[logging.FileHandler("genome_downloader.log"),  # Logs to a file
+    handlers=[logging.FileHandler(log_file),  # Logs to a file
               logging.StreamHandler()  # Logs to consol
              ]
 )
