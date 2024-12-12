@@ -102,7 +102,7 @@ def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100, api_
                         # Construction du nom de fichier de sortie
                         file_name = f"{regne}_{phylum}_{group}_{order}_{organism.replace(' ', '_')}.fna"
                         final_path = os.path.join(output_dir, subgroup, file_name)
-                        logger.info(f"order {order} group {group} ")
+                        # logger.info(f"order {order} group {group} ")
                         id_file = 1
                         temp_final_path = final_path
                         while os.path.exists(temp_final_path):
@@ -113,7 +113,7 @@ def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100, api_
 
                         try:
                             os.rename(decompressed_path, final_path)
-                            logger.info(f"Renamed: {decompressed_path} -> {final_path}")
+                            logger.info(f"Renamed: {os.path.basename(decompressed_path)} -> {os.path.basename(final_path)}")
                             nb_convert += 1
                         except Exception as e:
                             logger.error(f"Error renaming file {os.path.basename(decompressed_path)} "
@@ -138,11 +138,12 @@ parser.add_argument("-group_id", type=int,  help="Specify a output folder")
 parser.add_argument("-batchsize", type=int,  help="Specify a output folder")
 
 args = parser.parse_args()
+# > python get_taxo_by_batch.py -datadir /groups/microtaxo/data/refseq -group_id 0 -batchsize 100
 
 datadir = args.datadir #"/home/hcourtei/Projects/MicroTaxo/codes/data/refseq"  # args.datadir "/groups/microtaxo/data/refseq"
 subgroups = natsorted(os.listdir(datadir))
 group_id = args.group_id #1
-batch_size = args.batchsize
+batchsize = args.batchsize
 # Chemin vers le fichier YAML
 yaml_file = "NCBI_credentials.yaml"
 
@@ -152,8 +153,7 @@ with open(yaml_file, 'r') as file:
 mail = credentials.get("mail")
 api_key = credentials.get("api_key")
 
-nb_convert = get_taxo_by_batch(datadir, subgroups[group_id], batch_size, api_key, mail)
-
+nb_convert = get_taxo_by_batch(datadir, subgroups[group_id], batchsize, api_key, mail)
 duration = time.time() - time_start
 logger.info(f" Get Taxo for {datadir}, 'group_id' {group_id}")
 logger.info(f" {nb_convert} files with taxo, extract in {duration} s")
