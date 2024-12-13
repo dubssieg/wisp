@@ -161,4 +161,6 @@ nb_convert = get_taxo_by_batch(datadir, subgroups[group_id], batchsize, api_key,
 duration = time.time() - time_start
 logger.info(f" Get Taxo for {datadir}, 'group_id' {group_id}")
 logger.info(f" {nb_convert} files with taxo, extract in {round(duration/60)} min")
+# 19:13 - INFO -  Get Taxo for /groups/microtaxo/data/refseq, 'group_id' 0
+
 # 19:13 - INFO -  5000 files with taxo, extract in 91 min
