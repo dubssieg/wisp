@@ -11,9 +11,9 @@ from argparse import ArgumentParser
 import yaml
 
 parser = ArgumentParser(add_help=False)
-parser.add_argument( "-datadir", type=str, help="Path to refseq zipped data .gz")
-parser.add_argument("-group_id", type=int,  help="Specify a output folder")
-parser.add_argument("-batchsize", type=int,  help="Specify a output folder")
+# parser.add_argument( "-datadir", type=str, help="Path to refseq zipped data .gz")
+parser.add_argument("-group_id", type=int, default=1,  help="Specify a output folder")
+# parser.add_argument("-batchsize", type=int,  help="Specify a output folder")
 
 args = parser.parse_args()
 # > python get_taxo_by_batch.py -datadir /groups/microtaxo/data/refseq -group_id 0 -batchsize 100
@@ -143,11 +143,11 @@ def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100, api_
     return  nb_convert
 
 time_start = time.time()
-
-datadir = args.datadir #"/home/hcourtei/Projects/MicroTaxo/codes/data/refseq"  # args.datadir "/groups/microtaxo/data/refseq"
+datadir =  "/groups/microtaxo/data/refseq" #"/home/hcourtei/Projects/MicroTaxo/codes/data/refseq"  # #
+# # args.datadir #"/home/hcourtei/Projects/MicroTaxo/codes/data/refseq"  # args.datadir "/groups/microtaxo/data/refseq"
 subgroups = natsorted(os.listdir(datadir))
 group_id = args.group_id #1
-batchsize = args.batchsize
+batchsize = 100 #args.batchsize
 # Chemin vers le fichier YAML
 yaml_file = "NCBI_credentials.yaml"
 
