@@ -148,7 +148,7 @@ subgroups = natsorted(os.listdir(datadir))
 group_id = args.group_id #1
 batchsize = 100 #args.batchsize
 # Chemin vers le fichier YAML
-yaml_file = "NCBI_credentials.yaml"
+yaml_file = "../../scripts/NCBI_credentials.yaml"
 
 
 with open(yaml_file, 'r') as file:

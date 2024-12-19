@@ -1,21 +1,30 @@
-import time
-
 from natsort import natsorted
 import logging
 from tqdm import tqdm
-from argparse import ArgumentParser
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
 
+log_file = f"scan_for_taxo_stat.log"
+if os.path.exists(log_file):
+    os.remove(log_file)
 
+logging.basicConfig(
+    level=logging.INFO,  # Change to DEBUG for more detailed logs
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%H:%M",  # Format de l'heure : heures et minutes
+    handlers=[logging.FileHandler(log_file),  # Logs to a file
+              logging.StreamHandler()  # Logs to consol
+             ]
+)
+logger = logging.getLogger(__name__)
 
 def scan_for_taxo(datadir):
     # Initialiser une liste pour stocker les informations extraites
     data = []
     subgroups = natsorted(os.listdir(datadir))
-    print("GROUP in this data dir" , subgroups)
+    logger.info("GROUP in this data dir" , subgroups)
     # Parcourir tous les sous-répertoires et fichiers
     for root, dirs, files in tqdm(os.walk(datadir)):
         for file_name in files:
@@ -48,7 +57,8 @@ def scan_for_taxo(datadir):
 
     # Créer un DataFrame pandas à partir des données
     columns = ["Groupe", "Règne", "Phylum", "Ordre", "Famille", "Genre", "Espèce", "ID"]
-    print("Extraction terminée pour les colonnes ", ' '.join(columns))
+    # from 'root', 'domain', 'phylum', 'group', 'order', 'family'
+    logger.info("Extraction terminée pour les colonnes ", ' '.join(columns))
 
     raw_df = pd.DataFrame(data, columns=columns)
     return raw_df
@@ -87,15 +97,18 @@ def plot_family_counts(family_counts):
 
 if __name__ == '__main__':
 
-    datadir = "/groups/microtaxo/data/refseq_unzip_with_taxo" # "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_unzip_with_taxo"  #    # #
-    stat_dir = os.path.join(os.path.dirname(datadir), 'stat_'+os.path.basename(datadir))
-    os.makedirs(stat_dir, exist_ok=True)
-    raw_df = scan_for_taxo(datadir)
+    # datadir = "/groups/microtaxo/data/refseq_unzip_with_taxo" # "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_unzip_with_taxo"  #    # #
+    # stat_dir = os.path.join(os.path.dirname(datadir), 'stat_'+os.path.basename(datadir))
+    # os.makedirs(stat_dir, exist_ok=True)
+    # raw_df = scan_for_taxo(datadir)
+    #
+    # counts, total_counts_over_group, family_counts = compute_counts(raw_df)
+    # raw_df.to_csv(os.path.join(stat_dir,"raw_taxonomy_data.csv"), index=False, sep= ";")
+    # total_counts_over_group.to_csv(os.path.join(stat_dir,"total_counts_over_group.csv"), index=False, sep=";")
+    # family_counts.to_csv(os.path.join(stat_dir, "family_counts.csv"), index=False, sep=";")
+    # print(f"All stat save in {stat_dir}")
 
-    counts, total_counts_over_group, family_counts = compute_counts(raw_df)
-    raw_df.to_csv(os.path.join(stat_dir,"raw_taxonomy_data.csv"), index=False, sep= ";")
-    total_counts_over_group.to_csv(os.path.join(stat_dir,"total_counts_over_group.csv"), index=False, sep=";")
-    family_counts.to_csv(os.path.join(stat_dir, "family_counts.csv"), index=False, sep=";")
-    print(f"All stat save in {stat_dir}")
-
+    # reload
+    stat_dir = "/stat_refseq_unzip_with_taxo"
+    family_counts = pd.read_csv(os.path.join(stat_dir, "family_counts.csv"), sep=";")
     plot_family_counts(family_counts)
