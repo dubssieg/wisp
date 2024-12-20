@@ -1,5 +1,7 @@
 # Downloading RefSeq bacteria
 
+> wget https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt -o {output_dir}
+
 ## OLD from Siegfried
 
 1. Download the file at [https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt](https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt)
