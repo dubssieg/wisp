@@ -18,7 +18,7 @@ def get_taxo_name_refseq(input_dir: str , subgroup: str) -> None:
     Args:
         genomes_dir (str): Path to folder with raw genomes xxx.fna.gz
     """
-    output_dir = input_dir + '_unzip_with_taxo'
+    output_dir = input_dir + '_with_taxo'
 
     Entrez.email = "hermann.courteille@irisa.fr"
     input_dir_sub= os.path.join(input_dir, subgroup)

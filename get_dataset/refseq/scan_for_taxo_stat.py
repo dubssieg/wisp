@@ -4,8 +4,6 @@ import pandas as pd
 from natsort import natsorted
 from tqdm import tqdm
 
-from wisp.get_dataset.refseq.try_gzip import output_file
-
 
 def scan_for_taxo(datadir):
     # Initialiser une liste pour stocker les informations extraites
@@ -54,12 +52,12 @@ def scan_for_taxo(datadir):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description="Taxonomy Data Processor")
-    parser.add_argument("--datadir", type=str, help="Path to the data directory",
-                        default="/groups/microtaxo/data/refseq_unzip_with_taxo")
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser(description="Taxonomy Data Processor")
+    # parser.add_argument("--datadir", type=str, help="Path to the data directory",
+    #                     default="/groups/microtaxo/data/refseq_with_taxo")
+    # args = parser.parse_args()
 
-    datadir = "/groups/microtaxo/data/refseq_unzip_with_taxo" # "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_unzip_with_taxo"  #    # #
+    datadir = "/groups/microtaxo/data/refseq_with_taxo" # "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_unzip_with_taxo"  #    # #
     raw_df = scan_for_taxo(datadir)
     output_stat_file = os.path.join(os.path.dirname(datadir),"raw_taxonomy_refseq_data.csv")
     raw_df.to_csv(output_stat_file, index=False, sep= ";")

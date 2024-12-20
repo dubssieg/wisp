@@ -49,7 +49,7 @@ def get_taxo_by_batch(input_dir: str, subgroup: str, batch_size: int = 100, api_
     Entrez.sleep_between_tries = 15
     nb_convert = 0
 
-    output_dir = f"{input_dir}_unzip_with_taxo"
+    output_dir = f"{input_dir}_with_taxo"
     input_dir_sub = os.path.join(input_dir, subgroup)
     genome_file_list = [f for f in os.listdir(input_dir_sub) if f.endswith('.gz')]
 
