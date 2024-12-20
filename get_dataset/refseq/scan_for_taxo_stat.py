@@ -1,9 +1,11 @@
 import os
 import argparse
 import pandas as pd
-import matplotlib.pyplot as plt
 from natsort import natsorted
 from tqdm import tqdm
+
+from wisp.get_dataset.refseq.try_gzip import output_file
+
 
 def scan_for_taxo(datadir):
     # Initialiser une liste pour stocker les informations extraites
@@ -49,60 +51,16 @@ def scan_for_taxo(datadir):
     return raw_df
 
 
-def compute_counts(raw_df):
-    # Étape 1 : Compter les occurrences totales par combinaison
-    counts = (
-        raw_df.groupby(["Règne", "Phylum", "Ordre", "Famille", "Genre", "Espèce", "Groupe"])
-        .size()
-        .reset_index(name="Effectif")  # Ajout de la colonne Effectif
-    )
-    # Étape 2 : Additionner les effectifs sur tous les groupes
-    total_counts_over_group = (
-        counts.groupby(["Règne", "Phylum", "Ordre", "Famille", "Genre", "Espèce"])["Effectif"]
-        .sum()
-        .reset_index()
-    )
-    family_counts = (
-        counts.groupby(["Règne", "Phylum", "Ordre", "Famille"])["Effectif"]
-        .sum()
-        .reset_index()
-    )
-    return counts, total_counts_over_group, family_counts
-
-def plot_family_counts(family_counts):
-    plt.figure(figsize=(10, 6))
-    plt.bar(family_counts["Famille"], family_counts["Effectif"], color="skyblue")
-    plt.xticks(rotation=90)  # Faire tourner les labels de l'axe des x pour plus de lisibilité
-    plt.xlabel('Famille')
-    plt.ylabel('Effectif total')
-    plt.title('Effectif total par Famille')
-    plt.tight_layout()  # Pour éviter que le texte ne soit coupé
-    plt.show()
-
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Taxonomy Data Processor")
-    parser.add_argument("-stat", action="store_true", help="Compute statistics from the dataset")
-    parser.add_argument("-plot", action="store_true", help="Generate plots from the statistics")
     parser.add_argument("--datadir", type=str, help="Path to the data directory",
                         default="/groups/microtaxo/data/refseq_unzip_with_taxo")
-    parser.add_argument("--stat_dir", type=str, help="Path to the statistics directory",
-                        default="stat_refseq_unzip_with_taxo")
     args = parser.parse_args()
 
-    if args.stat is True  :
-        datadir = "/groups/microtaxo/data/refseq_unzip_with_taxo" # "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_unzip_with_taxo"  #    # #
-        stat_dir = os.path.join(os.path.dirname(datadir), 'stat_'+os.path.basename(datadir))
-        os.makedirs(stat_dir, exist_ok=True)
-        raw_df = scan_for_taxo(datadir)
-
-        counts, total_counts_over_group, family_counts = compute_counts(raw_df)
-        raw_df.to_csv(os.path.join(stat_dir,"raw_taxonomy_data.csv"), index=False, sep= ";")
-        total_counts_over_group.to_csv(os.path.join(stat_dir,"total_counts_over_group.csv"), index=False, sep=";")
-        family_counts.to_csv(os.path.join(stat_dir, "family_counts.csv"), index=False, sep=";")
-        print(f"All stat save in {stat_dir}")
-
-    if args.plot is True :
-        family_counts = pd.read_csv(os.path.join(args.stat_dir, "family_counts.csv"), sep=";")
-        plot_family_counts(family_counts)
+    datadir = "/groups/microtaxo/data/refseq_unzip_with_taxo" # "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_unzip_with_taxo"  #    # #
+    raw_df = scan_for_taxo(datadir)
+    output_stat_file = os.path.join(os.path.dirname(datadir),"raw_taxonomy_refseq_data.csv")
+    raw_df.to_csv(output_stat_file, index=False, sep= ";")
+    print(f"All stat save in {output_stat_file}")
