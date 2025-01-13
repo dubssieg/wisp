@@ -15,6 +15,7 @@ from tharospytools.multithreading import futures_collector
 from create_database import build_database
 from create_model import make_model
 from create_prediction import prediction
+# python ~/codes/wisp/workspace/main.py build refseq /groups/microtaxo/data/refseq_with_taxo/
 
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
@@ -95,7 +96,10 @@ import re
 # Fonction pour filtrer les fichiers sans numéro à la fin
 def is_base_file(filename):
     # Vérifie si le nom du fichier se termine par ".fna" sans numéro avant l'extension
-    return bool(re.match(r".*[^_\d]\.fna$", filename))
+    # et qu'il contient exactement 6 mots séparés par des underscores
+    return bool(re.match(r"^([a-zA-Z]+_){5}[a-zA-Z]+\.fna$", filename))
+    # Vérifie si le nom du fichier se termine par ".fna" sans numéro avant l'extension
+    # return bool(re.match(r".*[^_\d]\.fna$", filename))
 
 
 args = parser.parse_args()

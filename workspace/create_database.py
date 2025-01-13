@@ -21,7 +21,6 @@ class Taxonomy:
     model_path: str | None
     config_path: str | None
 
-
 def validate_parameters(params: dict) -> bool:
     "Lists all conditions where a set of parameters is valid, and accepts the creation if so"
     return all(
@@ -119,7 +118,8 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
         jdb.write("\"datas\":[")
 
         # iterating over input genomes
-        for id_genome, genome in tqdm(enumerate(input_data)):
+        for id_genome, genome in (pbar:= tqdm(enumerate(input_data))):
+            pbar.set_description(f"Genome {path.basename(genome)}")
             with open(genome, 'r', encoding='utf-8') as freader:
                 genome_data: list = [str(fasta.seq)
                                      for fasta in SeqIO.parse(freader, 'fasta')]
