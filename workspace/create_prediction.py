@@ -4,7 +4,7 @@ from collections import Counter
 from xgboost import Booster, DMatrix
 from numpy import argmax, amax, mean, ndarray
 from treelib import Tree
-from workspace.create_sample import build_sample
+from create_sample import build_sample
 
 
 def make_prediction(

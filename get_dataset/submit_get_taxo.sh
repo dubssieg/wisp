@@ -17,7 +17,7 @@ fi
 sbatch <<EOT
 #!/bin/bash
 #SBATCH --job-name=GetTaxo       # Nom du job
-#SBATCH --chdir=/home/genouest/cnrs_umr6074/hcourtei/codes/wisp/scripts  # Répertoire de travail
+#SBATCH --chdir=/home/genouest/cnrs_umr6074/hcourtei/codes/wisp/get_dataset  # Répertoire de travail
 #SBATCH --output=GetTaxo.txt     # Fichier de sortie
 #SBATCH --ntasks=2               # Nombre de tâches
 #SBATCH --time=2-00:00:00        # Durée maximale (2 jours)

@@ -5,18 +5,19 @@ from os import walk, path
 from json import load, dump
 from pickle import dump as pdump, load as pload
 from pathlib import Path
+
+import tqdm
 from rich.traceback import install
 from rich import print
 from treelib import Tree
 from Bio import SeqIO
 from tharospytools.multithreading import futures_collector
-from workspace.create_database import build_database
-from workspace.create_model import make_model
-from workspace.create_prediction import prediction
+from create_database import build_database
+from create_model import make_model
+from create_prediction import prediction
 
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
-
 
 
 parser: ArgumentParser = ArgumentParser(
@@ -90,10 +91,14 @@ parser_prediction.add_argument(
 )
 
 #######################################
+import re
+# Fonction pour filtrer les fichiers sans numéro à la fin
+def is_base_file(filename):
+    # Vérifie si le nom du fichier se termine par ".fna" sans numéro avant l'extension
+    return bool(re.match(r".*[^_\d]\.fna$", filename))
+
 
 args = parser.parse_args()
-
-from rich.traceback import install
 install(show_locals=args.locals)
 
 def main() -> None:
@@ -113,19 +118,28 @@ def main() -> None:
         print(
             "[dark_orange]Starting database creation"
         )
+        all_paths = [
+            path.abspath(path.join(dirpath, f))
+            for dirpath, _, filenames in walk(args.input_folder)
+            for f in filenames
+            if is_base_file(f)
+        ]
+
         output_path, phylo_tree = build_database(
             args.parameters,
             args.database_name,
-            [path.abspath(path.join(dirpath, f)) for dirpath, _, filenames in walk(
-                args.input_folder) for f in filenames]
+            all_paths
         )
+        #    [path.abspath(path.join(dirpath, f)) for dirpath, _, filenames in walk(
+        #        args.input_folder) for f in filenames]
+        #)
         print(
             f"[dark_orange]Database sucessfully built @ {output_path}"
         )
         # phylo_tree.show(data_property='ascii')
-        phylo_tree.show()  # data_property='code'
+        # phylo_tree.show()  # data_property='code'
         tree_dict = phylo_tree.to_dict()
-        print(tree_dict)
+        # print(tree_dict)
         # phylo_tree.save("phylo_tree.txt")
 
         nodes_per_level: dict = {level: [node.tag for node in list(phylo_tree.filter_nodes(
@@ -142,7 +156,7 @@ def main() -> None:
         retcodes: list = futures_collector(make_model, fargs := [(datas, output_path, taxonomic_level, target_taxa)
                                                                  for taxonomic_level, targets in nodes_per_level.items() for target_taxa in targets])
 
-        for i, (model_path, config_path) in enumerate(retcodes):
+        for i, (model_path, config_path) in tqdm.tqdm(enumerate(retcodes)):
             _, _, taxonomic_level, target_taxa = fargs[i]
 
             if model_path is not None and config_path is not None:
@@ -153,8 +167,8 @@ def main() -> None:
                     node.data.config_path = config_path
                 except KeyError:
                     phylo_tree.remove_node(target_taxa.lower())
-        phylo_path = "/home/hcourtei/Projects/MicroTaxo/codes/envwisp/lib/python3.12/site-packages/workspace/model/resfseq_phylo_tree.txt"
-        # = f"{path.dirname(__file__)}/model/{args.database_name}_phylo_tree.txt"
+        # phylo_path = "/home/hcourtei/Projects/MicroTaxo/codes/envwisp/lib/python3.12/site-packages/workspace/model/resfseq_phylo_tree.txt"
+        phylo_path= f"{path.dirname(__file__)}/model/{args.database_name}_phylo_tree.txt"
         with open(phylo_path, 'wb') as jtree:
             pdump(phylo_tree, jtree)
 

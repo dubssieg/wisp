@@ -13,3 +13,8 @@ The script solely downloads genomes flagged as "full genomes". Change [this line
 
 ## NEW from branch optim_wisp
 
+### TODO
+- ne pas renommer les fichiers refseq mais constitué un tableau avec la correspondance nom de fichier , taxonomy
+- 
+
+

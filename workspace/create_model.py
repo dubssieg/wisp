@@ -14,7 +14,7 @@ def make_model(
         target_dataset: str,
         num_rounds_boosting: int = 10,
         eta: float = 0.3,
-        maximum_depth: int = 10
+        maximum_depth: int = 10,
 ) -> tuple[str | None, str | None]:
     """Builds the model and saves it"""
     # Creating the booster

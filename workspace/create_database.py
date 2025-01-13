@@ -74,6 +74,8 @@ def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tre
     ]
     taxo_info: list = Path(genome_path).stem.split('_')[:-1]
     for i, x in enumerate(parents := (['Root']+taxo_info)):
+        y = x
+
         if x != 'Root':
             try:
                 tree_struct.create_node(
@@ -109,8 +111,10 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
 
     # Writing the database
     json_datas: list = list()
+    # Path(f"{path.dirname(__file__)}/databases/").mkdir(parents=True, exist_ok=True)
     Path(f"{path.dirname(__file__)}/databases/").mkdir(parents=True, exist_ok=True)
-    with open(output_path := f'{path.dirname(__file__)}/databases/{database_name}.json', 'w', encoding='utf-8') as jdb:
+
+    with open(output_file := f'{path.dirname(__file__)}/databases/{database_name}.json', 'w', encoding='utf-8') as jdb:
         jdb.write("{\n")
         jdb.write("\"datas\":[")
 
@@ -169,7 +173,7 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
                 if node.data.code is None:
                     node.data.code = taxa_codes[level][node.tag]
 
-    return output_path, phylo_tree
+    return output_file, phylo_tree
 
 
 def mapping_sp(datas: list[dict]) -> dict:
