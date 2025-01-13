@@ -10,7 +10,7 @@ from Bio import SeqIO
 from treelib import Tree
 from treelib.exceptions import DuplicatedNodeIdError
 from tharospytools.bio_tools import revcomp
-
+from tqdm import tqdm
 
 @dataclass
 class Taxonomy:
@@ -119,7 +119,7 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
         jdb.write("\"datas\":[")
 
         # iterating over input genomes
-        for id_genome, genome in enumerate(input_data):
+        for id_genome, genome in tqdm(enumerate(input_data)):
             with open(genome, 'r', encoding='utf-8') as freader:
                 genome_data: list = [str(fasta.seq)
                                      for fasta in SeqIO.parse(freader, 'fasta')]
