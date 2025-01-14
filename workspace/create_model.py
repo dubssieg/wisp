@@ -66,11 +66,10 @@ def make_model(
                         # Each read is a dict with code:count for kmer
                         libsvm_writer.write(
                             f"{mappings[sample[next_level]]} {' '.join([str(k)+':'+str(v) for k,v in read.items()])} #{sample[next_level]}\n")
-
         # Creating the model
         bst: Booster = train(
             model_parameters,
-            DMatrix(temp_dataset),
+            DMatrix(temp_dataset+"?format=libsvm"),
             num_rounds_boosting
         )
 
@@ -87,6 +86,7 @@ def make_model(
 
         # Returning the target file
         return model_output_path, config_output_path
-    except XGBoostError:
+    except XGBoostError as e:
         # Invalid dataset, we don't want to keep current level
+        print("Error XgBoost ", e)
         return None, None

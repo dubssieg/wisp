@@ -16,7 +16,8 @@ from create_database import build_database
 from create_model import make_model
 from create_prediction import prediction
 # python ~/codes/wisp/workspace/main.py build refseq /groups/microtaxo/data/refseq_with_taxo/
-
+#  python main.py predict refseq /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo /home/hcourtei/Projects/MicroTaxo/codes/data/out_refseq
+# avec 
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -190,7 +191,7 @@ def main() -> None:
         # Loading the phylogenetic tree
         with open(phylo_path := f"{path.dirname(__file__)}/model/{args.database_name}_phylo_tree.txt", 'rb') as jtree:
             tree: Tree = pload(jtree)
-
+        # taxa.data.model_path
         try:
             threshold: float = params["threshold"]
             if threshold > 1.0:
@@ -208,9 +209,11 @@ def main() -> None:
             with open(genome, 'r', encoding='utf-8') as freader:
                 genome_data: dict = {fasta.id: str(fasta.seq)
                                      for fasta in SeqIO.parse(freader, 'fasta')}
+            pargs = [(id_sequence, dna_sequence, params, tree, threshold, args.parameters)
+                     for id_sequence, dna_sequence in genome_data.items()
+                     ]
 
-            prediction_results: list = futures_collector(prediction, pargs := [
-                (id_sequence, dna_sequence, params, tree, threshold, args.parameters) for id_sequence, dna_sequence in genome_data.items()])
+            prediction_results: list = futures_collector(prediction, pargs)
 
             with open(report_path := path.join(args.output_folder, f"{Path(genome).stem}_job_output.json"), 'w', encoding='utf-8') as jwriter:
                 dump({identifier: prediction_results[i] for i, (identifier, _, _, _, _, _) in enumerate(

@@ -29,6 +29,7 @@ def make_prediction(
 
     # Creating booster object
     bst: Booster = Booster()
+    print("PPPPP ", model_path)
     bst.load_model(model_path)
     with open(parameters_path, "r", encoding='utf-8') as reader:
         bst.load_config(''.join([line for line in reader]))
@@ -118,6 +119,7 @@ def prediction(id_sequence: str, dna_sequence: str, params: dict, tree: Tree, th
         # Use the tree to select next level
         for taxa in tree.filter_nodes(lambda x: tree.depth(x) == i):
             if taxa.tag in kept_taxas:
+                print("taxa.data.model_path", taxa.data.model_path)
                 # print(f"Processing {taxa.tag} @ {level}")
                 results[i][taxa.tag] = {mappings_taxa[key]: value for key, value in Counter(make_prediction(
                     taxa.data.model_path,
