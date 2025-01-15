@@ -9,7 +9,7 @@ sbatch <<EOT
 #SBATCH --error=Build_refseq.err
 #SBATCH --ntasks=2               # Nombre de tâches
 #SBATCH --time=2-00:00:00        # Durée maximale (2 jours)
-#SBATCH --mem-per-cpu=2000	 # Mémoire par CPU
+#SBATCH --mem-per-cpu=40000	 # Mémoire par CPU
 
 # Charger Python si nécessaire
 . ~/envtaxo2/bin/activate
