@@ -132,6 +132,8 @@ def prediction(id_sequence: str, dna_sequence: str, params: dict, tree: Tree, th
                         normalisation_func='delta_mean',
                         read_identity_threshold=0.8
                     )).items() if key is not False}
+            if taxa.data.model_path is None:
+                print(f" model path is None")
         kept_taxas = [lower_taxa for counter in results[i].values(
         ) for lower_taxa, count in counter.items() if count > threshold*sum(list(counter.values()))]
 

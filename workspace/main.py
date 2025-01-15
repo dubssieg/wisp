@@ -7,6 +7,7 @@ from json import load, dump
 from pickle import dump as pdump, load as pload
 from pathlib import Path
 import time
+import re
 
 from tqdm import tqdm
 from rich.traceback import install
@@ -94,7 +95,6 @@ parser_prediction.add_argument(
 )
 
 #######################################
-import re
 # Fonction pour filtrer les fichiers sans numéro à la fin
 def is_base_file(filename):
     # Vérifie si le nom du fichier se termine par ".fna" sans numéro avant l'extension
@@ -207,8 +207,9 @@ def main() -> None:
                 "Invalid parameter file, must contain a read acceptance threshold value between 0.01 (1% identity) and 1.0 (100% identity).") from exc
 
         # iterating over input files
-        input_files = [path.abspath(path.join(dirpath, f)) for dirpath, _, filenames in walk(
-                args.input_folder) for f in filenames]
+        input_files = [path.abspath(path.join(dirpath, f))
+                       for dirpath, _, filenames in walk(args.input_folder)
+                            for f in filenames if is_base_file(f)]
 
         for genome in tqdm(input_files[:50]):
 
