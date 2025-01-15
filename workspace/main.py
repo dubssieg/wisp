@@ -6,6 +6,7 @@ from os import walk, path
 from json import load, dump
 from pickle import dump as pdump, load as pload
 from pathlib import Path
+import time
 
 from tqdm import tqdm
 from rich.traceback import install
@@ -124,6 +125,7 @@ def main() -> None:
         print(
             "[dark_orange]Starting database creation"
         )
+        start = time.time()
         all_paths = [
             path.abspath(path.join(dirpath, f))
             for dirpath, _, filenames in walk(args.input_folder)
@@ -178,7 +180,9 @@ def main() -> None:
         with open(phylo_path, 'wb') as jtree:
             pdump(phylo_tree, jtree)
 
-        print(f"[dark_orange]Finished computing models, tree @ {phylo_path}")
+        train_time = round((time.time() - start)/60)
+        print(f"[dark_orange]Finished computing models, tree @ {phylo_path} in {train_time} min")
+
         exit(0)
 
     if args.subcommands == 'predict':

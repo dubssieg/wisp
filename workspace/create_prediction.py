@@ -31,11 +31,7 @@ def make_prediction(
     "/home/hcourtei/Projects/MicroTaxo/codes/wisp/workspace/model/refseq/Root_root.json"
     # Creating booster object
     bst: Booster = Booster()
-
-    if model_path is not None:
-        bst.load_model(model_path)
-    else:
-        raise ValueError(f"model path is {model_path}")
+    bst.load_model(model_path)
 
     with open(parameters_path, "r", encoding='utf-8') as reader:
         bst.load_config(''.join([line for line in reader]))
@@ -127,15 +123,15 @@ def prediction(id_sequence: str, dna_sequence: str, params: dict, tree: Tree, th
             node.data.code: node.tag for node in tree.filter_nodes(lambda x: tree.depth(x) == i+1)}
         # Use the tree to select next level
         for taxa in tree.filter_nodes(lambda x: tree.depth(x) == i):
-            if taxa.tag in kept_taxas:
-                # print(f"Processing {taxa.tag} @ {level}")
-                results[i][taxa.tag] = {mappings_taxa[key]: value for key, value in Counter(make_prediction(
-                    taxa.data.model_path,
-                    taxa.data.config_path,
-                    sample_output_path,
-                    normalisation_func='delta_mean',
-                    read_identity_threshold=0.8
-                )).items() if key is not False}
+            if taxa.tag in kept_taxas and taxa.data.model_path is not None:
+                    # print(f"Processing {taxa.tag} @ {level}")
+                    results[i][taxa.tag] = {mappings_taxa[key]: value for key, value in Counter(make_prediction(
+                        taxa.data.model_path,
+                        taxa.data.config_path,
+                        sample_output_path,
+                        normalisation_func='delta_mean',
+                        read_identity_threshold=0.8
+                    )).items() if key is not False}
         kept_taxas = [lower_taxa for counter in results[i].values(
         ) for lower_taxa, count in counter.items() if count > threshold*sum(list(counter.values()))]
 
