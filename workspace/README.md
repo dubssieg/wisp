@@ -1,3 +1,25 @@
+# Build et Predict
+depuis genouest ou sur laptop
+## env
+```
+srun --time 00-10:00:00 --pty bash   #depuis genouest
+. ~/envtaxo2/bin/activate
+cd code/wisp/workspace
+```
+
+## Build 
+sur toute la base refseq genouest , un peu long, à lancer depuis submit_main_build.sh avec suffisament de RAM
+
+> python main.py build refseq /groups/microtaxo/data/refseq_with_taxo/
+
+# Predict
+> python main.py predict refseq /groups/microtaxo/data/refseq_with_taxo/ /home/genouest/cnrs_umr6074/hcourtei/out_refseq
+
+from laptop
+> python main.py predict refseq /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo /home/hcourtei/Projects/MicroTaxo/codes/data/out_refseq
+
+
+
 # Cahier des charges
 
 ## Développement (~2 mois)

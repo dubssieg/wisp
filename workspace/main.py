@@ -17,9 +17,8 @@ from tharospytools.multithreading import futures_collector
 from create_database import build_database
 from create_model import make_model
 from create_prediction import prediction
-# python ~/codes/wisp/workspace/main.py build refseq /groups/microtaxo/data/refseq_with_taxo/
-#  python main.py predict refseq /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo /home/hcourtei/Projects/MicroTaxo/codes/data/out_refseq
-# python main.py predict refseq /groups/microtaxo/data/refseq_with_taxo/ /home/genouest/cnrs_umr6074/hcourtei/out_refseq
+
+
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -211,7 +210,7 @@ def main() -> None:
         input_files = [path.abspath(path.join(dirpath, f)) for dirpath, _, filenames in walk(
                 args.input_folder) for f in filenames]
 
-        for genome in tqdm(input_files[:10]):
+        for genome in tqdm(input_files[:50]):
 
             with open(genome, 'r', encoding='utf-8') as freader:
                 genome_data: dict = {fasta.id: str(fasta.seq)
@@ -228,9 +227,9 @@ def main() -> None:
                 dump({identifier: prediction_results[i] for i, (identifier, _, _, _, _, _) in enumerate(
                     pargs)}, jwriter)
 
-            print(
-                f"[dark_orange]Job on file {Path(genome).stem} ended sucessfully, report @ {report_path}"
-            )
+            # print(
+            #     f"[dark_orange]Job on file {Path(genome).stem} ended sucessfully, report @ {report_path}"
+            # )
         exit(0)
 
 main()
