@@ -118,7 +118,7 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
 
         # iterating over input genomes
         for id_genome, genome in (pbar:= tqdm(enumerate(input_data))):
-            pbar.set_description(f"Genome {path.basename(genome)}")
+            # pbar.set_description(f"Genome {path.basename(genome)}")
             with open(genome, 'r', encoding='utf-8') as freader:
                 genome_data: list = [str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')]
                 # Merging all seqs together

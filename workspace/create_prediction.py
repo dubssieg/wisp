@@ -5,6 +5,7 @@ from xgboost import Booster, DMatrix
 from numpy import argmax, amax, mean, ndarray
 from treelib import Tree
 from create_sample import build_sample
+from xgboost.core import XGBoostError
 
 
 def make_prediction(
@@ -26,19 +27,27 @@ def make_prediction(
     Returns:
         list: _description_
     """
-
+    "/home/hcourtei/Projects/MicroTaxo/codes/labs/refseq_model_genouest/model/refseq/Root_root.json"
+    "/home/hcourtei/Projects/MicroTaxo/codes/wisp/workspace/model/refseq/Root_root.json"
     # Creating booster object
     bst: Booster = Booster()
-    print("PPPPP ", model_path)
-    bst.load_model(model_path)
+
+    if model_path is not None:
+        bst.load_model(model_path)
+    else:
+        raise ValueError(f"model path is {model_path}")
+
     with open(parameters_path, "r", encoding='utf-8') as reader:
         bst.load_config(''.join([line for line in reader]))
 
     # Getting predictions
-    predictions: ndarray = bst.predict(DMatrix(datas_path))
+    try :
+        predictions: ndarray = bst.predict(DMatrix(datas_path+"?format=libsvm"))
+        return softmax(predictions, normalisation_func, read_identity_threshold)
 
-    return softmax(predictions, normalisation_func, read_identity_threshold)
-
+    except XGBoostError as e:
+        print (f"Error for {datas_path}", e)
+        return None
 
 def softmax(predictions: ndarray, func: str, reads_threshold: float) -> list:
     """Given a set of predictions, computes the consensus within it by ignoring some low-signifiance scores.
@@ -119,7 +128,6 @@ def prediction(id_sequence: str, dna_sequence: str, params: dict, tree: Tree, th
         # Use the tree to select next level
         for taxa in tree.filter_nodes(lambda x: tree.depth(x) == i):
             if taxa.tag in kept_taxas:
-                print("taxa.data.model_path", taxa.data.model_path)
                 # print(f"Processing {taxa.tag} @ {level}")
                 results[i][taxa.tag] = {mappings_taxa[key]: value for key, value in Counter(make_prediction(
                     taxa.data.model_path,
