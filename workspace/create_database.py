@@ -1,4 +1,4 @@
-"Creates a json database"
+"""Creates a json database"""
 from collections import Counter
 from json import load, dumps
 from os import path, remove
@@ -22,7 +22,7 @@ class Taxonomy:
     config_path: str | None
 
 def validate_parameters(params: dict) -> bool:
-    "Lists all conditions where a set of parameters is valid, and accepts the creation if so"
+    """Lists all conditions where a set of parameters is valid, and accepts the creation if so"""
     return all(
         [# verifies that the pattern length respects ksize
         sum(params['pattern']) == params['ksize'],
@@ -61,7 +61,7 @@ def encode_kmer(kmer: str) -> int:
 
 
 def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tree]:
-    "Returns taxonomy position information"
+    """Returns taxonomy position information"""
     taxa: list[str] = [
         'root',
         'domain',
@@ -77,7 +77,10 @@ def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tre
         if x != 'Root':
             try:
                 tree_struct.create_node(
-                    x, f"{x.lower()}_{taxa[i]}", parent=f"{parents[i-1].lower()}_{taxa[i-1]}", data=Taxonomy(None, ['domain', 'phylum', 'group', 'order', 'family'][i-1], x, None, None))
+                    x, f"{x.lower()}_{taxa[i]}",
+                    parent=f"{parents[i-1].lower()}_{taxa[i-1]}",
+                    data=Taxonomy(None, ['domain', 'phylum', 'group', 'order', 'family'][i-1], x, None, None)
+                )
             except DuplicatedNodeIdError:
                 pass
     return {
@@ -90,7 +93,7 @@ def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tre
 
 
 def build_database(params_file: str, database_name: str, input_data: list[str]) -> tuple[str, Tree]:
-    "Builds a json file with taxa levels as dict information"
+    """Builds a json file with taxa levels as dict information"""
     # Loading params file
     with open(params_file, 'r', encoding='utf-8') as pfile:
         params: dict = load(pfile)
@@ -104,8 +107,7 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
 
     # creating phylogenetic tree
     phylo_tree: Tree = Tree()
-    phylo_tree.create_node(
-        'Root', 'root_root', data=Taxonomy(0, 'Root', 'Root', None, None))
+    phylo_tree.create_node('Root', 'root_root', data=Taxonomy(0, 'Root', 'Root', None, None))
 
     # Writing the database
     json_datas: list = list()
@@ -147,8 +149,7 @@ def build_database(params_file: str, database_name: str, input_data: list[str]) 
                 del counters
 
                 # Dumping in output file
-                taxonomy, phylo_tree = taxonomy_information(
-                    genome, phylo_tree)
+                taxonomy, phylo_tree = taxonomy_information(genome, phylo_tree)
 
                 if id_genome:
                     jdb.write(','+dumps({**taxonomy, 'datas': encoded}))

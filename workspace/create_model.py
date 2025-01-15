@@ -54,8 +54,7 @@ def make_model(
              f"{path.dirname(__file__)}/tmp").mkdir(parents=True, exist_ok=True)
 
         # We create the dir to store the database
-        Path(model_dir := f"{path.dirname(__file__)}/model/{Path(model_name).stem}").mkdir(
-            parents=True, exist_ok=True)
+        Path(model_dir := f"{path.dirname(__file__)}/model/{Path(model_name).stem}").mkdir(parents=True, exist_ok=True)
 
         # We create temporary files
         with open(temp_dataset := f"{temp_dir}/{target_dataset}_{classification_level}.txt", 'w', encoding='utf-8') as libsvm_writer:
@@ -75,8 +74,7 @@ def make_model(
 
         # Saving the model and its params
         # Must go to model_dir
-        bst.save_model(model_output_path :=
-                       f"{model_dir}/{target_dataset}_{classification_level}.json")
+        bst.save_model(model_output_path := f"{model_dir}/{target_dataset}_{classification_level}.json")
 
         with open(config_output_path := f"{model_dir}/{target_dataset}_{classification_level}_params.json", 'w', encoding='utf-8') as jwriter:
             jwriter.write(bst.save_config())

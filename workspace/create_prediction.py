@@ -1,5 +1,5 @@
 "Builds predictions from reads"
-from os import remove
+from os import remove, path
 from collections import Counter
 from xgboost import Booster, DMatrix
 from numpy import argmax, amax, mean, ndarray
@@ -63,7 +63,7 @@ def softmax(predictions: ndarray, func: str, reads_threshold: float) -> list:
     if reads_threshold <= 0:
         return [argmax(a) for a in predictions]
 
-    if reads_threshold > 1:
+    if reads_threshold > 1: # pas assez de confiance taxonomic
         reads_threshold = 1.0
 
     try:
@@ -91,7 +91,8 @@ def softmax(predictions: ndarray, func: str, reads_threshold: float) -> list:
         return softmax(predictions, func, reads_threshold-0.05)
 
 
-def prediction(id_sequence: str, dna_sequence: str, params: dict, tree: Tree, threshold: float, parameters: str) -> str | list:
+def prediction(id_sequence: str, dna_sequence: str, params: dict, tree: Tree,
+               threshold: float, parameters: str, model_dir:str) -> str | list:
     """Creates a prediction for a read.
 
     Args:
@@ -126,8 +127,8 @@ def prediction(id_sequence: str, dna_sequence: str, params: dict, tree: Tree, th
             if taxa.tag in kept_taxas and taxa.data.model_path is not None:
                     # print(f"Processing {taxa.tag} @ {level}")
                     results[i][taxa.tag] = {mappings_taxa[key]: value for key, value in Counter(make_prediction(
-                        taxa.data.model_path,
-                        taxa.data.config_path,
+                        path.join(model_dir, taxa.data.model_path),
+                        path.join(model_dir, taxa.data.config_path),
                         sample_output_path,
                         normalisation_func='delta_mean',
                         read_identity_threshold=0.8

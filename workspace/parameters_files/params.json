@@ -8,5 +8,6 @@
         1
     ],
     "sampling": 100,
-    "threshold": 0.6
+    "threshold": 0.6,
+    "_comment": "threshold au dela duquel ne pas aller dans l autre branche"
 }
