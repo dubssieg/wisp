@@ -29,8 +29,7 @@ def make_model(
         (levels).index(classification_level)+1]
 
     if not classification_level in datas['mappings'] and not classification_level == 'root':
-        raise ValueError(
-            f"Database does not contain {classification_level} level.")
+        raise ValueError(f"Database does not contain {classification_level} level.")
 
     mappings: dict = copy(datas['mappings'][next_level])
     try:
@@ -50,8 +49,7 @@ def make_model(
     try:
         # We will be creating temporary LibSVM files in order to make our model learn on those,
         # then destroy files in order to save space
-        Path(temp_dir :=
-             f"{path.dirname(__file__)}/tmp").mkdir(parents=True, exist_ok=True)
+        Path(temp_dir := f"{path.dirname(__file__)}/tmp").mkdir(parents=True, exist_ok=True)
 
         # We create the dir to store the database
         Path(model_dir := f"{path.dirname(__file__)}/model/{Path(model_name).stem}").mkdir(parents=True, exist_ok=True)
