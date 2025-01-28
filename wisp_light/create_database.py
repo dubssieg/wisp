@@ -1,27 +1,28 @@
 """Creates a json database"""
 import os
 from collections import Counter
-from json import load, dumps
-from os import path, remove
+from json import dumps
 from typing import Generator
 from itertools import product
 from dataclasses import dataclass
 from Bio import SeqIO
 from treelib import Tree
 from treelib.exceptions import DuplicatedNodeIdError
-from tharospytools.bio_tools import revcomp
 from tqdm import tqdm
-import yaml
 
-def build_database(output_dir, params_file: str, database_name: str, input_data: list[str]) -> tuple[str, Tree]:
+import logging
+
+# Configure le logger
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.DEBUG)  # Niveau de logging (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+# console_handler = logging.StreamHandler()
+# console_handler.setLevel(logging.INFO)  # Modifier pour DEBUG si besoin
+# console_handler.setFormatter(formatter)
+# logger.addHandler(console_handler)
+
+def build_database(output_json, params: dict, database_name: str, input_data: list[str], debug=False) ->  Tree:
     """Builds a json file with taxa levels as dict information"""
-    # Loading params file
-    with open(params_file, 'r') as file:
-        params = yaml.safe_load(file)
-    # Guard to check if params are acceptable
-    if not validate_parameters(params):
-        raise RuntimeError("Incorrect parameter file")
-
     # creating encoder
     my_encoder: dict = encoder(ksize=params['ksize'])
     # creating phylogenetic tree
@@ -29,11 +30,9 @@ def build_database(output_dir, params_file: str, database_name: str, input_data:
     phylo_tree.create_node('Root', 'root_root', data=Taxonomy(0, 'Root', 'Root', None, None))
 
     # Writing the database
-    json_datas: list = list()
-    output_file = f'{output_dir}/databases/{database_name}.json'
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    json_datas = list()
 
-    with open(output_file, 'w', encoding='utf-8') as jdb:
+    with open(output_json, 'w', encoding='utf-8') as jdb:
         jdb.write("{\n")
         jdb.write("\"datas\":[")
         # iterating over input genomes
@@ -53,27 +52,41 @@ def build_database(output_dir, params_file: str, database_name: str, input_data:
                 del counters
                 # Dumping in output file
                 taxonomy, phylo_tree = taxonomy_information(genome, phylo_tree)
-                if id_genome:
-                    jdb.write(','+dumps({**taxonomy, 'datas': encoded}))
-                else:
-                    jdb.write(dumps({**taxonomy, 'datas': encoded}))
+                if debug:
+                    print("-"*60, "\nTaxo ", taxonomy)
+                    tree_output = phylo_tree.show(line_type="ascii", stdout=False)
+                    print(tree_output)
+                dict_write = {**taxonomy, 'datas': encoded}
+                if id_genome == 0:
+                    jdb.write(dumps(dict_write))
+                else :
+                    jdb.write(','+dumps(dict_write))
                 del encoded
 
-            if 'taxonomy' in locals():
-                json_datas.append({**taxonomy})
+            json_datas.append({**taxonomy})  # if 'taxonomy' in locals(): #
+            if 'taxonomy' not in locals():
+                print("ERROR NOT IN LOCALS", taxonomy)
             del genome_data
 
-        # Writing taxonomy to file
-        jdb.write("],\"mappings\": ")
-        jdb.write(dumps(taxa_codes := mapping_sp(json_datas)))
+        taxa_codes = mapping_sp(json_datas)
+        jdb.write("],\"mappings\": ")         # Writing taxonomy to file
+        jdb.write(dumps(taxa_codes))
         jdb.write("\n}")
-
+        # numérotation des noeuds de l'arbre
+        # Depth 2 level  phylum
+        # from NODE tag Campylobacterota   to  0
+        # from NODE tag Spirochaetota   to  1
+        # from NODE tag Pseudomonadati   to  2
         for i, level in enumerate(['root', 'domain', 'phylum', 'group', 'order', 'family']):
-            for node in list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i)):
+            list_node_depth_i = list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))
+            print(f"Depth {i} level  {level}")
+            for node in list_node_depth_i:
                 if node.data.code is None:
-                    node.data.code = taxa_codes[level][node.tag]
+                    new_tag = taxa_codes[level][node.tag]
+                    print(f"for NODE tag {node.tag} get node.data.code {new_tag}")
+                    node.data.code = new_tag
 
-    return output_file, phylo_tree
+    return phylo_tree
 
 
 def mapping_sp(datas: list[dict]) -> dict:
@@ -83,12 +96,13 @@ def mapping_sp(datas: list[dict]) -> dict:
     Returns:
         dict: a grouped-by-level list of codes
     """
-    taxa: list[str] = ['domain','phylum','group','order','family']
+    taxa = ['domain','phylum','group','order','family']
     taxa_codes: dict = {taxon: {'number_taxa': 0} for taxon in taxa}
     for sample in datas:
         for key, value in sample.items():
             if key in taxa:
-                if not value in (taxa_level := taxa_codes[key]):
+                taxa_level = taxa_codes[key]
+                if not value in taxa_level:
                     taxa_level[value] = taxa_level['number_taxa']
                     taxa_level['number_taxa'] += 1
     return taxa_codes
@@ -134,8 +148,22 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
         Counter: counts of kmers inside subread
     """
     # Defining custom complementarity
-    complements: dict = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C', 'U': 'A', 'R': 'Y', 'Y': 'R', 'K': 'M','M': 'K',
-        'S': 'W', 'W': 'S', 'B': 'V', 'V': 'B', 'D': 'H', 'H': 'D', 'N': 'N'}
+    complements: dict = {'A': 'T',
+                         'T': 'A',
+                         'C': 'G',
+                         'G': 'C',
+                         'U': 'A',
+                         'R': 'Y',
+                         'Y': 'R',
+                         'K': 'M',
+                         'M': 'K',
+                         'S': 'W',
+                         'W': 'S',
+                         'B': 'V',
+                         'V': 'B',
+                         'D': 'H',
+                         'H': 'D',
+                         'N': 'N'}
 
     all_kmers: Generator = (entry[i:i+len(pattern)]
                             for i in range(len(entry)-len(pattern)-1))
@@ -187,8 +215,7 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
             if len(list_of_keys) == 0:
                 list_of_keys = nuct
             else:
-                list_of_keys = [
-                    new_key+n for n in nuct for new_key in list_of_keys]
+                list_of_keys = [new_key+n for n in nuct for new_key in list_of_keys]
         # Updating counts to stay with only ATGC counts
         for prob_key in list_of_keys:
             kmer_number: int = count//len(list_of_keys)
@@ -223,7 +250,8 @@ def encoder(ksize: int) -> dict:
     Returns:
         dict: kmer:code
     """
-    return {code: encode_kmer(code) for code in map(''.join, product('ATCG', repeat=ksize))}
+    res = {code: encode_kmer(code) for code in map(''.join, product('ATCG', repeat=ksize))}
+    return res
 
 
 def encode_kmer(kmer: str) -> int:
@@ -237,23 +265,47 @@ def encode_kmer(kmer: str) -> int:
     return int(''.join([mapper[k] for k in kmer]))
 
 
-def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tree]:
+def taxonomy_information(genome_path: str, tree_struct: Tree, debug=False) -> tuple[dict, Tree]:
     """Returns taxonomy position information"""
-    taxa: list[str] = ['root', 'domain', 'phylum', 'group', 'order', 'family']
+    taxa = ['root', 'domain', 'phylum', 'group', 'order', 'family']
     only_name_file = os.path.splitext(os.path.basename(genome_path))[0]
     # example 'Bacteria_Campylobacterota_Epsilonproteobacteria_Campylobacterales_Campylobacter_hyointestinalis'
     taxo_info: list = only_name_file.split('_')[:-1] # only 5 first
     # ['Bacteria', 'Campylobacterota', 'Epsilonproteobacteria', 'Campylobacterales', 'Campylobacter']
-
-    for i, x in enumerate(parents := (['Root']+taxo_info)):
-        y = x
+    parents = ['Root'] + taxo_info
+    for i, x in enumerate(parents):
+        # y = x
         if x != 'Root':
             idx = f"{x.lower()}_{taxa[i]}"
+            parent = f"{parents[i - 1].lower()}_{taxa[i - 1]}"
+            level = ['domain', 'phylum', 'group', 'order', 'family'][i - 1]
+            name = x
+            data = Taxonomy(None, level, name, None, None)
             try:
-                tree_struct.create_node(x, idx,
-                    parent=f"{parents[i-1].lower()}_{taxa[i-1]}",
-                    data=Taxonomy(None, ['domain', 'phylum', 'group', 'order', 'family'][i-1], x, None, None)
-                )
-            except DuplicatedNodeIdError:
+                tree_struct.create_node(x, idx, parent=parent, data=data)
+            except DuplicatedNodeIdError as e :
+                if debug:
+                    print(f"Error: Duplicate node with  {os.path.basename(genome_path)}.  {e}")
                 pass
-    return {'domain': taxo_info[0], 'phylum': taxo_info[1],'group': taxo_info[2],'order': taxo_info[3], 'family': taxo_info[4]}, tree_struct
+    return ({'domain': taxo_info[0], 'phylum': taxo_info[1],'group': taxo_info[2],'order': taxo_info[3], 'family': taxo_info[4]},
+            tree_struct)
+
+
+
+def revcomp(string: str, compl=None) -> str:
+    """Tries to compute the reverse complement of a sequence
+    Args:
+        string (str): original character set
+        compl (dict, optional): dict of correspondences. Defaults to {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}.
+    Raises:
+        IndexError: Happens if revcomp encounters a char that is not in the dict
+    Returns:
+        str: the reverse-complemented string
+    """
+    if compl is None:
+        compl = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}
+    try:
+        result = ''.join([compl[s] for s in string][::-1])
+    except IndexError as exc:
+        raise IndexError("Complementarity does not include all chars in sequence.") from exc
+    return result

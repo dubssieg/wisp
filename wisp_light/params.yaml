@@ -1,9 +1,20 @@
-read_size: 10000
-ksize: 4
-pattern:
-  - 1
-  - 1
-  - 1
-  - 1
-sampling: 100
-threshold: 0.6 # "threshold au dela duquel ne pas aller dans l autre branche"
+DATA:
+  read_size: 10000
+  ksize: 4
+  pattern:
+    - 1
+    - 1
+    - 1
+    - 1
+  sampling: 100
+  threshold: 0.6 # "threshold au dela duquel ne pas aller dans l autre branche"
+
+MODEL:
+  eval_metric: mlogloss
+  tree_method: hist
+  device: cuda
+  booster: gbtree
+  objective: multi:softprob
+  num_rounds_boosting: 10
+  eta: 0.3
+  max_depth: 10
