@@ -1,4 +1,5 @@
 """Creates a json database"""
+import logging
 import os
 from collections import Counter
 from json import dumps
@@ -9,19 +10,11 @@ from Bio import SeqIO
 from treelib import Tree
 from treelib.exceptions import DuplicatedNodeIdError
 from tqdm import tqdm
+from utils import setup_logger
 
-import logging
+logger = setup_logger(__name__, level=logging.INFO)
 
-# Configure le logger
-# logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)  # Niveau de logging (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-# console_handler = logging.StreamHandler()
-# console_handler.setLevel(logging.INFO)  # Modifier pour DEBUG si besoin
-# console_handler.setFormatter(formatter)
-# logger.addHandler(console_handler)
-
-def build_database(output_json, params: dict, database_name: str, input_data: list[str], debug=False) ->  Tree:
+def build_database(output_json, params: dict, database_name: str, input_data: list[str]) ->  Tree:
     """Builds a json file with taxa levels as dict information"""
     # creating encoder
     my_encoder: dict = encoder(ksize=params['ksize'])
@@ -52,10 +45,12 @@ def build_database(output_json, params: dict, database_name: str, input_data: li
                 del counters
                 # Dumping in output file
                 taxonomy, phylo_tree = taxonomy_information(genome, phylo_tree)
-                if debug:
-                    print("-"*60, "\nTaxo ", taxonomy)
-                    tree_output = phylo_tree.show(line_type="ascii", stdout=False)
-                    print(tree_output)
+
+                logger.debug("-"*60)
+                logger.debug(f"\nTaxo {taxonomy}")
+                tree_output = phylo_tree.show(line_type="ascii", stdout=False)
+                logger.debug(tree_output)
+
                 dict_write = {**taxonomy, 'datas': encoded}
                 if id_genome == 0:
                     jdb.write(dumps(dict_write))
@@ -65,7 +60,7 @@ def build_database(output_json, params: dict, database_name: str, input_data: li
 
             json_datas.append({**taxonomy})  # if 'taxonomy' in locals(): #
             if 'taxonomy' not in locals():
-                print("ERROR NOT IN LOCALS", taxonomy)
+                logger.error("ERROR NOT IN LOCALS", taxonomy)
             del genome_data
 
         taxa_codes = mapping_sp(json_datas)
@@ -79,11 +74,11 @@ def build_database(output_json, params: dict, database_name: str, input_data: li
         # from NODE tag Pseudomonadati   to  2
         for i, level in enumerate(['root', 'domain', 'phylum', 'group', 'order', 'family']):
             list_node_depth_i = list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))
-            print(f"Depth {i} level  {level}")
+            logger.debug(f"Depth {i} level  {level}")
             for node in list_node_depth_i:
                 if node.data.code is None:
                     new_tag = taxa_codes[level][node.tag]
-                    print(f"for NODE tag {node.tag} get node.data.code {new_tag}")
+                    logger.debug(f"for NODE tag {node.tag} get node.data.code {new_tag}")
                     node.data.code = new_tag
 
     return phylo_tree
@@ -120,7 +115,9 @@ def splitting(seq: str, window_size: int, max_sampling: int) -> Generator:
         Generator: subreads collection
     """
     if len(seq) < window_size:
-        raise ValueError("Read is too short.")
+        logger.error("Read is too short.")
+        raise ValueError
+
     shift: int = int((len(seq)-window_size)/max_sampling)
 
     for i in range(max_sampling):
@@ -237,9 +234,11 @@ class Taxonomy:
     model_path: str | None
     config_path: str | None
 
-def validate_parameters(params: dict) -> bool:
+def check_parameters(params: dict) :
     """Lists all conditions where a set of parameters is valid, and accepts the creation if so"""
-    return all([ sum(params['pattern']) == params['ksize'],] ) # verifies that the pattern length respects ksize
+    if not all([ sum(params['pattern']) == params['ksize'],] ):
+        raise RuntimeError("Incorrect parameter file")
+    # return  # verifies that the pattern length respects ksize
 
 
 
@@ -265,7 +264,7 @@ def encode_kmer(kmer: str) -> int:
     return int(''.join([mapper[k] for k in kmer]))
 
 
-def taxonomy_information(genome_path: str, tree_struct: Tree, debug=False) -> tuple[dict, Tree]:
+def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tree]:
     """Returns taxonomy position information"""
     taxa = ['root', 'domain', 'phylum', 'group', 'order', 'family']
     only_name_file = os.path.splitext(os.path.basename(genome_path))[0]
@@ -284,8 +283,7 @@ def taxonomy_information(genome_path: str, tree_struct: Tree, debug=False) -> tu
             try:
                 tree_struct.create_node(x, idx, parent=parent, data=data)
             except DuplicatedNodeIdError as e :
-                if debug:
-                    print(f"Error: Duplicate node with  {os.path.basename(genome_path)}.  {e}")
+                # logger.error(f"Error: Duplicate node with  {os.path.basename(genome_path)}.  {e}")
                 pass
     return ({'domain': taxo_info[0], 'phylum': taxo_info[1],'group': taxo_info[2],'order': taxo_info[3], 'family': taxo_info[4]},
             tree_struct)

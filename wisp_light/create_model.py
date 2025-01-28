@@ -1,17 +1,16 @@
 """Creates the XGB models"""
 import os
 from copy import copy
-from xgboost import Booster, config_context, DMatrix, train
+from xgboost import config_context, DMatrix, train
 from xgboost.core import XGBoostError
-# (taxo_level, taxo_target)
-# (output_dir, datas, output_json, taxonomic_level, target_taxa)
-def make_model(output_dir: str,
-               datas: dict,
-               database_json: str,
-               model_params: dict,
-               taxo_level: str,
-               taxo_target: str,
-               ) :
+import logging
+from utils import setup_logger
+
+logger = setup_logger(__name__, level=logging.INFO)
+
+
+def make_model(output_dir: str, datas: dict, database_json: str,
+               model_params: dict, taxo_level: str, taxo_target: str,) :
     """Builds the model and saves it"""
     # Creating the booster
     config_context(booster='gbtree', min_child_weight=1, tree_method='approx', predictor='cpu_predictor')
@@ -20,27 +19,19 @@ def make_model(output_dir: str,
     next_level: str = levels[level_up]
 
     if not taxo_level in datas['mappings'] and not taxo_level == 'root':
-        raise ValueError(f"Database does not contain {taxo_level} level.")
+        logger.error(f"Database does not contain {taxo_level} level.")
+        raise ValueError
 
     mappings: dict = copy(datas['mappings'][next_level])
     try:
         number_taxa: int = mappings.pop('number_taxa')
     except KeyError:
-        print("Key 'number_taxa was missing, for unknown reason")
+        logger.error("Key 'number_taxa was missing, for unknown reason")
         number_taxa: int = len(mappings)         # Defining default value
+
     model_params['num_class']= number_taxa
     num_rounds_boosting = model_params.pop('num_rounds_boosting', 10)  # Récupère et supprime la clé
-    # num_rounds_boosting = model_params['num_rounds_boosting']
 
-    #
-    # model_parameters = {'max_depth': 10,
-    #                     'objective': 'multi:softprob',
-    #                     'num_class': number_taxa,
-    #                     'eta': 0.3,
-    #                     'eval_metric': 'mlogloss',
-    #                     'tree_method': 'hist',      # Utilisez 'gpu_hist' pour accélérer avec le GPU
-    #                     'device': 'cuda',
-    #                     'booster': 'gbtree'}
     temp_dir = f"{output_dir}/tmp"
     database_name = os.path.splitext(os.path.basename(database_json))[0]
     model_dir = f"{output_dir}/model/{database_name}"
@@ -66,11 +57,10 @@ def make_model(output_dir: str,
     try:
         # Creating the model
         bst = train(model_params, DMatrix(temp_dataset+"?format=libsvm"), num_rounds_boosting) # Booster
-        # Saving the model and its params        # Must go to model_dir
-        bst.save_model(model_output_path)
+        bst.save_model(model_output_path)  # Saving the model and its params        # Must go to model_dir
+
     except XGBoostError as e:
-        # Invalid dataset, we don't want to keep current level
-        print("Error XgBoost ", e)
+        logger.error("Error XgBoost ", e)    # Invalid dataset, we don't want to keep current level
         return None, None
 
     with open(config_output_path, 'w', encoding='utf-8') as jwriter:

@@ -2,21 +2,23 @@ import os
 import time
 import re
 import yaml
-from tqdm import tqdm
-from json import load, dump
-from pickle import dump as pdump, load as pload
+import logging
+from json import load
+from pickle import dump as pdump
 from concurrent.futures import ThreadPoolExecutor
-from create_database import build_database, validate_parameters
+from create_database import build_database, check_parameters
 from create_model import make_model
 from functools import partial
-# from tharospytools.multithreading import futures_collector
-# from utils import display_json_preview
+from utils import setup_logger
 
 database_name = "refseq"
 input_folder = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo"
 params_file = "./params.yaml"
 output_dir = os.path.abspath('../../output_dir')
 num_processes = 4
+
+logger = setup_logger('build.py', level=logging.INFO)
+
 
 def is_base_file(filename):
     # Vérifie si le nom du fichier se termine par ".fna" sans numéro avant l'extension
@@ -26,10 +28,9 @@ def is_base_file(filename):
 with open(params_file, 'r') as file:
     params = yaml.safe_load(file)
 
-if not validate_parameters(params['DATA']):
-    raise RuntimeError("Incorrect parameter file")
+check_parameters(params['DATA'])
 
-print("Starting database creation")
+logger.info("Starting database creation")
 start_database = time.time()
 all_paths = [os.path.abspath(os.path.join(dirpath, f))
                     for dirpath, _, filenames in os.walk(input_folder)
@@ -41,14 +42,14 @@ phylo_tree = build_database(database_json, params['DATA'], database_name, all_pa
 
 database_time = round((time.time() - start_database) / 60)
 
-print(f"Database successfully built @ {database_json} in {database_time} min")
+logger.info(f"Database successfully built @ {database_json} in {database_time} min")
 start_model = time.time()
 levels = ['root', 'domain', 'phylum', 'group', 'order']
 nodes_per_level: dict = {level: [node.tag for node in list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))]
                          for i, level in enumerate(levels)} # jusqu'à order (drop family level)
 
 # display_json_preview(output_file, num_elements=1)
-print("Starting model creation")
+logger.info("Starting model creation")
 # Loading data => should be put in the main call to escape loading it at each iteration
 with open(database_json, 'r', encoding='utf-8') as jdb:
     datas = load(jdb)
@@ -77,7 +78,7 @@ for future in futures:  # Afficher une barre de progression
             node.data.config_path = os.path.basename(config_path)
 
         except KeyError:
-            print(f"KEY error for phylo tree  key {key} ")
+            logger.error(f"KEY error for phylo tree  key {key} ")
             phylo_tree.remove_node(target_taxa.lower())
 
 phylo_path = f"{output_dir}/model/{database_name}_phylo_tree.txt"
@@ -87,7 +88,7 @@ with open(phylo_path, 'wb') as jtree:
     pdump(phylo_tree, jtree)
 
 model_time = round((time.time() - start_model) / 60)
-print(f"range]Finished computing models, tree @ {phylo_path} in {model_time} min : TOTAL {database_time + model_time} min")
+logger.info(f"range]Finished computing models, tree @ {phylo_path} in {model_time} min : TOTAL {database_time + model_time} min")
 
 
 
