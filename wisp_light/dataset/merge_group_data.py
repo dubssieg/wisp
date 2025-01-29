@@ -11,7 +11,7 @@ sys.path.append('../..')
 from wisp.wisp_light.utils import setup_logger
 
 parser = argparse.ArgumentParser(description="merge des répertoire groupes pour refseq")
-parser.add_argument("--datadir", default="/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo",)
+parser.add_argument("--datadir", default="/projects/microtaxo/data",)
 parser.add_argument("--debug", action="store_true", help="Activer le mode debug (niveau de log DEBUG)")
 args = parser.parse_args()
 
@@ -53,7 +53,7 @@ for root, groups , files in tqdm(os.walk(args.datadir)): # Parcours des fichiers
                 logger.debug(f"Copié : {os.path.basename(src_path)} → {os.path.basename(dst_path)}")
                 shutil.copy2(src_path, dst_path)
 
-            else:
+            else: # if no match pattern
                 logger.debug(f"no match with {'_'.join(TAXO_LEVELS)}*(id).fna")
                 taxo_levels_unmatched.append(src_path)
 
