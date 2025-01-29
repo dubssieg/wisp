@@ -25,7 +25,7 @@ class BacteriaDataset:
         return files
 
 if __name__ == '__main__':
-    datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo"
+    datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
     dataset = BacteriaDataset(datadir=datadir)
     files = dataset.scan_all_files()
 
