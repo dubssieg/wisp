@@ -17,7 +17,7 @@ params_file = "./params.yaml"
 output_dir = os.path.abspath('../../output_dir')
 num_processes = 4
 
-logger = setup_logger('build.py', level=logging.INFO)
+logger = setup_logger(os.path.basename(__file__), level=logging.INFO)
 
 
 def is_base_file(filename):
@@ -32,27 +32,36 @@ check_parameters(params['DATA'])
 
 logger.info("Starting database creation")
 start_database = time.time()
-all_paths = [os.path.abspath(os.path.join(dirpath, f))
-                    for dirpath, _, filenames in os.walk(input_folder)
-                        for f in filenames if is_base_file(f)
-]
+
 database_json = f'{output_dir}/databases/{database_name}.json'
 os.makedirs(os.path.dirname(database_json), exist_ok=True)
-phylo_tree = build_database(database_json, params['DATA'], database_name, all_paths)
+def get_correct_files(input_folder):
+    input_file_list = []
+    drop_file_list = []
+    for dirpath, _, filenames in os.walk(input_folder):
+        for f in filenames:
+            if is_base_file(f):
+                input_file_list.append(os.path.join(dirpath, f))
+            else:
+                drop_file_list.append(f)
+    return  input_file_list, drop_file_list
+
+input_file_list, drop_file_list = get_correct_files(input_folder)
+phylo_tree = build_database(database_json, params['DATA'], input_folder)
 
 database_time = round((time.time() - start_database) / 60)
 
 logger.info(f"Database successfully built @ {database_json} in {database_time} min")
 start_model = time.time()
+
 levels = ['root', 'domain', 'phylum', 'group', 'order']
 nodes_per_level: dict = {level: [node.tag for node in list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))]
                          for i, level in enumerate(levels)} # jusqu'à order (drop family level)
 
 # display_json_preview(output_file, num_elements=1)
 logger.info("Starting model creation")
-# Loading data => should be put in the main call to escape loading it at each iteration
 with open(database_json, 'r', encoding='utf-8') as jdb:
-    datas = load(jdb)
+    datas = load(jdb) # Loading data => should be put in the main call to escape loading it at each iteration
 
 # datas = {'datas': list_59_data,'mappings': taxa_code_by_level}
 classif_targets = [(taxo_level, taxo_target)
@@ -78,7 +87,7 @@ for future in futures:  # Afficher une barre de progression
             node.data.config_path = os.path.basename(config_path)
 
         except KeyError:
-            logger.error(f"KEY error for phylo tree  key {key} ")
+            logger.error(f"KEY error for phylo tree  key {key}  remove node {target_taxa.lower()}")
             phylo_tree.remove_node(target_taxa.lower())
 
 phylo_path = f"{output_dir}/model/{database_name}_phylo_tree.txt"

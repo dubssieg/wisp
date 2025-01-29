@@ -14,7 +14,7 @@ from utils import setup_logger
 
 logger = setup_logger(__name__, level=logging.INFO)
 
-def build_database(output_json, params: dict, database_name: str, input_data: list[str]) ->  Tree:
+def build_database(output_json, params: dict, input_file_list: list[str]) ->  Tree:
     """Builds a json file with taxa levels as dict information"""
     # creating encoder
     my_encoder: dict = encoder(ksize=params['ksize'])
@@ -29,7 +29,7 @@ def build_database(output_json, params: dict, database_name: str, input_data: li
         jdb.write("{\n")
         jdb.write("\"datas\":[")
         # iterating over input genomes
-        for id_genome, genome in (pbar:= tqdm(enumerate(input_data))):
+        for id_genome, genome in (pbar:= tqdm(enumerate(input_file_list))):
             # pbar.set_description(f"Genome {path.basename(genome)}")
             with open(genome, 'r', encoding='utf-8') as freader:
                 genome_data: list = [str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')]
@@ -41,7 +41,7 @@ def build_database(output_json, params: dict, database_name: str, input_data: li
                 counters: list[Counter] = [counter(read,params['ksize'],params['pattern']) for read in all_reads]
                 del all_reads
                 # Encoding reads for XGBoost
-                encoded: list = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
+                encoded: list[dict] = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
                 del counters
                 # Dumping in output file
                 taxonomy, phylo_tree = taxonomy_information(genome, phylo_tree)

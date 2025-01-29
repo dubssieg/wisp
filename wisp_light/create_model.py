@@ -1,10 +1,10 @@
 """Creates the XGB models"""
 import os
+import logging
+from utils import setup_logger
 from copy import copy
 from xgboost import config_context, DMatrix, train
 from xgboost.core import XGBoostError
-import logging
-from utils import setup_logger
 
 logger = setup_logger(__name__, level=logging.INFO)
 
