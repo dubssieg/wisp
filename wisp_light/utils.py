@@ -1,14 +1,20 @@
 import json
 import logging
 
-def setup_logger(name: str, level=logging.INFO, console_level=logging.INFO) -> logging.Logger:
+def setup_logger(name: str, level=logging.INFO, log_file=None) -> logging.Logger:
+    format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%H:%M')
     logger = logging.getLogger(name)
     logger.setLevel(level)
     handler = logging.StreamHandler()
     # handler.setLevel(console_level)
-    handler.setFormatter(logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%H:%M')) #''%Y-%m-%d %H:%M:%S'))
+    handler.setFormatter(format)#''%Y-%m-%d %H:%M:%S'))
     logger.addHandler(handler)
+    if log_file:
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(level)
+        file_handler.setFormatter(format)  # ''%Y-%m-%d %H:%M:%S'))
+        logger.addHandler(file_handler)
+
     return logger
 
 def display_json_preview(file_path: str, num_elements: int = 5):

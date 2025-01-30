@@ -13,17 +13,17 @@ from utils import setup_logger
 
 database_name = "refseq"
 input_folder = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo"
-params_file = "./params.yaml"
-output_dir = os.path.abspath('../../output_dir')
+params_file = "params.yaml"
+output_dir = os.path.abspath('../../../output_dir')
 num_processes = 4
 
-logger = setup_logger(os.path.basename(__file__), level=logging.INFO)
+logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=None)
 
 
 def is_base_file(filename):
     # Vérifie si le nom du fichier se termine par ".fna" sans numéro avant l'extension
     # et qu'il contient exactement 6 niveaux de classif séparés par des underscores
-    return bool(re.match(r"^([a-zA-Z]+_){5}[a-zA-Z]+\.fna$", filename))
+    return bool(re.match(r"^([a-zA-Z]+_){5}[a-zA-Z]+.*\.fna$", filename))
 
 with open(params_file, 'r') as file:
     params = yaml.safe_load(file)
@@ -35,6 +35,7 @@ start_database = time.time()
 
 database_json = f'{output_dir}/databases/{database_name}.json'
 os.makedirs(os.path.dirname(database_json), exist_ok=True)
+
 def get_correct_files(input_folder):
     input_file_list = []
     drop_file_list = []
@@ -47,7 +48,7 @@ def get_correct_files(input_folder):
     return  input_file_list, drop_file_list
 
 input_file_list, drop_file_list = get_correct_files(input_folder)
-phylo_tree = build_database(database_json, params['DATA'], input_folder)
+phylo_tree = build_database(input_file_list, params['DATA'], database_json)
 
 database_time = round((time.time() - start_database) / 60)
 
@@ -97,7 +98,8 @@ with open(phylo_path, 'wb') as jtree:
     pdump(phylo_tree, jtree)
 
 model_time = round((time.time() - start_model) / 60)
-logger.info(f"range]Finished computing models, tree @ {phylo_path} in {model_time} min : TOTAL {database_time + model_time} min")
+logger.info(f"range]Finished computing models, tree @ {phylo_path} in {model_time} min : "
+            f"TOTAL {database_time + model_time} min")
 
 
 

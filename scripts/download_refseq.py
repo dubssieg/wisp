@@ -33,7 +33,8 @@ def download_from_ncbi(summary_file: str, genomes_path: str, email: str, start: 
                     access = [split[0], https_wget]
                     # Downloading genome file
                     system(
-                        f"wget -P {genomes_path} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz && gzip -d {genomes_path}/{access[1][8:].split('/')[-1]}_genomic.fna.gz")
+                        f"wget -P {genomes_path} {access[1][8:]}/{access[1][8:].split('/')[-1]}_genomic.fna.gz"
+                        f" && gzip -d {genomes_path}/{access[1][8:].split('/')[-1]}_genomic.fna.gz")
                     # Extracting
                     with open((file_path := f"{genomes_path}/{access[1][8:].split('/')[-1]}_genomic.fna"), "r", encoding='utf-8') as reader:
                         accession: str = reader.readline().split('.')[0][1:]

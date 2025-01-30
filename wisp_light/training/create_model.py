@@ -48,7 +48,7 @@ def make_model(output_dir: str, datas: dict, database_json: str,
                     id_label_next_level = mappings[data_by_genome[next_level]]
                     label_next_level = data_by_genome[next_level]
                     kmer_pairs = ' '.join([str(k) + ':' + str(v) for k, v in read.items()]) # Each read is a dict with code:count for kmer
-                    line = f"{id_label_next_level} {kmer_pairs} #{label_next_level}\n"
+                    line = f"{id_label_next_level} {kmer_pairs} #{label_next_level}\n" # sert pour l'eval et non xgboost
                     libsvm_writer.write(line)
 
     model_output_path = f"{model_dir}/{taxo_target}_{taxo_level}.json"

@@ -6,17 +6,17 @@ import logging
 import argparse
 from collections import defaultdict
 from tqdm import tqdm
-from bactero_set import TAXO_LEVELS
-sys.path.append('../..')
+sys.path.append("../..")
+from wisp.wisp_light.dataset.bactero_set import TAXO_LEVELS
 from wisp.wisp_light.utils import setup_logger
 
 parser = argparse.ArgumentParser(description="merge des répertoire groupes pour refseq")
 parser.add_argument("--datadir", default="/projects/microtaxo/data/refseq_with_taxo",)
-parser.add_argument("--debug", action="store_true", help="Activer le mode debug (niveau de log DEBUG)")
+parser.add_argument("--debug", action="store_true", help="Activer le mode debug")
 args = parser.parse_args()
 
 level = logging.DEBUG if args.debug else logging.INFO
-logger = setup_logger(os.path.basename(__file__), level=level)
+logger = setup_logger(os.path.basename(__file__), level=level, log_file=None)
 
 output_dir = f"{args.datadir}_merged" # Répertoire de sortie
 os.makedirs(output_dir, exist_ok=True)
