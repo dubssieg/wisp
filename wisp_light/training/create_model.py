@@ -10,7 +10,7 @@ logger = setup_logger(__name__, level=logging.INFO)
 
 
 def make_model(output_dir: str, datas: dict, database_json: str,
-               model_params: dict, taxo_level: str, taxo_target: str,) :
+               params: dict, taxo_level: str, taxo_target: str,) :
     """Builds the model and saves it"""
     # Creating the booster
     config_context(booster='gbtree', min_child_weight=1, tree_method='approx', predictor='cpu_predictor')
@@ -29,8 +29,6 @@ def make_model(output_dir: str, datas: dict, database_json: str,
         logger.error("Key 'number_taxa was missing, for unknown reason")
         number_taxa: int = len(mappings)         # Defining default value
 
-    model_params['num_class']= number_taxa
-    num_rounds_boosting = model_params.pop('num_rounds_boosting', 10)  # Récupère et supprime la clé
 
     temp_dir = f"{output_dir}/tmp"
     database_name = os.path.splitext(os.path.basename(database_json))[0]
@@ -54,9 +52,13 @@ def make_model(output_dir: str, datas: dict, database_json: str,
     model_output_path = f"{model_dir}/{taxo_target}_{taxo_level}.json"
     config_output_path = f"{model_dir}/{taxo_target}_{taxo_level}_params.json"
 
+    model_params = {key: params[key] for key in
+                    {"eval_metric", "tree_method", "device", "booster", "objective",  "eta", "max_depth"}
+                    if key in params}
+    model_params['num_class'] = number_taxa
     try:
         # Creating the model
-        bst = train(model_params, DMatrix(temp_dataset+"?format=libsvm"), num_rounds_boosting) # Booster
+        bst = train(model_params, DMatrix(temp_dataset+"?format=libsvm"), params['num_rounds_boosting']) # Booster
         bst.save_model(model_output_path)  # Saving the model and its params        # Must go to model_dir
 
     except XGBoostError as e:

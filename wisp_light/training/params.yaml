@@ -1,20 +1,29 @@
-DATA:
-  read_size: 10000
-  ksize: 4
-  pattern:
-    - 1
-    - 1
-    - 1
-    - 1
-  sampling: 100
-  threshold: 0.6 # "threshold au dela duquel ne pas aller dans l autre branche"
+#DATA:
+read_size: 10000
+ksize: 4
+pattern:
+  - 1
+  - 1
+  - 1
+  - 1
+sampling: 100
+min_family_threshold: 5
+max_family_repr: 7
+test_size: 0.2
+random_state: 42
 
-MODEL:
-  eval_metric: mlogloss
-  tree_method: hist
-  device: cuda
-  booster: gbtree
-  objective: multi:softprob
-  num_rounds_boosting: 10
-  eta: 0.3
-  max_depth: 10
+#MODEL:
+eval_metric: mlogloss
+tree_method: hist
+device: cuda
+booster: gbtree
+objective: multi:softprob
+num_rounds_boosting: 10
+eta: 0.3
+max_depth: 10
+
+#PREDICT:
+threshold: 0.6 # "threshold au dela duquel ne pas aller dans l autre branche"
+# threshold (float): threshold to consider a taxa as accurate
+normalisation_func: delta_mean
+read_identity_threshold: 0.8

@@ -240,6 +240,14 @@ def check_parameters(params: dict) :
     """Lists all conditions where a set of parameters is valid, and accepts the creation if so"""
     if not all([ sum(params['pattern']) == params['ksize'],] ):
         raise RuntimeError("Incorrect parameter file")
+    if "threshold"  not in params:
+        raise KeyError("Invalid parameter file, must contain a read acceptance threshold value "
+            " between 0.01 (1% identity) and 1.0 (100% identity).")
+    if params["threshold"] > 1.0:
+        threshold = 1.0
+    elif  params["threshold"] < 0.01:
+        threshold = 0.01
+
     # return  # verifies that the pattern length respects ksize
 
 
