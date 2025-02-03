@@ -3,6 +3,7 @@ import logging
 import os
 import yaml
 import time
+import sys
 from tqdm import tqdm
 from json import dump
 from treelib import Tree
@@ -18,7 +19,8 @@ from create_database import check_parameters, build_database
 from create_prediction import prediction
 from utils import  extract_majority_classification, setup_logger
 
-from wisp.wisp_light.training.metrics import ConfusionMatrixTracker, compute_accuracy_from_conf_matrix_df
+sys.path.append('../..')
+from metrics import ConfusionMatrixTracker, compute_accuracy_from_conf_matrix_df
 
 logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=None)
 

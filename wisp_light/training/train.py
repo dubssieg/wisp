@@ -1,19 +1,22 @@
 import os
+import sys
 import yaml
 import logging
 from create_database import check_parameters
 from utils import setup_logger
 from training_functions import train, validate
+sys.path.append('../../..')
 from wisp.wisp_light.dataset.bactero_set import BacteriaDataset, TAXO_LEVELS
 from wisp.wisp_light.training.metrics import  compute_accuracy_from_conf_matrix_df
 
 
 logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=None)
 
-datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
-params_file = "training/params.yaml"
+datadir = "/home/genouest/cnrs_umr6074/hcourtei/micro_project/data/refseq_with_taxo_merged"\
+          # "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
+params_file = "params.yaml"
 exp_rootdir =  os.path.abspath('../../exp/')
-exp_name = 'model_laptop'
+exp_name = 'model_0'
 exp_dir = f"{exp_rootdir}/{exp_name}"
 os.makedirs(exp_dir, exist_ok=True)
 
