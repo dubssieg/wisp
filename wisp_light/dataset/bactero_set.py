@@ -10,7 +10,6 @@ pattern_parts = [f"(?P<{level}>\\w+?)" for level in TAXO_LEVELS]
 pattern_filename = "^" + "_".join(pattern_parts) + "_(?P<id>\\d+)\\.fna$" # A_B_C_D_E_F_456.fna  un nombre obligatoire
 # regex = re.compile(pattern_filename)
 
-
 class BacteriaDataset:
     def __init__(self, datadir: str):
 
@@ -21,9 +20,6 @@ class BacteriaDataset:
         self.csv_file = os.path.join(os.path.dirname(datadir), 'bacteria_index.csv') # "/home/hcourtei/Projects/MicroTaxo/codes/wisp/wisp_light/dataset/"
         self.df_bacteria = self.build()
         self.df_selected = None
-
-
-
 
     def build(self):
         if os.path.exists(self.csv_file):
@@ -111,19 +107,14 @@ if __name__ == '__main__':
 
     datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
 
-
     dataset = BacteriaDataset(datadir)
     # print(dataset.df_bacteria.to_markdown())
     dataset.filter_family_by_min_species(min_family_threshold = 5, max_family_repr='inf')
     print(dataset.df_selected.to_markdown())
 
-
     # print(*file_names, sep='\n')
     # train_files_list, val_files_list =  dataset.train_test_split(test_size=0.2, random_state=42)
-    #
-    #
-    #
-    #
+
     # # Afficher les résultats
     # print("Ensemble d'entraînement:")
     # print(*train_files_list, sep='\n')

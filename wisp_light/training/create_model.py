@@ -9,8 +9,7 @@ from xgboost.core import XGBoostError
 logger = setup_logger(__name__, level=logging.INFO)
 
 
-def make_model(output_dir: str, datas: dict, database_json: str,
-               params: dict, taxo_level: str, taxo_target: str,) :
+def make_model(output_dir: str, datas: dict, params: dict, taxo_level: str, taxo_target: str,) :
     """Builds the model and saves it"""
     # Creating the booster
     config_context(booster='gbtree', min_child_weight=1, tree_method='approx', predictor='cpu_predictor')
@@ -19,8 +18,7 @@ def make_model(output_dir: str, datas: dict, database_json: str,
     next_level: str = levels[level_up]
 
     if not taxo_level in datas['mappings'] and not taxo_level == 'root':
-        logger.error(f"Database does not contain {taxo_level} level.")
-        raise ValueError
+        raise ValueError(f"Database does not contain {taxo_level} level.")
 
     mappings: dict = copy(datas['mappings'][next_level])
     try:
@@ -31,8 +29,7 @@ def make_model(output_dir: str, datas: dict, database_json: str,
 
 
     temp_dir = f"{output_dir}/tmp"
-    database_name = os.path.splitext(os.path.basename(database_json))[0]
-    model_dir = f"{output_dir}/model/{database_name}"
+    model_dir = f"{output_dir}/model"
     os.makedirs(model_dir, exist_ok=True)
     os.makedirs(temp_dir, exist_ok=True)
     # We will be creating temporary LibSVM files in order to make our model learn on those,
