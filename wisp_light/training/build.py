@@ -74,16 +74,15 @@ with ThreadPoolExecutor(max_workers=num_processes) as executor:
     futures = [executor.submit(make_model_partial, *classif_target) for classif_target in classif_targets]
 
 for future in futures:  # Afficher une barre de progression
-    model_path, config_path = future.result()  # Récupérer les résultats du future
+    model_path = future.result()  # Récupérer les résultats du future
     task_index = futures.index(future)  # accès aux arguments correspondant
     taxonomic_level, target_taxa = classif_targets[task_index]
 
-    if model_path is not None and config_path is not None:
+    if model_path is not None:
         key = f"{target_taxa.lower()}_{taxonomic_level}"
         try:
             node = phylo_tree[key]
             node.data.model_path = os.path.basename(model_path)  # CHANGE to have relative path
-            node.data.config_path = os.path.basename(config_path)
 
         except KeyError:
             logger.error(f"KEY error for phylo tree  key {key}  remove node {target_taxa.lower()}")

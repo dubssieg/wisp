@@ -25,14 +25,11 @@ def softmax(predictions: ndarray, func: str, reads_threshold: float) -> list:
     try:
         match func:
             case 'delta_mean':
-                ret = [argmax(a) if amax(a)-mean(a) >
-                             reads_threshold else False for a in predictions]
+                ret = [argmax(a) if amax(a)-mean(a) > reads_threshold else False for a in predictions]
             case 'min_max':
-                ret = [argmax(a) if min([amax(a)-p for p in a if p != amax(a)]) >
-                             reads_threshold else False for a in predictions]
+                ret = [argmax(a) if min([amax(a)-p for p in a if p != amax(a)]) > reads_threshold else False for a in predictions]
             case 'delta_sum':
-                ret = [argmax(a) if amax(a) > (sum(a)-amax(a)) + reads_threshold
-                             else False for a in predictions]
+                ret = [argmax(a) if amax(a) > (sum(a)-amax(a)) + reads_threshold else False for a in predictions]
             case _:
                 ret = [argmax(a) for a in predictions]
     except ValueError:

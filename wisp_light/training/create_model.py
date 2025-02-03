@@ -50,7 +50,7 @@ def make_model(output_dir: str, datas: dict, database_json: str,
                     libsvm_writer.write(line)
 
     model_output_path = f"{model_dir}/{taxo_target}_{taxo_level}.json"
-    config_output_path = f"{model_dir}/{taxo_target}_{taxo_level}_params.json"
+    config_output_path = model_output_path.replace('.json', '_params.json')
 
     model_params = {key: params[key] for key in
                     {"eval_metric", "tree_method", "device", "booster", "objective",  "eta", "max_depth"}
@@ -69,6 +69,6 @@ def make_model(output_dir: str, datas: dict, database_json: str,
         jwriter.write(bst.save_config())
 
     os.remove(temp_dataset)     # Destroying the temporary directory and its contents
-    return model_output_path, config_output_path  # Returning the target file
+    return model_output_path  # Returning the target file
 
 
