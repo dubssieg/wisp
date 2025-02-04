@@ -61,7 +61,7 @@ def train(train_files_list, exp_dir, params, logger, num_processes=4):
         futures = {executor.submit(make_model_partial, *classif_target): classif_target for classif_target in
                    classif_targets}
 
-        for idx, future in enumerate(as_completed(futures), start=1):  # Gestion des tâches dès qu'elles terminent
+        for idx, future in enumerate(as_completed(futures)):  # Gestion des tâches dès qu'elles terminent
             taxo_level, taxo_target = futures[future]
 
             try:

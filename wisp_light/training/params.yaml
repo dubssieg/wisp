@@ -16,7 +16,7 @@ random_state: 42
 num_processes: 8
 eval_metric: mlogloss
 tree_method: hist
-device: cuda
+device: cpu
 booster: gbtree
 objective: multi:softprob
 num_rounds_boosting: 10

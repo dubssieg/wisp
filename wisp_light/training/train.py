@@ -35,7 +35,7 @@ train_files_list, val_files_list = dataset.train_test_split(test_size=params['te
 
 
     
-# train(train_files_list, exp_dir, params, logger, num_processes=params['num_processes'])
+train(train_files_list, exp_dir, params, logger, num_processes=params['num_processes'])
 
 all_val_conf_matrix = validate(val_files_list, exp_dir, params,logger, num_processes=4)
 
