@@ -22,12 +22,11 @@ from utils import  extract_majority_classification, setup_logger
 sys.path.append('../..')
 from metrics import ConfusionMatrixTracker, compute_accuracy_from_conf_matrix_df
 
-logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=None)
 
 LEVELS_gt = ['domain', 'phylum', 'group', 'order', 'family', 'species']
 
 
-def train(train_files_list, exp_dir, params, num_processes=4):
+def train(train_files_list, exp_dir, params, logger, num_processes=4):
     logger.info(f"Starting database creation for {len(train_files_list)} genome files ")
 
     start_database = time.time()
@@ -56,24 +55,35 @@ def train(train_files_list, exp_dir, params, num_processes=4):
                        ]
 
     make_model_partial = partial(make_model, exp_dir, datas, params)
+    logger.info(f"Lancement de {len(classif_targets)} modèles avec num_processes={num_processes}")
 
     with ThreadPoolExecutor(max_workers=num_processes) as executor:
-        futures = [executor.submit(make_model_partial, *classif_target) for classif_target in classif_targets]
+        futures = {executor.submit(make_model_partial, *classif_target): classif_target for classif_target in
+                   classif_targets}
 
-    for future in futures:  # Afficher une barre de progression
-        model_path = future.result()  # Récupérer les résultats du future
-        task_index = futures.index(future)  # accès aux arguments correspondant
-        taxonomic_level, target_taxa = classif_targets[task_index]
+        for idx, future in enumerate(as_completed(futures), start=1):  # Gestion des tâches dès qu'elles terminent
+            taxo_level, taxo_target = futures[future]
 
-        if model_path is not None:
-            key = f"{target_taxa.lower()}_{taxonomic_level}"
             try:
-                node = phylo_tree[key]
-                node.data.model_path = os.path.basename(model_path)  # CHANGE to have relative path
+                model_path = future.result()  # Récupération du chemin du modèle généré
 
-            except KeyError:
-                logger.error(f"KEY error for phylo tree  key {key}  remove node {target_taxa.lower()}")
-                phylo_tree.remove_node(target_taxa.lower())
+                if model_path is not None:
+                    key = f"{taxo_target.lower()}_{taxo_level}"
+                    try:
+                        node = phylo_tree[key]
+                        node.data.model_path = os.path.basename(model_path)  # Stockage du chemin relatif
+                        logger.info(f"✅ [{idx}/{len(futures)}] Modèle   pour le niveau {taxo_level}: {taxo_target} ")
+
+                    except KeyError:
+                        logger.error(f"❌ [{idx}/{len(futures)}] Clé manquante dans l'arbre phylogénétique : {key}."
+                                     f" Suppression du nœud {taxo_target.lower()}")
+                        phylo_tree.remove_node(taxo_target.lower())
+
+                else:
+                    logger.warning(f"⚠ [{idx}/{len(futures)}] Modèle non généré pour {taxo_target} ({taxo_level})")
+
+            except Exception as e:
+                logger.error(f"🔥 Erreur lors de l'entraînement du modèle pour {taxo_target} ({taxo_level}) : {e}")
 
     phylo_path = f"{exp_dir}/phylo_tree.txt"
     os.makedirs(os.path.dirname(phylo_path), exist_ok=True)
@@ -87,7 +97,7 @@ def train(train_files_list, exp_dir, params, num_processes=4):
 
 
 
-def validate(input_files, exp_dir,  params, num_processes=4):
+def validate(input_files, exp_dir,  params, logger,  num_processes=4):
     start_validation = time.time()
     logger.info(f"Start evaluation for {len(input_files)} genome files")
 
@@ -155,6 +165,8 @@ def validate(input_files, exp_dir,  params, num_processes=4):
 
 
 if __name__=='__main__':
+    logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=None)
+
     params_file = "params.yaml"
     datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
     exp_dir = os.path.abspath('../../../exp/model_laptop')

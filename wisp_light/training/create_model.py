@@ -5,6 +5,7 @@ from utils import setup_logger
 from copy import copy
 from xgboost import config_context, DMatrix, train
 from xgboost.core import XGBoostError
+import uuid
 
 logger = setup_logger(__name__, level=logging.INFO)
 
@@ -34,7 +35,7 @@ def make_model(output_dir: str, datas: dict, params: dict, taxo_level: str, taxo
     os.makedirs(temp_dir, exist_ok=True)
     # We will be creating temporary LibSVM files in order to make our model learn on those,
     # then destroy files in order to save space
-    temp_dataset = f"{temp_dir}/{taxo_target}_{taxo_level}.txt"
+    temp_dataset = f"{temp_dir}/{taxo_target}_{taxo_level}_{uuid.uuid4().hex}.txt"
     with open(temp_dataset, 'w', encoding='utf-8') as libsvm_writer:
         for data_by_genome in datas['datas']:
             if taxo_level == 'root' or data_by_genome[taxo_level] == taxo_target: # aps de root dans data_by_genome
