@@ -10,8 +10,6 @@ sys.path.append('../../..')
 from wisp.wisp_light.dataset.bactero_set import BacteriaDataset, TAXO_LEVELS
 from wisp.wisp_light.training.metrics import  compute_accuracy_from_conf_matrix_df
 
-
-
 day_month = datetime.now().strftime('%d_%m')
 # datadir = "/home/genouest/cnrs_umr6074/hcourtei/micro_project/data/refseq_with_taxo_merged"
 datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
