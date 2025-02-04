@@ -19,7 +19,7 @@ from create_database import check_parameters, build_database
 from create_prediction import prediction
 from utils import  extract_majority_classification, setup_logger
 
-sys.path.append('../..')
+sys.path.append('../../..')
 from metrics import ConfusionMatrixTracker, compute_accuracy_from_conf_matrix_df
 from wisp.wisp_light.dataset.bactero_set import TAXO_LEVELS
 from wisp.wisp_light.visu.plots_tools import plot_conf_mat
