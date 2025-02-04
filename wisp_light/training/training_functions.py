@@ -113,7 +113,7 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4):
     model_dir = f"{exp_dir}/model"
 
 
-    for id_g, genome in enumerate(input_files[:10]):
+    for id_g, genome in enumerate(input_files):
         base_name = os.path.basename(genome).split('.')[0]
         taxons = base_name.split('_')
         logger.debug('-'*60)

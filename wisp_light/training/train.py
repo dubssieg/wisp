@@ -13,12 +13,12 @@ from wisp.wisp_light.training.metrics import  compute_accuracy_from_conf_matrix_
 
 
 day_month = datetime.now().strftime('%d_%m')
-datadir = "/home/genouest/cnrs_umr6074/hcourtei/micro_project/data/refseq_with_taxo_merged" \
-# datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
+# datadir = "/home/genouest/cnrs_umr6074/hcourtei/micro_project/data/refseq_with_taxo_merged"
+datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
 params_file = "params.yaml"
 exp_rootdir =  os.path.abspath('../../exp/')
-exp_name = 'model_0'
-exp_dir = f"{exp_rootdir}/{exp_name}_day_month"
+exp_name = 'model0'
+exp_dir = f"{exp_rootdir}/{exp_name}_{day_month}"
 os.makedirs(exp_dir, exist_ok=True)
 log_file = f"{exp_name}_{day_month}.log"
 logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=log_file)
@@ -37,7 +37,7 @@ train_files_list, val_files_list = dataset.train_test_split(test_size=params['te
 
 
     
-train(train_files_list, exp_dir, params, logger, num_processes=4)
+# train(train_files_list, exp_dir, params, logger, num_processes=params['num_processes'])
 
 all_val_conf_matrix = validate(val_files_list, exp_dir, params,logger, num_processes=4)
 
