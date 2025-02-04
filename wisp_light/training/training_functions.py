@@ -21,9 +21,8 @@ from utils import  extract_majority_classification, setup_logger
 
 sys.path.append('../..')
 from metrics import ConfusionMatrixTracker, compute_accuracy_from_conf_matrix_df
-
-
-LEVELS_gt = ['domain', 'phylum', 'group', 'order', 'family', 'species']
+from wisp.wisp_light.dataset.bactero_set import TAXO_LEVELS
+from wisp.wisp_light.visu.plots_tools import plot_conf_mat
 
 
 def train(train_files_list, exp_dir, params, logger, num_processes=4):
@@ -35,7 +34,7 @@ def train(train_files_list, exp_dir, params, logger, num_processes=4):
 
     database_time = round((time.time() - start_database) / 60)
 
-    logger.info(f"Database successfully built @ {f'{exp_dir}/databases.json'} in {database_time} min")
+    logger.info(f"Database successfully built in {database_time} min @ {f'{exp_dir}/databases.json'} ")
     start_model = time.time()
 
     levels = ['root', 'domain', 'phylum', 'group', 'order']
@@ -92,8 +91,8 @@ def train(train_files_list, exp_dir, params, logger, num_processes=4):
         pdump(phylo_tree, jtree)
 
     model_time = round((time.time() - start_model) / 60)
-    logger.info(f"range]Finished computing models, tree @ {phylo_path} in {model_time} min : "
-                f"TOTAL {database_time + model_time} min")
+    logger.info(f"range]Finished computing models in {model_time} min : "
+                f"TOTAL {database_time + model_time} min, tree @ {phylo_path} ")
 
 
 
@@ -103,8 +102,8 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4):
 
     metrics = ConfusionMatrixTracker()
 
-    predict_dir = os.path.join(exp_dir, 'predict')
-    os.makedirs(f"{predict_dir}", exist_ok=True)
+    val_dir = os.path.join(exp_dir, 'eval')
+    os.makedirs(f"{val_dir}", exist_ok=True)
 
     phylo_path = f"{exp_dir}/phylo_tree.txt"
     with open(phylo_path, 'rb') as jtree:
@@ -120,17 +119,18 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4):
         logger.debug(f" -> id_g {id_g} Predict file {base_name}")
 
         # Vérifier qu'il y a au moins 6 niveaux taxonomiques
-        if len(taxons) < len(LEVELS_gt):
+        if len(taxons) < len(TAXO_LEVELS):
             raise ValueError(
-                f"Le fichier '{genome}' doit contenir au moins {len(LEVELS_gt)} niveaux taxonomiques séparés par des underscores.")
+                f"Le fichier '{genome}' doit contenir au moins {len(TAXO_LEVELS)} "
+                f"niveaux taxonomiques séparés par des underscores.")
 
-        gt_taxons = dict(zip(LEVELS_gt, taxons[:6]))
+        gt_taxons = dict(zip(TAXO_LEVELS, taxons[:6]))
 
         with open(genome, 'r', encoding='utf-8') as freader:
             genome_data = {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')}
 
         sequences = [(id_sequence, dna_sequence) for id_sequence, dna_sequence in genome_data.items()]
-        partial_pred = partial(prediction, tree=phylo_tree, model_dir=model_dir, params=params,output_dir=predict_dir)
+        partial_pred = partial(prediction, tree=phylo_tree, model_dir=model_dir, params=params,val_dir=val_dir)
 
         with ThreadPoolExecutor(max_workers=num_processes) as executor:
             future_to_seq = {executor.submit(partial_pred, *seq): seq for seq in sequences}
@@ -151,13 +151,29 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4):
                 prediction_results.append(None)  # Insérer un résultat par défaut
 
         genome_name = genome.split('/')[-1].rsplit('.', 1)[0]
-        report_path = os.path.join(predict_dir, f"{genome_name}_job_output.json")
-
+        report_path = os.path.join(os.path.join(val_dir, 'raw_pred'), f"{genome_name}_job_output.json")
+        os.makedirs(os.path.dirname(report_path), exist_ok=True)
         for_report = {seq_id: result for (seq_id, _), result in zip(sequences, prediction_results)}
         with open(report_path, 'w', encoding='utf-8') as jwriter:
             dump(for_report, jwriter)
 
     all_val_conf_matrix = metrics.get_all_confusion_matrices()
+    logger.info("=" * 60)
+    logger.info("VALIDATION metrics")
+    for id_level, level in enumerate(TAXO_LEVELS[:-1]):
+        conf_mat_level = all_val_conf_matrix[level]
+        accuracy_level = compute_accuracy_from_conf_matrix_df(conf_mat_level)
+        logger.info("-" * 20)
+        logger.info(f" level {level}, accuracy {accuracy_level:03f}")
+        if id_level < 2:
+            logger.info("\n" + conf_mat_level.to_markdown())
+
+        file_csv = os.path.join(os.path.join(val_dir, 'metrics'), f"ConfMat_{level}.csv")
+        os.makedirs(os.path.dirname(file_csv), exist_ok=True)
+
+        conf_mat_level.to_csv(file_csv, sep=';', index=True)
+        plot_conf_mat(conf_mat_level, title=f"Conf Mat for level {level}", filename=file_csv.replace(".csv", ""))
+
     validation_time = round((time.time() - start_validation) / 60)
     logger.info(f"Finished validation  in {validation_time} min")
 
@@ -182,7 +198,7 @@ if __name__=='__main__':
     all_val_conf_matrix = validate(input_files, exp_dir, params, num_processes=4)
 
     print("Validation Metrics")
-    for level in LEVELS_gt[:-1]:
+    for level in TAXO_LEVELS[:-1]:
         conf_mat_level = all_val_conf_matrix[level]
         accuracy_level = compute_accuracy_from_conf_matrix_df(conf_mat_level)
         print(f" level {level}, accuracy {accuracy_level}" )

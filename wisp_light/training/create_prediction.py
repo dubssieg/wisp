@@ -47,7 +47,7 @@ def build_sample(params: dict, dna_sequence: str, id_sequence: str, sample_outpu
             jdb.write(f"0 {' '.join([str(k)+':'+str(v) for k,v in sample.items()])} #{id_sequence}\n")
             # Each read is a dict with code:count for kmer
 
-def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_dir:str, output_dir) ->list:
+def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_dir:str, val_dir) ->list:
     """Creates a prediction for a read.
 
     Args:
@@ -63,7 +63,7 @@ def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_di
         raise ValueError(f"DNA sequence too short {len(dna_sequence):,} and minimum required: {params['read_size']:,}")
 
     file = f"unk_sample_{str(time.time()).replace('.', '_')}_{id_sequence.replace(' ', '_')}.txt"
-    sample_output_path = f"{output_dir}/temp/{file}"
+    sample_output_path = f"{val_dir}/temp/{file}"
 
     build_sample(params, dna_sequence, id_sequence, sample_output_path)
     # Evaluate at one level
