@@ -29,12 +29,10 @@ def train(train_files_list, exp_dir, params, logger, num_processes=4):
     logger.info(f"Starting database creation for {len(train_files_list)} genome files ")
 
     start_database = time.time()
-
     phylo_tree = build_database(train_files_list, params, f'{exp_dir}/databases.json')
+    database_time = round((time.time() - start_database))
 
-    database_time = round((time.time() - start_database) / 60)
-
-    logger.info(f"Database successfully built in {database_time} min @ {f'{exp_dir}/databases.json'} ")
+    logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
     start_model = time.time()
 
     levels = ['root', 'domain', 'phylum', 'group', 'order']
@@ -43,10 +41,10 @@ def train(train_files_list, exp_dir, params, logger, num_processes=4):
         for i, level in enumerate(levels)}  # jusqu'à order (drop family level)
 
     # display_json_preview(output_file, num_elements=1)
-    logger.info("Starting model creation")
     with open(f'{exp_dir}/databases.json', 'r', encoding='utf-8') as jdb:
         datas = load(jdb)  # Loading data => should be put in the main call to escape loading it at each iteration
 
+    logger.info("Starting model creation")
     # datas = {'datas': list_59_data,'mappings': taxa_code_by_level}
     classif_targets = [(taxo_level, taxo_target)
                        for taxo_level, targets in nodes_per_level.items()
@@ -79,7 +77,7 @@ def train(train_files_list, exp_dir, params, logger, num_processes=4):
                         phylo_tree.remove_node(taxo_target.lower())
 
                 else:
-                    logger.warning(f"⚠ [{idx}/{len(futures)}] Modèle non généré pour {taxo_target} ({taxo_level})")
+                    logger.warning(f"⚠ [{idx}/{len(futures)}] Modèle non généré , model_path=None {taxo_target} ({taxo_level})")
 
             except Exception as e:
                 logger.error(f"🔥 Erreur lors de l'entraînement du modèle pour {taxo_target} ({taxo_level}) : {e}")
@@ -90,9 +88,9 @@ def train(train_files_list, exp_dir, params, logger, num_processes=4):
     with open(phylo_path, 'wb') as jtree:
         pdump(phylo_tree, jtree)
 
-    model_time = round((time.time() - start_model) / 60)
-    logger.info(f"range]Finished computing models in {model_time} min : "
-                f"TOTAL {database_time + model_time} min, tree @ {phylo_path} ")
+    model_time = round((time.time() - start_model))
+    logger.info(f"Finished computing models in {model_time} s : "
+                f"TOTAL {database_time + model_time} s, tree @ {phylo_path} ")
 
 
 
@@ -133,7 +131,9 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4, save_raw_p
 
         with ThreadPoolExecutor(max_workers=num_processes) as executor:
             future_to_seq = {executor.submit(partial_pred, *seq): seq for seq in sequences}
+
         prediction_results = []
+
         for future in as_completed(future_to_seq):  # Itère sur les futures terminés (pas d'ordre garanti)
             seq_id, _ = future_to_seq[future]  # Récupérer l'ID de la séquence associée
 
@@ -158,8 +158,8 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4, save_raw_p
                 dump(for_report, jwriter)
 
     log_val_metrcis(metrics, val_dir, logger)
-    validation_time = round((time.time() - start_validation) / 60)
-    logger.info(f"Finished validation  in {validation_time} min")
+    validation_time = round((time.time() - start_validation))
+    logger.info(f"Finished validation  in {validation_time} s")
 
 
 

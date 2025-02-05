@@ -63,7 +63,7 @@ def build_database(input_file_list: list[str], params: dict, output_json: str) -
 
             json_datas.append({**taxonomy})  # if 'taxonomy' in locals(): #
             if 'taxonomy' not in locals():
-                logger.error("ERROR NOT IN LOCALS", taxonomy)
+                logger.error(f"ERROR NOT IN LOCALS {taxonomy}")
             del genome_data
 
         taxa_codes = mapping_sp(json_datas)

@@ -13,7 +13,6 @@ logger = setup_logger(__name__, level=logging.INFO)
 def make_model(output_dir: str, datas: dict, params: dict, taxo_level: str, taxo_target: str,) :
     """Builds the model and saves it"""
     # Creating the booster
-    config_context(booster='gbtree', min_child_weight=1, tree_method='approx', predictor='cpu_predictor')
     levels = ["root", "domain", "phylum", "group", "order", "family", "specie"]
     level_up: int = levels.index(taxo_level) + 1
     next_level: str = levels[level_up]
@@ -23,10 +22,10 @@ def make_model(output_dir: str, datas: dict, params: dict, taxo_level: str, taxo
 
     mappings: dict = copy(datas['mappings'][next_level])
     try:
-        number_taxa: int = mappings.pop('number_taxa')
+        number_taxa = mappings.pop('number_taxa')
     except KeyError:
         logger.error("Key 'number_taxa was missing, for unknown reason")
-        number_taxa: int = len(mappings)         # Defining default value
+        number_taxa = len(mappings)         # Defining default value
 
 
     temp_dir = f"{output_dir}/tmp"

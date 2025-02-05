@@ -7,8 +7,7 @@ CURRENT_PYTHON = version_info[:2]
 REQUIRED_PYTHON = (3, 10)
 
 if CURRENT_PYTHON < REQUIRED_PYTHON:
-    stderr.write(
-        f"{NAME} requires Python 3.10 or higher and your current version is {CURRENT_PYTHON}.")
+    stderr.write(f"{NAME} requires Python 3.10 or higher and your current version is {CURRENT_PYTHON}.")
     exit(1)
 
 setup(
