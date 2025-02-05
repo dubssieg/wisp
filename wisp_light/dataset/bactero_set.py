@@ -11,25 +11,26 @@ pattern_filename = "^" + "_".join(pattern_parts) + "_(?P<id>\\d+)\\.fna$" # A_B_
 # regex = re.compile(pattern_filename)
 
 class BacteriaDataset:
-    def __init__(self, datadir: str):
+    def __init__(self, datadir: str, logger):
 
         if not os.path.isdir(datadir):
             raise ValueError(f"Le chemin {datadir} n'est pas un répertoire valide.")
 
         self.datadir = datadir
+        self.logger = logger
         self.csv_file = os.path.join(os.path.dirname(datadir), 'bacteria_index.csv') # "/home/hcourtei/Projects/MicroTaxo/codes/wisp/wisp_light/dataset/"
         self.df_bacteria = self.build()
         self.df_selected = None
 
     def build(self):
         if os.path.exists(self.csv_file):
-            print("RELOAD bacteria csv Index to ", self.csv_file)
+            self.logger.info(f"RELOAD bacteria csv Index to {self.csv_file}", )
             df_bacteria = pd.read_csv(self.csv_file, sep= ";")
             df_bacteria["id"] = df_bacteria["id"].astype(int)
 
         else:
-            print("BUILD bacteriaReload csv Index to ", self.csv_file)
-            df_bacteria = build_df_bacteria(self.datadir)
+            self.logger.info("BUILD bacteriaReload csv Index to ", self.csv_file)
+            df_bacteria = build_df_bacteria(self.datadir, self.logger)
             df_bacteria.to_csv(self.csv_file, sep=";", index=False)
 
         return df_bacteria
@@ -46,11 +47,13 @@ class BacteriaDataset:
         self.df_selected = df_representants.merge(filtered_result[['domain', 'phylum', 'order', 'family']],
                                              on=['domain', 'phylum', 'order', 'family'],
                                              how='inner')
-        print(f"Selected .fna for family with nb differents species >= {min_family_threshold}")
+        self.logger.info(f"Selected .fna for family with nb differents species >= {min_family_threshold}")
+        self.logger.info(f"initial genome: {len(self.df_bacteria)} representants {len(df_representants)} to final filter {len(self.df_selected)}")
         if float(max_family_repr) < float("inf"):
             assert max_family_repr > min_family_threshold
             self.df_selected = self.df_selected.groupby("family").head(max_family_repr)
-            print(f"Selected .fna for family with max representant {max_family_repr}")
+            self.logger.info(f"Selected .fna for family with max representant {max_family_repr}")
+
 
     def train_test_split(self, test_size=0.2, random_state=42):
         if hasattr(self, 'df_selected'):
@@ -76,12 +79,14 @@ class BacteriaDataset:
             val_files_list = df_val['filename'].tolist()
             train_files_list = [os.path.join(self.datadir, filename) for filename in train_files_list]
             val_files_list = [os.path.join(self.datadir, filename) for filename in val_files_list]
+            self.logger.info(f"Splitted dataset into train :{len(train_files_list)} val: {len(val_files_list)}")
 
         return train_files_list, val_files_list
 
 
 
-def build_df_bacteria(datadir):
+
+def build_df_bacteria(datadir, logger):
     data = []
     columns = TAXO_LEVELS + ["id"]
     df_bacteria = pd.DataFrame(data, columns=columns)
@@ -93,7 +98,7 @@ def build_df_bacteria(datadir):
                 result = match.groupdict()
                 df_bacteria.loc[len(df_bacteria)] = result
             else:  # if no match pattern
-                print(f"WARNING no pattern match for {filename}")
+                logger.info(f"WARNING no pattern match for {filename}")
 
     df_bacteria["id"] = df_bacteria["id"].astype(int)
     df_bacteria = df_bacteria.sort_values(by=TAXO_LEVELS[1:]+["id"], ascending=True).reset_index(drop=True)

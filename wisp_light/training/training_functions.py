@@ -25,14 +25,7 @@ from wisp.wisp_light.dataset.bactero_set import TAXO_LEVELS
 from wisp.wisp_light.visu.plots_tools import plot_conf_mat
 
 
-def train(train_files_list, exp_dir, params, logger, num_processes=4):
-    logger.info(f"Starting database creation for {len(train_files_list)} genome files ")
-
-    start_database = time.time()
-    phylo_tree = build_database(train_files_list, params, f'{exp_dir}/databases.json')
-    database_time = round((time.time() - start_database))
-
-    logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
+def train_model_targets(phylo_tree, exp_dir, params, logger, num_processes=4):
     start_model = time.time()
 
     levels = ['root', 'domain', 'phylum', 'group', 'order']
@@ -89,8 +82,7 @@ def train(train_files_list, exp_dir, params, logger, num_processes=4):
         pdump(phylo_tree, jtree)
 
     model_time = round((time.time() - start_model))
-    logger.info(f"Finished computing models in {model_time} s : "
-                f"TOTAL {database_time + model_time} s, tree @ {phylo_path} ")
+    logger.info(f"Finished make_model in {model_time} s  tree @ {phylo_path} ")
 
 
 
@@ -108,60 +100,63 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4, save_raw_p
         phylo_tree: Tree = pload(jtree)
 
     model_dir = f"{exp_dir}/model"
+    process_genome_partial = partial(process_genome, phylo_tree=phylo_tree, model_dir=model_dir,
+                                     params=params, val_dir=val_dir, logger=logger, metrics=metrics,
+                                     num_processes=num_processes, save_raw_pred=save_raw_pred)
 
 
-    for id_g, genome in enumerate(input_files):
-        base_name = os.path.basename(genome).split('.')[0]
-        taxons = base_name.split('_')
-        logger.debug('-'*60)
-        logger.debug(f" -> id_g {id_g} Predict file {base_name}")
+    # Parallelize across genomes
+    with ThreadPoolExecutor(max_workers=num_processes) as executor:
+        # Submit the processing of each genome as a task to the executor
+        futures = [executor.submit(process_genome_partial, genome) for genome in input_files]
 
-        # Vérifier qu'il y a au moins 6 niveaux taxonomiques
-        if len(taxons) < len(TAXO_LEVELS):
-            raise ValueError(f"Le fichier '{genome}' doit contenir au moins {len(TAXO_LEVELS)} "
-                f"niveaux taxonomiques séparés par des underscores.")
-
-        gt_taxons = dict(zip(TAXO_LEVELS, taxons[:6]))
-
-        with open(genome, 'r', encoding='utf-8') as freader:
-            genome_data = {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')}
-
-        sequences = [(id_sequence, dna_sequence) for id_sequence, dna_sequence in genome_data.items()]
-        partial_pred = partial(prediction, tree=phylo_tree, model_dir=model_dir, params=params,val_dir=val_dir)
-
-        with ThreadPoolExecutor(max_workers=num_processes) as executor:
-            future_to_seq = {executor.submit(partial_pred, *seq): seq for seq in sequences}
-
-        prediction_results = []
-
-        for future in as_completed(future_to_seq):  # Itère sur les futures terminés (pas d'ordre garanti)
-            seq_id, _ = future_to_seq[future]  # Récupérer l'ID de la séquence associée
-
-            try:
-                result = future.result()
-                pred_taxons = extract_majority_classification(result)
-                metrics.update(true_labels=gt_taxons, pred_labels=pred_taxons)
-                logger.debug(f"seq_id {seq_id}") # \n {result}")
-                logger.debug(f"-> pred : {pred_taxons}")
-                logger.debug(f"-> gt : {gt_taxons}")
-                prediction_results.append(result)  # Récupérer le résultat si pas d'erreur
-            except Exception as e:
-                logger.debug(f"⚠️ Error for id {seq_id}: {e}")  # Afficher l'erreur sans arrêter
-                prediction_results.append(None)  # Insérer un résultat par défaut
-
-        if save_raw_pred:
-            genome_name = genome.split('/')[-1].rsplit('.', 1)[0]
-            report_path = os.path.join(os.path.join(val_dir, 'raw_pred'), f"{genome_name}_job_output.json")
-            os.makedirs(os.path.dirname(report_path), exist_ok=True)
-            for_report = {seq_id: result for (seq_id, _), result in zip(sequences, prediction_results)}
-            with open(report_path, 'w', encoding='utf-8') as jwriter:
-                dump(for_report, jwriter)
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Predicting Genomes"):
+            future.result()  #Handle exceptions by raising them if any
 
     log_val_metrcis(metrics, val_dir, logger)
     validation_time = round((time.time() - start_validation))
     logger.info(f"Finished validation  in {validation_time} s")
 
 
+def process_genome(genome, phylo_tree, model_dir, params, val_dir, logger, metrics, num_processes, save_raw_pred):
+    base_name = os.path.basename(genome).split('.')[0]
+    taxons = base_name.split('_')
+    logger.debug('-' * 60)
+    logger.debug(f" -> Predicting for file {base_name}")
+
+    # Ensure there are at least 6 taxonomic levels
+    if len(taxons) < len(TAXO_LEVELS):
+        raise ValueError(f"Genome file '{genome}' must contain at least {len(TAXO_LEVELS)} "
+                         f"taxonomic levels separated by underscores.")
+
+    gt_taxons = dict(zip(TAXO_LEVELS, taxons[:6]))
+
+    with open(genome, 'r', encoding='utf-8') as freader:
+        genome_data = {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')}
+
+    sequences = [(id_sequence, dna_sequence) for id_sequence, dna_sequence in genome_data.items()]
+    partial_pred = partial(prediction, tree=phylo_tree, model_dir=model_dir, params=params, val_dir=val_dir)
+
+    prediction_results = []
+
+    for seq_id, seq_data in sequences:
+        try:
+            result =  partial_pred(seq_id, seq_data)
+            pred_taxons = extract_majority_classification(result)
+            metrics.update(true_labels=gt_taxons, pred_labels=pred_taxons)
+            logger.debug(f"seq_id {seq_id} -> pred: {pred_taxons} -> gt: {gt_taxons}")
+            prediction_results.append(result)
+        except Exception as e:
+            logger.debug(f"⚠️ Error for id {seq_id}: {e}")
+            prediction_results.append(None)
+
+    if save_raw_pred:
+        genome_name = os.path.basename(genome).rsplit('.', 1)[0]
+        report_path = os.path.join(val_dir, 'raw_pred', f"{genome_name}_job_output.json")
+        os.makedirs(os.path.dirname(report_path), exist_ok=True)
+        for_report = {seq_id: result for (seq_id, _), result in zip(sequences, prediction_results)}
+        with open(report_path, 'w', encoding='utf-8') as jwriter:
+            dump(for_report, jwriter)
 
 
 def log_val_metrcis(metrics, val_dir, logger):

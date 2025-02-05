@@ -11,6 +11,7 @@ from treelib import Tree
 from treelib.exceptions import DuplicatedNodeIdError
 from tqdm import tqdm
 from utils import setup_logger
+from collections import defaultdict
 
 TAXO_LEVELS = ["domain", "phylum", "group", "order", "family"]
 
@@ -32,10 +33,13 @@ def build_database(input_file_list: list[str], params: dict, output_json: str) -
         jdb.write("{\n")
         jdb.write("\"datas\":[")
         # iterating over input genomes
+
+
         for id_genome, genome in (pbar:= tqdm(enumerate(input_file_list))):
             # pbar.set_description(f"Genome {path.basename(genome)}")
             with open(genome, 'r', encoding='utf-8') as freader:
-                genome_data: list = [str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')]
+                # genome_data: list = [str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')]
+                genome_data = (str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta'))  # Générateur
                 dna_sequence = (''.join([seq for seq in genome_data])).upper() # Merging all seqs together
             # Splitting of reads
             if len(dna_sequence) >= params['read_size']:
@@ -76,9 +80,10 @@ def build_database(input_file_list: list[str], params: dict, output_json: str) -
         # from NODE tag Spirochaetota   to  1
         # from NODE tag Pseudomonadati   to  2
         for i, level in enumerate(['root'] + TAXO_LEVELS):
-            list_node_depth_i = list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))
+            # list_node_depth_i = list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))
+            node_iterator = (node for node in phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))
             logger.debug(f"Depth {i} level  {level}")
-            for node in list_node_depth_i:
+            for node in node_iterator:
                 if node.data.code is None:
                     new_tag = taxa_codes[level][node.tag]
                     logger.debug(f"for NODE tag {node.tag} get node.data.code {new_tag}")
@@ -94,14 +99,22 @@ def mapping_sp(datas: list[dict]) -> dict:
     Returns:
         dict: a grouped-by-level list of codes
     """
-    taxa_codes: dict = {taxon: {'number_taxa': 0} for taxon in TAXO_LEVELS}
+    taxa_codes = defaultdict(lambda: {'number_taxa': 0})
     for sample in datas:
         for key, value in sample.items():
-            if key in TAXO_LEVELS:
-                taxa_level = taxa_codes[key]
-                if not value in taxa_level:
-                    taxa_level[value] = taxa_level['number_taxa']
-                    taxa_level['number_taxa'] += 1
+            if key in TAXO_LEVELS and value not in taxa_codes[key]:
+                taxa_codes[key][value] = taxa_codes[key]['number_taxa']
+                taxa_codes[key]['number_taxa'] += 1
+
+
+    # taxa_codes: dict = {taxon: {'number_taxa': 0} for taxon in TAXO_LEVELS}
+    # for sample in datas:
+    #     for key, value in sample.items():
+    #         if key in TAXO_LEVELS:
+    #             taxa_level = taxa_codes[key]
+    #             if not value in taxa_level:
+    #                 taxa_level[value] = taxa_level['number_taxa']
+    #                 taxa_level['number_taxa'] += 1
     return taxa_codes
 
 
