@@ -35,7 +35,9 @@ def make_model(output_dir: str, datas: dict, params: dict, taxo_level: str, taxo
     os.makedirs(temp_dir, exist_ok=True)
     # We will be creating temporary LibSVM files in order to make our model learn on those,
     # then destroy files in order to save space
+
     temp_dataset = f"{temp_dir}/{taxo_target}_{taxo_level}_{uuid.uuid4().hex}.txt"
+
     with open(temp_dataset, 'w', encoding='utf-8') as libsvm_writer:
         for data_by_genome in datas['datas']:
             if taxo_level == 'root' or data_by_genome[taxo_level] == taxo_target: # aps de root dans data_by_genome
@@ -54,14 +56,21 @@ def make_model(output_dir: str, datas: dict, params: dict, taxo_level: str, taxo
                     {"eval_metric", "tree_method", "device", "booster", "objective",  "eta", "max_depth"}
                     if key in params}
     model_params['num_class'] = number_taxa
+
+    with open(temp_dataset, 'r', encoding='utf-8') as f:
+        content = f.readlines()
+    if len(content) == 0:
+        logger.error(f"❌ Dataset vide pour {taxo_target} ({taxo_level})")
+
     try:
         # Creating the model
         bst = train(model_params, DMatrix(temp_dataset+"?format=libsvm"), params['num_rounds_boosting']) # Booster
         bst.save_model(model_output_path)  # Saving the model and its params        # Must go to model_dir
 
     except XGBoostError as e:
-        logger.error("Error XgBoost ", e)    # Invalid dataset, we don't want to keep current level
-        return None, None
+        logger.info(model_params)
+        logger.error(f"Error XgBoost  pour {taxo_target} {e}")    # Invalid dataset, we don't want to keep current level
+        return None
 
     with open(config_output_path, 'w', encoding='utf-8') as jwriter:
         jwriter.write(bst.save_config())

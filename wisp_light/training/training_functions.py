@@ -96,7 +96,7 @@ def train(train_files_list, exp_dir, params, logger, num_processes=4):
 
 
 
-def validate(input_files, exp_dir,  params, logger,  num_processes=4):
+def validate(input_files, exp_dir,  params, logger,  num_processes=4, save_raw_pred=False):
     start_validation = time.time()
     logger.info(f"Start evaluation for {len(input_files)} genome files")
 
@@ -120,8 +120,7 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4):
 
         # Vérifier qu'il y a au moins 6 niveaux taxonomiques
         if len(taxons) < len(TAXO_LEVELS):
-            raise ValueError(
-                f"Le fichier '{genome}' doit contenir au moins {len(TAXO_LEVELS)} "
+            raise ValueError(f"Le fichier '{genome}' doit contenir au moins {len(TAXO_LEVELS)} "
                 f"niveaux taxonomiques séparés par des underscores.")
 
         gt_taxons = dict(zip(TAXO_LEVELS, taxons[:6]))
@@ -150,13 +149,22 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4):
                 logger.debug(f"⚠️ Error for id {seq_id}: {e}")  # Afficher l'erreur sans arrêter
                 prediction_results.append(None)  # Insérer un résultat par défaut
 
-        genome_name = genome.split('/')[-1].rsplit('.', 1)[0]
-        report_path = os.path.join(os.path.join(val_dir, 'raw_pred'), f"{genome_name}_job_output.json")
-        os.makedirs(os.path.dirname(report_path), exist_ok=True)
-        for_report = {seq_id: result for (seq_id, _), result in zip(sequences, prediction_results)}
-        with open(report_path, 'w', encoding='utf-8') as jwriter:
-            dump(for_report, jwriter)
+        if save_raw_pred:
+            genome_name = genome.split('/')[-1].rsplit('.', 1)[0]
+            report_path = os.path.join(os.path.join(val_dir, 'raw_pred'), f"{genome_name}_job_output.json")
+            os.makedirs(os.path.dirname(report_path), exist_ok=True)
+            for_report = {seq_id: result for (seq_id, _), result in zip(sequences, prediction_results)}
+            with open(report_path, 'w', encoding='utf-8') as jwriter:
+                dump(for_report, jwriter)
 
+    log_val_metrcis(metrics, val_dir, logger)
+    validation_time = round((time.time() - start_validation) / 60)
+    logger.info(f"Finished validation  in {validation_time} min")
+
+
+
+
+def log_val_metrcis(metrics, val_dir, logger):
     all_val_conf_matrix = metrics.get_all_confusion_matrices()
     logger.info("=" * 60)
     logger.info("VALIDATION metrics")
@@ -173,11 +181,6 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4):
 
         conf_mat_level.to_csv(file_csv, sep=';', index=True)
         plot_conf_mat(conf_mat_level, title=f"Conf Mat for level {level}", filename=file_csv.replace(".csv", ""))
-
-    validation_time = round((time.time() - start_validation) / 60)
-    logger.info(f"Finished validation  in {validation_time} min")
-
-    return all_val_conf_matrix
 
 
 if __name__=='__main__':
@@ -203,3 +206,4 @@ if __name__=='__main__':
         accuracy_level = compute_accuracy_from_conf_matrix_df(conf_mat_level)
         print(f" level {level}, accuracy {accuracy_level}" )
         print(conf_mat_level.to_markdown())
+
