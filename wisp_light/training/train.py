@@ -20,7 +20,7 @@ parser.add_argument("--exp_rootdir", type=str, default=os.path.abspath('../../ex
 args = parser.parse_args()
 
 # args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
-# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/projects/microtaxo/data/refseq_with_taxo_merged"
+args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/projects/microtaxo/data/refseq_with_taxo_merged"
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
 exp_dir = f"{args.exp_rootdir}/{args.exp_name}_{day_month_min}"
 os.makedirs(exp_dir, exist_ok=True)

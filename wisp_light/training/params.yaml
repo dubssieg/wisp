@@ -7,9 +7,9 @@ pattern:
   - 1
   - 1
 sampling: 100
-min_family_threshold: 10
-max_family_repr: 50
-test_size: 0.1
+min_family_threshold: 2
+max_family_repr: inf
+test_size: 0.2
 random_state: 42
 
 #MODEL:
