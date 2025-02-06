@@ -8,6 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+.idea
 exp
 build/
 develop-eggs/
@@ -128,3 +129,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+/wisp_light/import_dataset/refseq/NCBI_credentials.yaml
