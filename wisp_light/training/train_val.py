@@ -6,8 +6,9 @@ import time
 import yaml
 import logging
 from datetime import datetime
-from create_database import check_parameters, build_database, load_phylo_tree
+
 from utils import setup_logger
+from create_database import check_parameters, build_database, load_phylo_tree
 from training_functions import train_model_targets, validate
 
 sys.path.append('../../..')

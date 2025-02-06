@@ -4,23 +4,22 @@ import os
 import yaml
 import time
 import sys
+import pickle
+import json
 from tqdm import tqdm
-from json import dump
 from treelib import Tree
 from Bio import SeqIO
-from pickle import load as pload
-from json import load
-from pickle import dump as pdump
-from create_model import make_model
+
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from create_model import make_model
 from create_database import check_parameters
 from create_prediction import prediction
 from utils import  extract_majority_classification, setup_logger
+from metrics import ConfusionMatrixTracker, compute_accuracy_from_conf_matrix_df
 
 sys.path.append('../../..')
-from metrics import ConfusionMatrixTracker, compute_accuracy_from_conf_matrix_df
 from wisp.wisp_light.dataset.bactero_set import TAXO_LEVELS
 from wisp.wisp_light.visu.plots_tools import plot_conf_mat
 
@@ -35,7 +34,7 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, num_processes=4):
 
     # display_json_preview(output_file, num_elements=1)
     with open(f'{exp_dir}/databases.json', 'r', encoding='utf-8') as jdb:
-        datas = load(jdb)  # Loading data => should be put in the main call to escape loading it at each iteration
+        datas = json.load(jdb)  # Loading data => should be put in the main call to escape loading it at each iteration
 
     logger.info("Starting model creation")
     # datas = {'datas': list_59_data,'mappings': taxa_code_by_level}
@@ -79,7 +78,7 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, num_processes=4):
     os.makedirs(os.path.dirname(phylo_path), exist_ok=True)
 
     with open(phylo_path, 'wb') as jtree:
-        pdump(phylo_tree, jtree)
+        pickle.dump(phylo_tree, jtree)
 
     model_time = round((time.time() - start_model))
     logger.info(f"Finished make_model in {model_time} s  tree @ {phylo_path} ")
@@ -97,7 +96,7 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4, save_raw_p
 
     phylo_path = f"{exp_dir}/phylo_tree.txt"
     with open(phylo_path, 'rb') as jtree:
-        phylo_tree: Tree = pload(jtree)
+        phylo_tree: Tree = pickle.load(jtree)
 
     model_dir = f"{exp_dir}/model"
     process_genome_partial = partial(process_genome, phylo_tree=phylo_tree, model_dir=model_dir,
@@ -156,7 +155,7 @@ def process_genome(genome, phylo_tree, model_dir, params, val_dir, logger, metri
         os.makedirs(os.path.dirname(report_path), exist_ok=True)
         for_report = {seq_id: result for (seq_id, _), result in zip(sequences, prediction_results)}
         with open(report_path, 'w', encoding='utf-8') as jwriter:
-            dump(for_report, jwriter)
+            json.dump(for_report, jwriter)
 
 
 def log_val_metrcis(metrics, val_dir, logger):
