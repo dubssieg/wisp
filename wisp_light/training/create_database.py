@@ -1,4 +1,5 @@
 """Creates a json database"""
+import json
 import logging
 import os
 from collections import Counter
@@ -18,7 +19,45 @@ TAXO_LEVELS = ["domain", "phylum", "group", "order", "family"]
 
 logger = setup_logger(__name__, level=logging.INFO)
 
-def build_database(input_file_list: list[str], params: dict, output_json: str) ->  Tree:
+
+def load_phylo_tree(databse_json: str) :
+    with open(databse_json, 'r', encoding='utf-8') as f:
+        db_data = json.load(f)  # Charge le fichier JSON
+
+    # Initialisation de l'arbre
+    phylo_tree = Tree()
+    phylo_tree.create_node('Root', 'root_root', data=Taxonomy(0, 'Root', 'Root', None, None))
+
+    json_datas = []  # Stocke les taxonomies pour recréer mapping_sp
+
+    # Ajouter les nœuds en utilisant les taxonomies enregistrées
+    for entry in db_data["datas"]:
+        taxonomy_info = {level: entry.get(level, "Unknown") for level in TAXO_LEVELS}
+        json_datas.append(taxonomy_info)
+
+        # Construire la hiérarchie
+        parent_id = "root_root"
+        for level, name in taxonomy_info.items():
+            node_id = f"{name.lower()}_{level}"
+            if not phylo_tree.contains(node_id):  # Éviter les doublons
+                phylo_tree.create_node(name, node_id, parent=parent_id, data=Taxonomy(None, level, name, None, None))
+            parent_id = node_id  # Le parent du prochain niveau est le niveau actuel
+
+    # Appliquer les codes aux nœuds selon les mappings
+    taxa_codes = db_data["mappings"]
+    for level in TAXO_LEVELS:
+        if level in taxa_codes:
+            for name, code in taxa_codes[level].items():
+                node_id = f"{name.lower()}_{level}"
+                if phylo_tree.contains(node_id):
+                    phylo_tree.get_node(node_id).data.code = code
+
+    # tree_output = phylo_tree.show(line_type="ascii", stdout=False)
+    # logger.debug(tree_output)
+    nb_genome_indexed = len(db_data['datas'])
+    return phylo_tree, nb_genome_indexed
+
+def build_database(input_file_list: list[str], params: dict, database_json: str) ->  Tree:
     """Builds a json file with taxa levels as dict information"""
     # creating encoder
     my_encoder: dict = encoder(ksize=params['ksize'])
@@ -29,7 +68,7 @@ def build_database(input_file_list: list[str], params: dict, output_json: str) -
     # Writing the database
     json_datas = list()
 
-    with open(output_json, 'w', encoding='utf-8') as jdb:
+    with open(database_json, 'w', encoding='utf-8') as jdb:
         jdb.write("{\n")
         jdb.write("\"datas\":[")
         # iterating over input genomes

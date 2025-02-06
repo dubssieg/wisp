@@ -118,7 +118,9 @@ def setup_logger(name: str, level=logging.INFO, log_file=None) -> logging.Logger
     # handler.setLevel(console_level)
     handler.setFormatter(format)#''%Y-%m-%d %H:%M:%S'))
     logger.addHandler(handler)
+
     if log_file:
+        print(log_file)
         file_handler = logging.FileHandler(log_file)
         file_handler.setLevel(level)
         file_handler.setFormatter(format)  # ''%Y-%m-%d %H:%M:%S'))

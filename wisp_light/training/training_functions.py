@@ -15,7 +15,7 @@ from create_model import make_model
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from create_database import check_parameters, build_database
+from create_database import check_parameters
 from create_prediction import prediction
 from utils import  extract_majority_classification, setup_logger
 
@@ -44,7 +44,7 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, num_processes=4):
                        for taxo_target in targets
                        ]
 
-    make_model_partial = partial(make_model, exp_dir, datas, params)
+    make_model_partial = partial(make_model, exp_dir, datas, params, logger)
     logger.info(f"Lancement de {len(classif_targets)} modèles avec num_processes={num_processes}")
 
     with ThreadPoolExecutor(max_workers=num_processes) as executor:

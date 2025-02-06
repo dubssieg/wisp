@@ -1,16 +1,13 @@
 """Creates the XGB models"""
 import os
-import logging
-from utils import setup_logger
 from copy import copy
 from xgboost import DMatrix, train
 from xgboost.core import XGBoostError
 import uuid
 
-logger = setup_logger(__name__, level=logging.INFO)
 
 
-def make_model(output_dir: str, datas: dict, params: dict, taxo_level: str, taxo_target: str) :
+def make_model(output_dir: str, datas: dict, params: dict, logger,  taxo_level: str, taxo_target: str) :
     """Builds the model and saves it"""
     # Creating the booster
     levels = ["root", "domain", "phylum", "group", "order", "family", "specie"]
@@ -67,7 +64,7 @@ def make_model(output_dir: str, datas: dict, params: dict, taxo_level: str, taxo
         bst.save_model(model_output_path)  # Saving the model and its params        # Must go to model_dir
 
     except XGBoostError as e:
-        logger.info(model_params)
+        logger.error(model_params)
         logger.error(f"Error XgBoost  pour {taxo_target} {e}")    # Invalid dataset, we don't want to keep current level
         return None
 
