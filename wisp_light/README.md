@@ -45,18 +45,22 @@ Logs and result are in exp_rootdir by default
 
 > 2.1 it/s
 
+`
 conda install -y gcc_linux-64 gxx_linux-64 -c conda-forge
 pip install xgboost --no-binary :all:
-
+`
+```
 . /local/env/envconda.sh
 conda activate py311_env
 source ~/.bashrc
+```
 
-.bashrc
+```.bashrc
 
 export PATH=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0:$PATH
 export CC=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0/gcc
 export CXX=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0/g++
+```
 
 
 ## test avec gpu
