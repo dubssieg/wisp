@@ -1,5 +1,13 @@
 # train xgboost on refseq
 
+projet: micro taxo:
+lancement : 25 novembre 2024
+mi projet : 25 février
+fin prévu : 25 mai
+
+- version refseq  :  Release 227 November 4, 2024.
+
+
 ## make env
 depuis le répertoire wisp_light
 
@@ -33,6 +41,28 @@ Restart training from existing json database:
 Logs and result are in exp_rootdir by default
 `~/codes/wisp/exp`
 
+# conda env with glibc >1.28 
+
+> 2.1 it/s
+
+conda install -y gcc_linux-64 gxx_linux-64 -c conda-forge
+pip install xgboost --no-binary :all:
+
+. /local/env/envconda.sh
+conda activate py311_env
+source ~/.bashrc
+
+.bashrc
+
+export PATH=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0:$PATH
+export CC=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0/gcc
+export CXX=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0/g++
+
+
+## test avec gpu
+
+srun --time 00-01:00:00 --mem=20G --gpus 1 -p gpu --pty bash
+
 
 
 # Old wisp command
@@ -49,16 +79,3 @@ from laptop
 
 
 # TODO
-
-## examen base
-- version refseq  :  Release 227 November 4, 2024.
-- filtrage refseq stat pattern 6 level domain -> specie
-- faire stat sur refseq, prendre un representant par espèces , nb genome par famille 
-- retenir famille si au moins 10 représentant
-- nb famille dans ce cas
-
-## split train/val
-seed pour random
-entrée : 1 liste de path vers .fna
-Sur 10 représentant dans une famille , en mettre 1 dans en val
-sortie 1 liste en train / 1 liste en val

@@ -28,13 +28,14 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, num_processes=4):
     start_model = time.time()
 
     levels = ['root', 'domain', 'phylum', 'group', 'order']
+
     nodes_per_level: dict = {
         level: [node.tag for node in list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))]
         for i, level in enumerate(levels)}  # jusqu'à order (drop family level)
 
     # display_json_preview(output_file, num_elements=1)
     with open(f'{exp_dir}/databases.json', 'r', encoding='utf-8') as jdb:
-        datas = json.load(jdb)  # Loading data => should be put in the main call to escape loading it at each iteration
+        database = json.load(jdb)  # Loading data => should be put in the main call to escape loading it at each iteration
 
     logger.info("Starting model creation")
     # datas = {'datas': list_59_data,'mappings': taxa_code_by_level}
@@ -43,7 +44,7 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, num_processes=4):
                        for taxo_target in targets
                        ]
 
-    make_model_partial = partial(make_model, exp_dir, datas, params, logger)
+    make_model_partial = partial(make_model, exp_dir, database, params, logger)
     logger.info(f"Lancement de {len(classif_targets)} modèles avec num_processes={num_processes}")
 
     with ThreadPoolExecutor(max_workers=num_processes) as executor:

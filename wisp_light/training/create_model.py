@@ -7,17 +7,17 @@ import uuid
 
 
 
-def make_model(output_dir: str, datas: dict, params: dict, logger,  taxo_level: str, taxo_target: str) :
+def make_model(output_dir: str, database: dict, params: dict, logger,  taxo_level: str, taxo_target: str) :
     """Builds the model and saves it"""
     # Creating the booster
     levels = ["root", "domain", "phylum", "group", "order", "family", "specie"]
     level_up: int = levels.index(taxo_level) + 1
     next_level: str = levels[level_up]
 
-    if not taxo_level in datas['mappings'] and not taxo_level == 'root':
+    if not taxo_level in database['mappings'] and not taxo_level == 'root':
         raise ValueError(f"Database does not contain {taxo_level} level.")
 
-    mappings: dict = copy(datas['mappings'][next_level])
+    mappings: dict = copy(database['mappings'][next_level])
     try:
         number_taxa = mappings.pop('number_taxa')
     except KeyError:
@@ -35,7 +35,7 @@ def make_model(output_dir: str, datas: dict, params: dict, logger,  taxo_level: 
     temp_dataset = f"{temp_dir}/{taxo_target}_{taxo_level}_{uuid.uuid4().hex}.txt"
 
     with open(temp_dataset, 'w', encoding='utf-8') as libsvm_writer:
-        for data_by_genome in datas['datas']:
+        for data_by_genome in database['datas']:
             if taxo_level == 'root' or data_by_genome[taxo_level] == taxo_target: # aps de root dans data_by_genome
 
                 for read in data_by_genome['datas']:
@@ -49,7 +49,7 @@ def make_model(output_dir: str, datas: dict, params: dict, logger,  taxo_level: 
     config_output_path = model_output_path.replace('.json', '_params.json')
 
     model_params = {key: params[key] for key in
-                    {"eval_metric", "tree_method", "device", "booster", "objective",  "eta", "max_depth"}
+                    {"eval_metric", "tree_method", "device", "booster", "objective",  "eta", "max_depth", "random_state"}
                     if key in params}
     model_params['num_class'] = number_taxa
 
