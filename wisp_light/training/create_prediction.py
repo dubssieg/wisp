@@ -4,7 +4,7 @@ from collections import Counter
 from utils import softmax
 from xgboost import Booster, DMatrix
 from xgboost.core import XGBoostError
-from create_database import encoder,splitting, counter
+from create_database import encoder,splitting, counter_kmer
 
 
 LEVELS = ['root', 'domain', 'phylum', 'group', 'order']
@@ -40,7 +40,7 @@ def build_sample(params: dict, dna_sequence: str, id_sequence: str, sample_outpu
 
     with open(sample_output_path, 'w', encoding='utf-8') as jdb:
         # Counting kmers inside each read
-        counters =  [counter(read, params['ksize'], params['pattern']) for read in all_reads]
+        counters =  [counter_kmer(read, params['ksize'], params['pattern']) for read in all_reads]
         encoded: list = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]   # Encoding reads for XGBoost
 
         for sample in encoded:

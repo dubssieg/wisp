@@ -1,15 +1,16 @@
 #DATA:
-read_size: 10000
-ksize: 4
+sampling: 100 # nombres de fenetres dans un génome .fna
+read_size: 10000 # taille des fenêtres dans le génom
+ksize: 4 # taille des kmers
 pattern:
   - 1
   - 1
   - 1
   - 1
-sampling: 100
-min_family_threshold: 10
+
+min_family_threshold: 5
 max_family_repr: inf
-test_size: 0.1
+test_size: 0.2
 random_state: 42
 
 #MODEL:

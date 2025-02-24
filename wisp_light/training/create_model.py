@@ -53,14 +53,10 @@ def make_model(output_dir: str, database: dict, params: dict, logger,  taxo_leve
                     if key in params}
     model_params['num_class'] = number_taxa
 
-    with open(temp_dataset, 'r', encoding='utf-8') as f:
-        content = f.readlines()
-    if len(content) == 0:
-        logger.error(f"❌ Dataset vide pour {taxo_target} ({taxo_level})")
-
     try:
         # Creating the model
-        bst = train(model_params, DMatrix(temp_dataset+"?format=libsvm"), params['num_rounds_boosting']) # Booster
+        dm_train = DMatrix(temp_dataset+"?format=libsvm")
+        bst = train(model_params,dm_train , params['num_rounds_boosting']) # Booster
         bst.save_model(model_output_path)  # Saving the model and its params        # Must go to model_dir
 
     except XGBoostError as e:

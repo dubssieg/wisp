@@ -83,8 +83,9 @@ def build_database(input_file_list: list[str], params: dict, database_json: str)
             # Splitting of reads
             if len(dna_sequence) >= params['read_size']:
                 all_reads = splitting(dna_sequence, params['read_size'], params['sampling'])
+                # l = list(all_reads)
                 # Counting kmers inside each read
-                counters: list[Counter] = [counter(read,params['ksize'],params['pattern']) for read in all_reads]
+                counters: list[Counter] = [counter_kmer(read,params['ksize'],params['pattern']) for read in all_reads]
                 del all_reads
                 # Encoding reads for XGBoost
                 encoded: list[dict] = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
@@ -157,25 +158,26 @@ def mapping_sp(datas: list[dict]) -> dict:
     return taxa_codes
 
 
-def splitting(seq: str, window_size: int, max_sampling: int) -> Generator:
+def splitting(seq: str, read_size: int, max_sampling: int, shift = None) -> Generator:
     """Splits a lecture into subreads
     Args:
         seq (str): a DNA sequence
-        window_size (int): size of splits
+        read_size (int): size of splits
         max_sampling (int): maximum number of samples inside lecture
     Raises:
         ValueError: if read is too short
     Yields:
         Generator: subreads collection
     """
-    if len(seq) < window_size:
+    if len(seq) < read_size:
         logger.error("Read is too short.")
         raise ValueError
 
-    shift: int = int((len(seq)-window_size)/max_sampling)
+    if shift is None:
+        shift = int((len(seq)-read_size)/max_sampling)
 
     for i in range(max_sampling):
-        yield seq[shift*i:shift*i+window_size]
+        yield seq[shift*i:shift*i+read_size]
 
 
 def pattern_filter(substring: str, pattern: list[int]) -> str:
@@ -189,7 +191,7 @@ def pattern_filter(substring: str, pattern: list[int]) -> str:
     return ''.join([char * pattern[i] for i, char in enumerate(substring)])
 
 
-def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
+def counter_kmer(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
     """Counts all kmers and filter non-needed ones
     Args:
         entry (str): a subread
@@ -216,8 +218,7 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
                          'H': 'D',
                          'N': 'N'}
 
-    all_kmers: Generator = (entry[i:i+len(pattern)]
-                            for i in range(len(entry)-len(pattern)-1))
+    all_kmers: Generator = (entry[i:i+len(pattern)] for i in range(len(entry)-len(pattern)-1))
     counts: Counter = Counter(all_kmers)
     rev_counts: Counter = Counter({revcomp(k, compl=complements): v for k, v in counts.items()})
     counts += rev_counts
@@ -296,9 +297,9 @@ def check_parameters(params: dict) :
         raise KeyError("Invalid parameter file, must contain a read acceptance threshold value "
             " between 0.01 (1% identity) and 1.0 (100% identity).")
     if params["threshold"] > 1.0:
-        threshold = 1.0
+        params["threshold"] = 1.0
     elif  params["threshold"] < 0.01:
-        threshold = 0.01
+        params["threshold"] = 0.01
 
     # return  # verifies that the pattern length respects ksize
 

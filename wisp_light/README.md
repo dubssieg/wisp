@@ -62,6 +62,13 @@ export CC=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0/gcc
 export CXX=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0/g++
 ```
 
+conda install -c nvidia cudatoolkit=11.8.0
+
+for nvcc
+
+export PATH=/usr/local/cuda-12.3/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64:$LD_LIBRARY_PATH
+nvcc --version 
 
 ## test avec gpu
 

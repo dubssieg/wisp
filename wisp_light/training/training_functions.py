@@ -9,6 +9,7 @@ import json
 from tqdm import tqdm
 from treelib import Tree
 from Bio import SeqIO
+import mlflow
 
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -163,9 +164,11 @@ def log_val_metrcis(metrics, val_dir, logger):
     all_val_conf_matrix = metrics.get_all_confusion_matrices()
     logger.info("=" * 60)
     logger.info("VALIDATION metrics")
+
     for id_level, level in enumerate(TAXO_LEVELS[:-1]):
         conf_mat_level = all_val_conf_matrix[level]
         accuracy_level = compute_accuracy_from_conf_matrix_df(conf_mat_level)
+        mlflow.log_metric(f"accuracy_{level}", accuracy_level)
         logger.info("-" * 20)
         logger.info(f" level {level}, accuracy {accuracy_level:03f}")
         if id_level < 2:
@@ -175,8 +178,10 @@ def log_val_metrcis(metrics, val_dir, logger):
         os.makedirs(os.path.dirname(file_csv), exist_ok=True)
 
         conf_mat_level.to_csv(file_csv, sep=';', index=True)
-        plot_conf_mat(conf_mat_level, title=f"Conf Mat for level {level}", filename=file_csv.replace(".csv", ""))
-
+        mlflow.log_artifact(file_csv)
+        plot_path = file_csv.replace(".csv", ".png")
+        plot_conf_mat(conf_mat_level, title=f"Conf Mat for level {level}", filename=plot_path)
+        mlflow.log_artifact(plot_path)
 
 if __name__=='__main__':
     logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=None)

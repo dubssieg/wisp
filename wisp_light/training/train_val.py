@@ -7,6 +7,8 @@ import yaml
 import logging
 from datetime import datetime
 
+import mlflow
+
 from utils import setup_logger
 from create_database import check_parameters, build_database, load_phylo_tree
 from training_functions import train_model_targets, validate
@@ -38,6 +40,8 @@ else:
     os.makedirs(exp_dir, exist_ok=True)
     log_file = f"{exp_dir}/init_train.log"
 
+mlflow.set_tracking_uri(f"sqlite:///{os.path.dirname(exp_dir)}/mlflow.db")
+mlflow.set_experiment(args.exp_name)
 
 logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=log_file)
 
@@ -53,34 +57,34 @@ params_copy_path = os.path.join(exp_dir, "params.yaml")
 with open(params_copy_path, 'w') as f:
     yaml.safe_dump(params, f)
 
-logger.info(f"Fichier {args.params_file} copié dans {params_copy_path}")
+with mlflow.start_run():
+    mlflow.log_params(params)
 
-dataset = BacteriaDataset(args.datadir, logger)
-dataset.filter_family_by_min_species(min_family_threshold=params['min_family_threshold'],
-                                     max_family_repr=params['max_family_repr'])
+    logger.info(f"Fichier {args.params_file} copié dans {params_copy_path}")
 
-train_files_list, val_files_list = dataset.train_test_split(test_size=params['test_size'],
-                                                            random_state=params['random_state'])
+    dataset = BacteriaDataset(args.datadir, logger)
+    dataset.filter_family_by_min_species(min_family_threshold=params['min_family_threshold'],
+                                         max_family_repr=params['max_family_repr'])
 
+    train_files_list, val_files_list = dataset.train_test_split(test_size=params['test_size'],
+                                                                random_state=params['random_state'])
 
+    if  args.db_json:
 
-if  args.db_json:
+        phylo_tree, nb_genome_indexed = load_phylo_tree(args.db_json)
+        logger.info(f"Reload database json {nb_genome_indexed} genomes indexed from {exp_dir} ")
 
-    phylo_tree, nb_genome_indexed = load_phylo_tree(args.db_json)
-    logger.info(f"Reload database json {nb_genome_indexed} genomes indexed from {exp_dir} ")
+    else:
+        logger.info(f"Starting database creation for {len(train_files_list)} genome files ")
+        start_database = time.time()
+        database_json = os.path.join(exp_dir, 'databases.json')
+        phylo_tree = build_database(train_files_list, params, database_json)
+        database_time = round((time.time() - start_database))
+        logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
 
+    train_model_targets(phylo_tree,  exp_dir, params, logger, num_processes=params['num_processes'])
 
-else:
-    logger.info(f"Starting database creation for {len(train_files_list)} genome files ")
-    start_database = time.time()
-    database_json = os.path.join(exp_dir, 'databases.json')
-    phylo_tree = build_database(train_files_list, params, database_json)
-    database_time = round((time.time() - start_database))
-    logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
-
-train_model_targets(phylo_tree,  exp_dir, params, logger, num_processes=params['num_processes'])
-
-validate(val_files_list, exp_dir, params,logger, num_processes=params['num_processes'])
+    validate(val_files_list, exp_dir, params,logger, num_processes=params['num_processes'])
 
 
 
