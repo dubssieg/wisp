@@ -1,4 +1,5 @@
 # train xgboost on refseq
+auteur package wisp_light: Hermann Courteille (PNRIA)
 
 projet: micro taxo:
 lancement : 25 novembre 2024

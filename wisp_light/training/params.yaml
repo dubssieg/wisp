@@ -25,7 +25,7 @@ eta: 0.3
 max_depth: 10
 
 #PREDICT:
-threshold: 0.6 # "threshold au dela duquel ne pas aller dans l autre branche"
-# threshold (float): threshold to consider a taxa as accurate
+threshold: 0.6 # threshold (float): threshold to consider a taxa as accurate
+# "threshold au dela duquel ne pas aller dans l autre branche"
 normalisation_func: delta_mean
 read_identity_threshold: 0.8

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=trainBio	 # Nom du job
-#SBATCH --chdir=/home/genouest/cnrs_umr6074/hcourtei/codes/wisp/workspace  # Répertoire de travail
+#SBATCH --chdir=/home/genouest/cnrs_umr6074/hcourtei/codes/wisp/wisp_light/training  # Répertoire de travail
 #SBATCH --output=trainBio.txt     # Fichier de sortie
 #SBATCH --error=trainBio.err
 #SBATCH --ntasks=4               # Nombre de tâches
@@ -10,4 +10,4 @@
 # Charger l'env
 . ~/envtaxo2/bin/activate
 
-python main.py train_val
+python train_val.py
