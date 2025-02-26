@@ -114,7 +114,7 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4, save_raw_p
         for future in tqdm(as_completed(futures), total=len(futures), desc="Predicting Genomes"):
             future.result()  #Handle exceptions by raising them if any
 
-    log_val_metrcis(metrics, val_dir, logger)
+    log_val_metrics(metrics, val_dir, logger)
     validation_time = round((time.time() - start_validation))
     logger.info(f"Finished validation  in {validation_time} s")
 
@@ -160,7 +160,7 @@ def process_genome(genome, phylo_tree, model_dir, params, val_dir, logger, metri
             json.dump(for_report, jwriter)
 
 
-def log_val_metrcis(metrics, val_dir, logger):
+def log_val_metrics(metrics, val_dir, logger):
     all_val_conf_matrix = metrics.get_all_confusion_matrices()
     logger.info("=" * 60)
     logger.info("VALIDATION metrics")

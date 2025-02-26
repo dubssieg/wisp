@@ -82,10 +82,11 @@ def build_database(input_file_list: list[str], params: dict, database_json: str)
                 dna_sequence = (''.join([seq for seq in genome_data])).upper() # Merging all seqs together
             # Splitting of reads
             if len(dna_sequence) >= params['read_size']:
-                all_reads = splitting(dna_sequence, params['read_size'], params['sampling'])
+                all_reads = splitting(dna_sequence, params['read_size'], params['max_sampling'], shift_ratio=params['shift_ratio'])
                 # l = list(all_reads)
                 # Counting kmers inside each read
                 counters: list[Counter] = [counter_kmer(read,params['ksize'],params['pattern']) for read in all_reads]
+                print('Nb count win', len(counters))
                 del all_reads
                 # Encoding reads for XGBoost
                 encoded: list[dict] = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
@@ -158,12 +159,13 @@ def mapping_sp(datas: list[dict]) -> dict:
     return taxa_codes
 
 
-def splitting(seq: str, read_size: int, max_sampling: int, shift = None) -> Generator:
+def splitting(seq: str, read_size: int, max_sampling = None, shift_ratio = None) -> Generator:
     """Splits a lecture into subreads
     Args:
         seq (str): a DNA sequence
         read_size (int): size of splits
         max_sampling (int): maximum number of samples inside lecture
+        shift_ratio (float): ratio of read_size for step in crop
     Raises:
         ValueError: if read is too short
     Yields:
@@ -172,11 +174,27 @@ def splitting(seq: str, read_size: int, max_sampling: int, shift = None) -> Gene
     if len(seq) < read_size:
         logger.error("Read is too short.")
         raise ValueError
+    if shift_ratio is not None and max_sampling is not None:
+        logger.error("Provide either shift_ratio or max_sampling, not both.")
+        raise ValueError("Provide either shift_ratio or max_sampling, not both.")
 
-    if shift is None:
+    # print("shift_ratio", shift_ratio)
+    if shift_ratio is not None:
+        assert max_sampling is None
+        shift = int(shift_ratio * read_size)
+        nb_win = int((len(seq) - read_size) / shift)
+    else:
+        assert max_sampling is not None
         shift = int((len(seq)-read_size)/max_sampling)
+        nb_win = max_sampling
 
-    for i in range(max_sampling):
+    if shift <= 0 or nb_win<=0:
+        logger.error(f"Calculated shift {shift} is non-positive, check input parameters.")
+        raise ValueError(f"Calculated shift {shift} must be positive.")
+
+    # print("shift", shift)
+
+    for i in range(nb_win):
         yield seq[shift*i:shift*i+read_size]
 
 

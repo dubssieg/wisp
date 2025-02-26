@@ -36,7 +36,7 @@ def build_sample(params: dict, dna_sequence: str, id_sequence: str, sample_outpu
     os.makedirs(os.path.dirname(sample_output_path), exist_ok=True)     # Writing the database
 
     my_encoder: dict = encoder(ksize=params['ksize'])
-    all_reads = splitting(dna_sequence.upper(), params['read_size'], params['sampling'])
+    all_reads = splitting(dna_sequence.upper(), params['read_size'], params['max_sampling'], shift_ratio=params['shift_ratio'])
 
     with open(sample_output_path, 'w', encoding='utf-8') as jdb:
         # Counting kmers inside each read

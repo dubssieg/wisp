@@ -1,19 +1,19 @@
 #DATA:
-sampling: 100 # nombres de fenetres dans un génome .fna
-read_size: 10000 # taille des fenêtres dans le génom
+read_size: 10000 # taille des fenêtres dans le génom dans lequel ce fait le comptage
+max_sampling: null # nombres de fenetres dans un génome .fna,  # if null, shift_ratio should be specified
+shift_ratio: 0.5  # if null, max_sampling should be specified
 ksize: 4 # taille des kmers
-pattern:
+pattern: # motif à prendre en compte dans le kmer
   - 1
   - 1
   - 1
   - 1
+min_family_threshold: 10 # minimum de représentant espèce par famille
+max_family_repr: inf # maximum de représentant espèce par famille
+test_size: 0.1 # pourcentage du split train/val
+random_state: 42 # seed pour xgboost, et le split train/val
 
-min_family_threshold: 5
-max_family_repr: inf
-test_size: 0.2
-random_state: 42
-
-#MODEL:
+#MODEL XGBOOST: params
 num_processes: 8
 eval_metric: mlogloss
 tree_method: hist

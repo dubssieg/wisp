@@ -42,6 +42,12 @@ Restart training from existing json database:
 Logs and result are in exp_rootdir by default
 `~/codes/wisp/exp`
 
+1. Interactive session with srun above :
+To prevent ssh break, you can use tmux on genouest see https://help.genouest.org/usage/slurm/#long-running-interactive-jobs-srun
+
+2. Sbatch , fix parameter in .sh , params.yaml or train_val.py, then 
+`sbatch submit_main_build.sh
+`
 # conda env with glibc >1.28 
 
 > 2.1 it/s
