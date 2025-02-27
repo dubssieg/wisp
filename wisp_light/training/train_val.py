@@ -27,9 +27,8 @@ parser.add_argument("--db_json", type=str, default=None, help="Fichier JSON de l
 args = parser.parse_args()
 
 # args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
-# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/projects/microtaxo/data/refseq_with_taxo_merged"
+# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/refseq_with_taxo_merged"
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
-
 if args.db_json:
     exp_dir = os.path.dirname(args.db_json)
     log_file = f"{exp_dir}/restart.log"
@@ -78,7 +77,7 @@ with mlflow.start_run():
         logger.info(f"Starting database creation for {len(train_files_list)} genome files ")
         start_database = time.time()
         database_json = os.path.join(exp_dir, 'databases.json')
-        phylo_tree = build_database(train_files_list, params, database_json)
+        phylo_tree = build_database(train_files_list, params, database_json, logger)
         database_time = round((time.time() - start_database))
         logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
 

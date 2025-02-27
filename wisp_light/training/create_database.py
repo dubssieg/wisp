@@ -17,7 +17,6 @@ from collections import defaultdict
 TAXO_LEVELS = ["domain", "phylum", "group", "order", "family"]
 
 
-logger = setup_logger(__name__, level=logging.INFO)
 
 
 def load_phylo_tree(databse_json: str) :
@@ -57,7 +56,7 @@ def load_phylo_tree(databse_json: str) :
     nb_genome_indexed = len(db_data['datas'])
     return phylo_tree, nb_genome_indexed
 
-def build_database(input_file_list: list[str], params: dict, database_json: str) ->  Tree:
+def build_database(input_file_list: list[str], params: dict, database_json: str , logger) ->  Tree:
     """Builds a json file with taxa levels as dict information"""
     # creating encoder
     my_encoder: dict = encoder(ksize=params['ksize'])
@@ -73,7 +72,8 @@ def build_database(input_file_list: list[str], params: dict, database_json: str)
         jdb.write("\"datas\":[")
         # iterating over input genomes
 
-
+        total_dna_length = 0
+        total_nb_count_win = 0
         for id_genome, genome in (pbar:= tqdm(enumerate(input_file_list))):
             # pbar.set_description(f"Genome {path.basename(genome)}")
             with open(genome, 'r', encoding='utf-8') as freader:
@@ -81,12 +81,13 @@ def build_database(input_file_list: list[str], params: dict, database_json: str)
                 genome_data = (str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta'))  # Générateur
                 dna_sequence = (''.join([seq for seq in genome_data])).upper() # Merging all seqs together
             # Splitting of reads
+            total_dna_length += len(dna_sequence)
             if len(dna_sequence) >= params['read_size']:
                 all_reads = splitting(dna_sequence, params['read_size'], params['max_sampling'], shift_ratio=params['shift_ratio'])
                 # l = list(all_reads)
                 # Counting kmers inside each read
                 counters: list[Counter] = [counter_kmer(read,params['ksize'],params['pattern']) for read in all_reads]
-                print('Nb count win', len(counters))
+                total_nb_count_win += len(counters)
                 del all_reads
                 # Encoding reads for XGBoost
                 encoded: list[dict] = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
@@ -129,7 +130,9 @@ def build_database(input_file_list: list[str], params: dict, database_json: str)
                     new_tag = taxa_codes[level][node.tag]
                     logger.debug(f"for NODE tag {node.tag} get node.data.code {new_tag}")
                     node.data.code = new_tag
-
+        avg_dna_length = int(total_dna_length / len(input_file_list))
+        avg_nb_count_win = int(total_nb_count_win / len(input_file_list))
+        logger.info(f"avg_nb_count_win {avg_nb_count_win} avg_dna_length {avg_dna_length:,d}".replace(",", " "))
     return phylo_tree
 
 
@@ -172,10 +175,8 @@ def splitting(seq: str, read_size: int, max_sampling = None, shift_ratio = None)
         Generator: subreads collection
     """
     if len(seq) < read_size:
-        logger.error("Read is too short.")
-        raise ValueError
+        raise ValueError("Read is too short.")
     if shift_ratio is not None and max_sampling is not None:
-        logger.error("Provide either shift_ratio or max_sampling, not both.")
         raise ValueError("Provide either shift_ratio or max_sampling, not both.")
 
     # print("shift_ratio", shift_ratio)
@@ -189,11 +190,9 @@ def splitting(seq: str, read_size: int, max_sampling = None, shift_ratio = None)
         nb_win = max_sampling
 
     if shift <= 0 or nb_win<=0:
-        logger.error(f"Calculated shift {shift} is non-positive, check input parameters.")
         raise ValueError(f"Calculated shift {shift} must be positive.")
 
     # print("shift", shift)
-
     for i in range(nb_win):
         yield seq[shift*i:shift*i+read_size]
 
