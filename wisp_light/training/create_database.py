@@ -1,4 +1,5 @@
 """Creates a json database"""
+import json
 import logging
 import os
 from collections import Counter
@@ -11,10 +12,51 @@ from treelib import Tree
 from treelib.exceptions import DuplicatedNodeIdError
 from tqdm import tqdm
 from utils import setup_logger
+from collections import defaultdict
 
-logger = setup_logger(__name__, level=logging.INFO)
+TAXO_LEVELS = ["domain", "phylum", "group", "order", "family"]
 
-def build_database(output_json, params: dict, database_name: str, input_data: list[str]) ->  Tree:
+
+
+
+def load_phylo_tree(databse_json: str) :
+    with open(databse_json, 'r', encoding='utf-8') as f:
+        db_data = json.load(f)  # Charge le fichier JSON
+
+    # Initialisation de l'arbre
+    phylo_tree = Tree()
+    phylo_tree.create_node('Root', 'root_root', data=Taxonomy(0, 'Root', 'Root', None, None))
+
+    json_datas = []  # Stocke les taxonomies pour recréer mapping_sp
+
+    # Ajouter les nœuds en utilisant les taxonomies enregistrées
+    for entry in db_data["datas"]:
+        taxonomy_info = {level: entry.get(level, "Unknown") for level in TAXO_LEVELS}
+        json_datas.append(taxonomy_info)
+
+        # Construire la hiérarchie
+        parent_id = "root_root"
+        for level, name in taxonomy_info.items():
+            node_id = f"{name.lower()}_{level}"
+            if not phylo_tree.contains(node_id):  # Éviter les doublons
+                phylo_tree.create_node(name, node_id, parent=parent_id, data=Taxonomy(None, level, name, None, None))
+            parent_id = node_id  # Le parent du prochain niveau est le niveau actuel
+
+    # Appliquer les codes aux nœuds selon les mappings
+    taxa_codes = db_data["mappings"]
+    for level in TAXO_LEVELS:
+        if level in taxa_codes:
+            for name, code in taxa_codes[level].items():
+                node_id = f"{name.lower()}_{level}"
+                if phylo_tree.contains(node_id):
+                    phylo_tree.get_node(node_id).data.code = code
+
+    # tree_output = phylo_tree.show(line_type="ascii", stdout=False)
+    # logger.debug(tree_output)
+    nb_genome_indexed = len(db_data['datas'])
+    return phylo_tree, nb_genome_indexed
+
+def build_database(input_file_list: list[str], params: dict, database_json: str , logger) ->  Tree:
     """Builds a json file with taxa levels as dict information"""
     # creating encoder
     my_encoder: dict = encoder(ksize=params['ksize'])
@@ -25,23 +67,30 @@ def build_database(output_json, params: dict, database_name: str, input_data: li
     # Writing the database
     json_datas = list()
 
-    with open(output_json, 'w', encoding='utf-8') as jdb:
+    with open(database_json, 'w', encoding='utf-8') as jdb:
         jdb.write("{\n")
         jdb.write("\"datas\":[")
         # iterating over input genomes
-        for id_genome, genome in (pbar:= tqdm(enumerate(input_data))):
+
+        total_dna_length = 0
+        total_nb_count_win = 0
+        for id_genome, genome in (pbar:= tqdm(enumerate(input_file_list))):
             # pbar.set_description(f"Genome {path.basename(genome)}")
             with open(genome, 'r', encoding='utf-8') as freader:
-                genome_data: list = [str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')]
+                # genome_data: list = [str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')]
+                genome_data = (str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta'))  # Générateur
                 dna_sequence = (''.join([seq for seq in genome_data])).upper() # Merging all seqs together
             # Splitting of reads
+            total_dna_length += len(dna_sequence)
             if len(dna_sequence) >= params['read_size']:
-                all_reads = splitting(dna_sequence, params['read_size'], params['sampling'])
+                all_reads = splitting(dna_sequence, params['read_size'], params['max_sampling'], shift_ratio=params['shift_ratio'])
+                # l = list(all_reads)
                 # Counting kmers inside each read
-                counters: list[Counter] = [counter(read,params['ksize'],params['pattern']) for read in all_reads]
+                counters: list[Counter] = [counter_kmer(read,params['ksize'],params['pattern']) for read in all_reads]
+                total_nb_count_win += len(counters)
                 del all_reads
                 # Encoding reads for XGBoost
-                encoded: list = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
+                encoded: list[dict] = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
                 del counters
                 # Dumping in output file
                 taxonomy, phylo_tree = taxonomy_information(genome, phylo_tree)
@@ -60,7 +109,7 @@ def build_database(output_json, params: dict, database_name: str, input_data: li
 
             json_datas.append({**taxonomy})  # if 'taxonomy' in locals(): #
             if 'taxonomy' not in locals():
-                logger.error("ERROR NOT IN LOCALS", taxonomy)
+                logger.error(f"ERROR NOT IN LOCALS {taxonomy}")
             del genome_data
 
         taxa_codes = mapping_sp(json_datas)
@@ -72,15 +121,18 @@ def build_database(output_json, params: dict, database_name: str, input_data: li
         # from NODE tag Campylobacterota   to  0
         # from NODE tag Spirochaetota   to  1
         # from NODE tag Pseudomonadati   to  2
-        for i, level in enumerate(['root', 'domain', 'phylum', 'group', 'order', 'family']):
-            list_node_depth_i = list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))
+        for i, level in enumerate(['root'] + TAXO_LEVELS):
+            # list_node_depth_i = list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))
+            node_iterator = (node for node in phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))
             logger.debug(f"Depth {i} level  {level}")
-            for node in list_node_depth_i:
+            for node in node_iterator:
                 if node.data.code is None:
                     new_tag = taxa_codes[level][node.tag]
                     logger.debug(f"for NODE tag {node.tag} get node.data.code {new_tag}")
                     node.data.code = new_tag
-
+        avg_dna_length = int(total_dna_length / len(input_file_list))
+        avg_nb_count_win = int(total_nb_count_win / len(input_file_list))
+        logger.info(f"avg_nb_count_win {avg_nb_count_win} avg_dna_length {avg_dna_length:,d}".replace(",", " "))
     return phylo_tree
 
 
@@ -91,37 +143,58 @@ def mapping_sp(datas: list[dict]) -> dict:
     Returns:
         dict: a grouped-by-level list of codes
     """
-    taxa = ['domain','phylum','group','order','family']
-    taxa_codes: dict = {taxon: {'number_taxa': 0} for taxon in taxa}
+    taxa_codes = defaultdict(lambda: {'number_taxa': 0})
     for sample in datas:
         for key, value in sample.items():
-            if key in taxa:
-                taxa_level = taxa_codes[key]
-                if not value in taxa_level:
-                    taxa_level[value] = taxa_level['number_taxa']
-                    taxa_level['number_taxa'] += 1
+            if key in TAXO_LEVELS and value not in taxa_codes[key]:
+                taxa_codes[key][value] = taxa_codes[key]['number_taxa']
+                taxa_codes[key]['number_taxa'] += 1
+
+
+    # taxa_codes: dict = {taxon: {'number_taxa': 0} for taxon in TAXO_LEVELS}
+    # for sample in datas:
+    #     for key, value in sample.items():
+    #         if key in TAXO_LEVELS:
+    #             taxa_level = taxa_codes[key]
+    #             if not value in taxa_level:
+    #                 taxa_level[value] = taxa_level['number_taxa']
+    #                 taxa_level['number_taxa'] += 1
     return taxa_codes
 
 
-def splitting(seq: str, window_size: int, max_sampling: int) -> Generator:
+def splitting(seq: str, read_size: int, max_sampling = None, shift_ratio = None) -> Generator:
     """Splits a lecture into subreads
     Args:
         seq (str): a DNA sequence
-        window_size (int): size of splits
+        read_size (int): size of splits
         max_sampling (int): maximum number of samples inside lecture
+        shift_ratio (float): ratio of read_size for step in crop
     Raises:
         ValueError: if read is too short
     Yields:
         Generator: subreads collection
     """
-    if len(seq) < window_size:
-        logger.error("Read is too short.")
-        raise ValueError
+    if len(seq) < read_size:
+        raise ValueError("Read is too short.")
+    if shift_ratio is not None and max_sampling is not None:
+        raise ValueError("Provide either shift_ratio or max_sampling, not both.")
 
-    shift: int = int((len(seq)-window_size)/max_sampling)
+    # print("shift_ratio", shift_ratio)
+    if shift_ratio is not None:
+        assert max_sampling is None
+        shift = int(shift_ratio * read_size)
+        nb_win = int((len(seq) - read_size) / shift)
+    else:
+        assert max_sampling is not None
+        shift = int((len(seq)-read_size)/max_sampling)
+        nb_win = max_sampling
 
-    for i in range(max_sampling):
-        yield seq[shift*i:shift*i+window_size]
+    if shift <= 0 or nb_win<=0:
+        raise ValueError(f"Calculated shift {shift} must be positive.")
+
+    # print("shift", shift)
+    for i in range(nb_win):
+        yield seq[shift*i:shift*i+read_size]
 
 
 def pattern_filter(substring: str, pattern: list[int]) -> str:
@@ -135,7 +208,7 @@ def pattern_filter(substring: str, pattern: list[int]) -> str:
     return ''.join([char * pattern[i] for i, char in enumerate(substring)])
 
 
-def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
+def counter_kmer(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
     """Counts all kmers and filter non-needed ones
     Args:
         entry (str): a subread
@@ -162,8 +235,7 @@ def counter(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
                          'H': 'D',
                          'N': 'N'}
 
-    all_kmers: Generator = (entry[i:i+len(pattern)]
-                            for i in range(len(entry)-len(pattern)-1))
+    all_kmers: Generator = (entry[i:i+len(pattern)] for i in range(len(entry)-len(pattern)-1))
     counts: Counter = Counter(all_kmers)
     rev_counts: Counter = Counter({revcomp(k, compl=complements): v for k, v in counts.items()})
     counts += rev_counts
@@ -238,6 +310,14 @@ def check_parameters(params: dict) :
     """Lists all conditions where a set of parameters is valid, and accepts the creation if so"""
     if not all([ sum(params['pattern']) == params['ksize'],] ):
         raise RuntimeError("Incorrect parameter file")
+    if "threshold"  not in params:
+        raise KeyError("Invalid parameter file, must contain a read acceptance threshold value "
+            " between 0.01 (1% identity) and 1.0 (100% identity).")
+    if params["threshold"] > 1.0:
+        params["threshold"] = 1.0
+    elif  params["threshold"] < 0.01:
+        params["threshold"] = 0.01
+
     # return  # verifies that the pattern length respects ksize
 
 
@@ -266,18 +346,19 @@ def encode_kmer(kmer: str) -> int:
 
 def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tree]:
     """Returns taxonomy position information"""
-    taxa = ['root', 'domain', 'phylum', 'group', 'order', 'family']
+    taxa_family = ['root'] + TAXO_LEVELS
     only_name_file = os.path.splitext(os.path.basename(genome_path))[0]
     # example 'Bacteria_Campylobacterota_Epsilonproteobacteria_Campylobacterales_Campylobacter_hyointestinalis'
-    taxo_info: list = only_name_file.split('_')[:-1] # only 5 first
+    taxo_info: list = only_name_file.split('_')[:5] # only 5 first
     # ['Bacteria', 'Campylobacterota', 'Epsilonproteobacteria', 'Campylobacterales', 'Campylobacter']
     parents = ['Root'] + taxo_info
+
     for i, x in enumerate(parents):
         # y = x
         if x != 'Root':
-            idx = f"{x.lower()}_{taxa[i]}"
-            parent = f"{parents[i - 1].lower()}_{taxa[i - 1]}"
-            level = ['domain', 'phylum', 'group', 'order', 'family'][i - 1]
+            idx = f"{x.lower()}_{taxa_family[i]}"
+            parent = f"{parents[i - 1].lower()}_{taxa_family[i - 1]}"
+            level = taxa_family[1:][i - 1]
             name = x
             data = Taxonomy(None, level, name, None, None)
             try:
@@ -285,8 +366,8 @@ def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tre
             except DuplicatedNodeIdError as e :
                 # logger.error(f"Error: Duplicate node with  {os.path.basename(genome_path)}.  {e}")
                 pass
-    return ({'domain': taxo_info[0], 'phylum': taxo_info[1],'group': taxo_info[2],'order': taxo_info[3], 'family': taxo_info[4]},
-            tree_struct)
+
+    return dict(zip(TAXO_LEVELS, taxo_info)), tree_struct
 
 
 
