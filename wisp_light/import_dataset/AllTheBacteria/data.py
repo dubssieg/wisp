@@ -1,0 +1,88 @@
+import pandas as pd
+from pathlib import Path
+from urllib.error import HTTPError
+from Bio import Entrez
+from diskcache import Cache
+from tqdm.auto import tqdm
+from collections import defaultdict
+
+METADATA_PATH = "/data/microtaxo/allthebacteria_sample/metadata"
+ASSEMBLY_PATH = "/data/microtaxo/allthebacteria_sample/assembly"
+METADATA_FILENAME = "ena_metadata.tsv"
+CACHE_DIR = "/data/microtaxo/apicache"
+EMAIL = "cyrille.leroux@irisa.fr"
+
+
+class Metadata:
+    def __init__(self):
+        self._cache_dir = CACHE_DIR
+        self._cache = Cache(self._cache_dir)
+        self._df = None
+        self._tax_id_errors_ = set()
+        Entrez.email = EMAIL
+
+    @property
+    def df(self):
+        if self._df is None:
+            content = Path(METADATA_PATH) / METADATA_FILENAME
+            self._df = pd.read_csv(content, sep="\t")
+        return self._df
+
+    def __getitem__(self, tax_id):
+        if record := self._cache.get(tax_id, None):
+            return record[0]
+        return record
+
+    def populate_api_cache(self):
+        errors = set()
+        unique_tax_ids = list()
+        extra_tax_ids = set()
+        # direct tax_id
+        for tax_id in tqdm(self.df["tax_id"].unique()):
+            if self._get_api_data(tax_id):
+                unique_tax_ids.append(tax_id)
+            else:
+                errors.add(tax_id)
+
+        # extra tax_id
+        for tax_id in tqdm(unique_tax_ids):
+            if tax_id in self._cache:
+                if tdata := self._cache[tax_id]:
+                    extra_tax_ids.update(
+                        [int(lin["TaxId"]) for lin in tdata[0].get("LineageEx", {})]
+                    )
+        for tax_id in tqdm(extra_tax_ids):
+            self._get_api_data(tax_id)
+
+        return unique_tax_ids, list(extra_tax_ids), list(errors)
+
+    def _get_api_data(self, tax_id):
+        # error: not a number / None
+        if pd.isna(tax_id):
+            return None
+
+        # float/string -> int
+        try:
+            tax_id = int(tax_id)
+        except ValueError:
+            return None
+
+        # hit cache
+        if tax_id in self._cache:
+            return self._cache[tax_id]
+
+        # API call + cache
+        try:
+            handle = Entrez.efetch(db="taxonomy", id=str(tax_id), retmode="xml")
+            records = Entrez.read(handle)
+            self._cache[tax_id] = records
+            return records
+        except HTTPError:
+            return None
+
+
+if __name__ == "__main__":
+    md = Metadata()
+    # t, e, err = md.populate_api_cache()
+    print(md[367830])
+    pass
