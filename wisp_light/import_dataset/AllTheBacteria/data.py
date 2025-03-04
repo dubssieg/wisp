@@ -4,7 +4,8 @@ from urllib.error import HTTPError
 from Bio import Entrez, SeqIO
 from diskcache import Cache
 from tqdm.auto import tqdm
-from tqdm.auto import tqdm
+import tempfile
+import tarfile
 
 
 METADATA_PATH = "/data/microtaxo/allthebacteria_sample/metadata"
@@ -129,12 +130,19 @@ class Reader:
         self._md = metadata
         self._assembly_path = Path(ASSEMBLY_PATH)
 
-    def read_fasta(self, filename):
+    def process_file(
+        self, filename: str
+    ) -> dict:  # attention, pathlib assembly, etc. à revoir
         file_path = self._assembly_path / filename
+        suffix = file_path.suffix
+        if suffix == ".xz":
+            return self.process_archive(file_path)
+        elif suffix == ".fa":
+            return self.process_fasta(file_path)
+
+    def read_fasta(self, file_path: Path | str) -> list:
         if not file_path.exists():
-            raise FileNotFoundError(
-                f"File {filename} not found in {self._assembly_path}"
-            )
+            raise FileNotFoundError(f"File {file_path} not found.")
 
         sequences = []
         with open(file_path, "r") as handle:
@@ -148,19 +156,20 @@ class Reader:
                 )
         return sequences
 
-    def process_file(self, filename: str):
-        sequences = self.read_fasta(filename)
+    def process_fasta(self, file_path: str | Path) -> dict:
+        sequences = self.read_fasta(file_path)
         processed_data = []
         tax_id_to_seq = {}
 
         for sequence in sequences:
+            md = self._md[sequence["id"]]
 
-            tax_id = self._md[sequence["id"]]["TaxId"]
+            tax_id = md["TaxId"]
 
             if tax_id not in tax_id_to_seq:
                 tax_id_to_seq[tax_id] = {
                     "description": [],
-                    "tax_id": tax_id,
+                    "metadata": md,
                     "sequence": "",
                 }
 
@@ -171,6 +180,38 @@ class Reader:
 
         return processed_data
 
+    def _merge_processed_files(self, file_paths: list[Path]) -> dict[int, dict]:
+        """Multiple fasta files.
+        Concatenate by tax_id"""
+        merged_data = {}
+
+        for file_path in tqdm(file_paths, desc="Process and merge files"):
+            processed_data = self.process_fasta(file_path)
+
+            for entry in processed_data:
+                tax_id = int(entry["metadata"]["TaxId"])
+                if tax_id not in merged_data:
+                    merged_data[tax_id] = {
+                        "description": [],
+                        "metadata": entry["metadata"],
+                        "sequence": "",
+                    }
+
+                merged_data[tax_id]["description"].extend(entry["description"])
+                merged_data[tax_id]["sequence"] += entry["sequence"]
+
+        return merged_data
+
+    def process_archive(self, archive_path: Path | str):
+        """Read and process a compressed archive."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with tarfile.open(archive_path, "r:xz") as tar:
+                tar.extractall(path=temp_dir)
+
+            extracted_files = list(Path(temp_dir).rglob("*.fa"))
+
+            return self._merge_processed_files(extracted_files)
+
 
 if __name__ == "__main__":
     md = Metadata()
@@ -180,5 +221,6 @@ if __name__ == "__main__":
     # print(md[367830])
     reader = Reader(md)
 
-    reader.process_file("achromobacter_xylosoxidans__01/SAMD00013333.fa")
+    # reader.process_file("achromobacter_xylosoxidans__01/SAMD00013333.fa")
+    reader.process_file("actinobacillus_lignieresii__01.asm.tar.xz")
     pass
