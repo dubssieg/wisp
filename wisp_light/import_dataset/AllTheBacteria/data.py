@@ -1,22 +1,55 @@
 import pandas as pd
 from pathlib import Path
 from urllib.error import HTTPError
-from Bio import Entrez
+from Bio import Entrez, SeqIO
 from diskcache import Cache
 from tqdm.auto import tqdm
-from collections import defaultdict
+from tqdm.auto import tqdm
+
 
 METADATA_PATH = "/data/microtaxo/allthebacteria_sample/metadata"
 ASSEMBLY_PATH = "/data/microtaxo/allthebacteria_sample/assembly"
 METADATA_FILENAME = "ena_metadata.tsv"
-CACHE_DIR = "/data/microtaxo/apicache"
+API_CACHE_DIR = "/data/microtaxo/apicache"
 EMAIL = "cyrille.leroux@irisa.fr"
 
 
 class Metadata:
     def __init__(self):
-        self._cache_dir = CACHE_DIR
-        self._cache = Cache(self._cache_dir)
+        self._md = None
+        self._api = API()
+
+    @property
+    def md(self):
+        if self._md is None:
+            self._md = self._load()
+            # self._replace_tax_id()
+        return self._md
+
+    def __getitem__(self, seq_id: str) -> dict:
+        """Example: SAMD00013333 or SAMD00013333.contig0000"""
+        if ".contig" in seq_id:
+            seq_id = seq_id.split(".contig")[0]
+        data = self.md[seq_id]
+        if not isinstance(data, dict):
+            self._md[seq_id] = data = self._api[data]
+        return data
+
+    def _load(self):
+        """Read DataFrame once then free memory (big file)."""
+        # read data : key=seq_id from file headers, value=tax_id
+        content = Path(METADATA_PATH) / METADATA_FILENAME
+        df = pd.read_csv(content, sep="\t")
+        return {
+            seq_id: API.clean_tax_id(tax_id)
+            for seq_id, tax_id in zip(df["sample_accession"], df["tax_id"])
+        }
+
+
+class API:
+    def __init__(self):
+        self._api_cache_dir = API_CACHE_DIR
+        self._api_cache = Cache(self._api_cache_dir)
         self._df = None
         self._tax_id_errors_ = set()
         Entrez.email = EMAIL
@@ -29,11 +62,16 @@ class Metadata:
         return self._df
 
     def __getitem__(self, tax_id):
-        if record := self._cache.get(tax_id, None):
+        if record := self._api_cache.get(tax_id, None):
             return record[0]
         return record
 
+    def tax_ids(self) -> list:
+        """ "List of all available tax_ids"""
+        return list(self._api_cache)
+
     def populate_api_cache(self):
+        """Run once."""
         errors = set()
         unique_tax_ids = list()
         extra_tax_ids = set()
@@ -46,8 +84,8 @@ class Metadata:
 
         # extra tax_id
         for tax_id in tqdm(unique_tax_ids):
-            if tax_id in self._cache:
-                if tdata := self._cache[tax_id]:
+            if tax_id in self._api_cache:
+                if tdata := self._api_cache[tax_id]:
                     extra_tax_ids.update(
                         [int(lin["TaxId"]) for lin in tdata[0].get("LineageEx", {})]
                     )
@@ -56,7 +94,8 @@ class Metadata:
 
         return unique_tax_ids, list(extra_tax_ids), list(errors)
 
-    def _get_api_data(self, tax_id):
+    @staticmethod
+    def clean_tax_id(tax_id):
         # error: not a number / None
         if pd.isna(tax_id):
             return None
@@ -66,6 +105,10 @@ class Metadata:
             tax_id = int(tax_id)
         except ValueError:
             return None
+        return tax_id
+
+    def _get_api_data(self, tax_id):
+        tax_id = self.clean_tax_id(tax_id)
 
         # hit cache
         if tax_id in self._cache:
@@ -81,8 +124,61 @@ class Metadata:
             return None
 
 
+class Reader:
+    def __init__(self, metadata: Metadata):
+        self._md = metadata
+        self._assembly_path = Path(ASSEMBLY_PATH)
+
+    def read_fasta(self, filename):
+        file_path = self._assembly_path / filename
+        if not file_path.exists():
+            raise FileNotFoundError(
+                f"File {filename} not found in {self._assembly_path}"
+            )
+
+        sequences = []
+        with open(file_path, "r") as handle:
+            for record in SeqIO.parse(handle, "fasta"):
+                sequences.append(
+                    {
+                        "id": record.id,
+                        "description": record.description,
+                        "sequence": str(record.seq),
+                    }
+                )
+        return sequences
+
+    def process_file(self, filename: str):
+        sequences = self.read_fasta(filename)
+        processed_data = []
+        tax_id_to_seq = {}
+
+        for sequence in sequences:
+
+            tax_id = self._md[sequence["id"]]["TaxId"]
+
+            if tax_id not in tax_id_to_seq:
+                tax_id_to_seq[tax_id] = {
+                    "description": [],
+                    "tax_id": tax_id,
+                    "sequence": "",
+                }
+
+            tax_id_to_seq[tax_id]["description"].append(sequence["description"])
+            tax_id_to_seq[tax_id]["sequence"] += sequence["sequence"]
+
+        processed_data = list(tax_id_to_seq.values())
+
+        return processed_data
+
+
 if __name__ == "__main__":
     md = Metadata()
+    # md["SAMD00013333.contig0000"]
+    # md.tax_ids()
     # t, e, err = md.populate_api_cache()
-    print(md[367830])
+    # print(md[367830])
+    reader = Reader(md)
+
+    reader.process_file("achromobacter_xylosoxidans__01/SAMD00013333.fa")
     pass

@@ -132,3 +132,4 @@ dmypy.json
 /wisp_light/import_dataset/refseq/NCBI_credentials.yaml
 get_dataset/AllTheBacteria/sandbox.py
 .vscode/launch.json
+memo.txt
