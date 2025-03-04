@@ -1,7 +1,12 @@
+import logging
 import os
 import re
 import pandas as pd
 from sklearn.model_selection import train_test_split
+import sys
+
+sys.path.append('..')
+from training.utils import setup_logger
 
 TAXO_LEVELS = ["domain", "phylum", "group", "order", "family", "specie"]
 NB_LEVELS = 6
@@ -11,7 +16,10 @@ pattern_filename = "^" + "_".join(pattern_parts) + "_(?P<id>\\d+)\\.fna$" # A_B_
 # regex = re.compile(pattern_filename)
 
 class BacteriaDataset:
-    def __init__(self, datadir: str, logger):
+    def __init__(self, datadir: str, logger=None):
+
+        if logger is  None:
+            logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=None)
 
         if not os.path.isdir(datadir):
             raise ValueError(f"Le chemin {datadir} n'est pas un répertoire valide.")
