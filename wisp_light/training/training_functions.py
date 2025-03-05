@@ -180,7 +180,7 @@ def log_val_metrics(metrics, val_dir, logger):
         conf_mat_level.to_csv(file_csv, sep=';', index=True)
         mlflow.log_artifact(file_csv)
         plot_path = file_csv.replace(".csv", ".png")
-        plot_conf_mat(conf_mat_level, title=f"Conf Mat for level {level}", filename=plot_path)
+        plot_conf_mat(conf_mat_level, level=level, filename=plot_path)
         mlflow.log_artifact(plot_path)
 
 if __name__=='__main__':
