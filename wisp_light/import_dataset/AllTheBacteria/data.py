@@ -4,8 +4,10 @@ from urllib.error import HTTPError
 from Bio import Entrez, SeqIO
 from diskcache import Cache
 from tqdm.auto import tqdm
+from collections import Counter
 import tempfile
 import tarfile
+from itertools import product
 
 
 METADATA_PATH = "/data/microtaxo/allthebacteria_sample/metadata"
@@ -130,9 +132,7 @@ class Reader:
         self._md = metadata
         self._assembly_path = Path(ASSEMBLY_PATH)
 
-    def process_file(
-        self, filename: str
-    ) -> dict:  # attention, pathlib assembly, etc. à revoir
+    def process_file(self, filename: str) -> dict:
         file_path = self._assembly_path / filename
         suffix = file_path.suffix
         if suffix == ".xz":
@@ -141,6 +141,12 @@ class Reader:
             return self.process_fasta(file_path)
 
     def read_fasta(self, file_path: Path | str) -> list:
+        """Just read and parse file, no processing.
+        Return a list of:
+            'id' = 'SAMD00013333.contig00001'
+            'description' = 'SAMD00013333.contig00001 len=378640 cov=42.4 ...
+            'sequence' = 'GGAGGGAACAGCGGGGCGGGCGGCGT..."""
+        file_path = Path(file_path)
         if not file_path.exists():
             raise FileNotFoundError(f"File {file_path} not found.")
 
@@ -156,61 +162,156 @@ class Reader:
                 )
         return sequences
 
-    def process_fasta(self, file_path: str | Path) -> dict:
+    def process_fasta(self, file_path: str | Path, kmer_size) -> dict:
+        """Count and get metadata"""
+        file_path = Path(file_path)
         sequences = self.read_fasta(file_path)
-        processed_data = []
-        tax_id_to_seq = {}
+        tax_id_to_data = {}
 
-        for sequence in sequences:
+        for sequence in tqdm(
+            sequences, desc=f"Counting {file_path.name}", leave=False, position=2
+        ):
             md = self._md[sequence["id"]]
-
             tax_id = md["TaxId"]
 
-            if tax_id not in tax_id_to_seq:
-                tax_id_to_seq[tax_id] = {
-                    "description": [],
-                    "metadata": md,
-                    "sequence": "",
+            kmer_count = self._counter(sequence["sequence"], kmer_size)
+
+            if tax_id not in tax_id_to_data:
+                tax_id_to_data[tax_id] = {"metadata": md, "counters": [], "sources": []}
+
+            tax_id_to_data[tax_id]["counters"].append(kmer_count)
+            tax_id_to_data[tax_id]["sources"].append(
+                {
+                    "description": sequence["description"],
+                    "file": file_path,
                 }
+            )
 
-            tax_id_to_seq[tax_id]["description"].append(sequence["description"])
-            tax_id_to_seq[tax_id]["sequence"] += sequence["sequence"]
+        return tax_id_to_data
 
-        processed_data = list(tax_id_to_seq.values())
+    def _counter(self, entry: str, kmer_size: int = 4) -> dict:
+        complements = {
+            "A": "T",
+            "T": "A",
+            "C": "G",
+            "G": "C",
+            "U": "A",
+            "R": "Y",
+            "Y": "R",
+            "K": "M",
+            "M": "K",
+            "S": "W",
+            "W": "S",
+            "B": "V",
+            "V": "B",
+            "D": "H",
+            "H": "D",
+            "N": "N",
+        }
 
-        return processed_data
+        degenerate_map = {
+            "U": ["T"],
+            "R": ["G", "A"],
+            "Y": ["C", "T"],
+            "K": ["G", "T"],
+            "M": ["A", "C"],
+            "S": ["G", "C"],
+            "W": ["A", "T"],
+            "B": ["G", "T", "C"],
+            "D": ["G", "T", "A"],
+            "H": ["A", "T", "C"],
+            "V": ["G", "A", "C"],
+            "N": ["A", "T", "C", "G"],
+        }
 
-    def _merge_processed_files(self, file_paths: list[Path]) -> dict[int, dict]:
-        """Multiple fasta files.
-        Concatenate by tax_id"""
-        merged_data = {}
+        all_kmers = (
+            entry[i : i + kmer_size] for i in range(len(entry) - kmer_size + 1)
+        )
+        counts = Counter(all_kmers)
+        rev_counts = Counter(
+            {self._revcomp(k, compl=complements): v for k, v in counts.items()}
+        )
+        counts += rev_counts
 
-        for file_path in tqdm(file_paths, desc="Process and merge files"):
-            processed_data = self.process_fasta(file_path)
+        for filtered_kmer in (alpha * kmer_size for alpha in "ATCG"):
+            counts.pop(filtered_kmer, None)
 
-            for entry in processed_data:
-                tax_id = int(entry["metadata"]["TaxId"])
-                if tax_id not in merged_data:
-                    merged_data[tax_id] = {
-                        "description": [],
-                        "metadata": entry["metadata"],
-                        "sequence": "",
-                    }
+        counts_purged = {}
+        for key, count in counts.items():
+            list_of_keys = [degenerate_map.get(x, [x]) for x in key]
+            list_of_keys = ["".join(item) for item in product(*list_of_keys)]
 
-                merged_data[tax_id]["description"].extend(entry["description"])
-                merged_data[tax_id]["sequence"] += entry["sequence"]
+            for prob_key in list_of_keys:
+                kmer_number = count // len(list_of_keys)
+                counts_purged[prob_key] = counts_purged.get(prob_key, 0) + kmer_number
 
-        return merged_data
+        return counts_purged
 
-    def process_archive(self, archive_path: Path | str):
-        """Read and process a compressed archive."""
+    @staticmethod
+    def _revcomp(string: str, compl=None) -> str:
+        if compl is None:
+            compl = {"A": "T", "C": "G", "G": "C", "T": "A", "N": "N"}
+
+        try:
+            result = "".join(compl[s] for s in reversed(string))
+        except KeyError as exc:
+            raise IndexError(
+                "Complementarity does not include all chars in sequence."
+            ) from exc
+        return result
+
+    def process_archive(self, archive_path: Path | str, kmer_size: int = 4):
+        """Read and process an archive."""
         with tempfile.TemporaryDirectory() as temp_dir:
             with tarfile.open(archive_path, "r:xz") as tar:
                 tar.extractall(path=temp_dir)
 
             extracted_files = list(Path(temp_dir).rglob("*.fa"))
+            merged_data = {}
 
-            return self._merge_processed_files(extracted_files)
+            for file_path in tqdm(
+                extracted_files,
+                desc=f"Processing {Path(archive_path).name}",
+                leave=False,
+                position=1,
+            ):
+                file_data = self.process_fasta(file_path, kmer_size)
+
+                for tax_id, data in file_data.items():
+                    if tax_id not in merged_data:
+                        merged_data[tax_id] = {
+                            "metadata": data["metadata"],
+                            "counters": list(),
+                            "sources": list(),
+                        }
+
+                    merged_data[tax_id]["counters"].extend(data["counters"])
+                    merged_data[tax_id]["sources"].extend(data["sources"])
+
+            return merged_data
+
+
+# def encode_dna_to_binary(sequence):
+#     nucleotide_to_binary = {"A": 0b00, "T": 0b01, "C": 0b10, "G": 0b11}
+
+#     binary_sequence = bytearray()
+#     current_byte = 0
+#     bits_added = 0
+
+#     for nucleotide in sequence:
+#         current_byte = (current_byte << 2) | nucleotide_to_binary[nucleotide]
+#         bits_added += 2
+
+#         if bits_added == 8:
+#             binary_sequence.append(current_byte)
+#             current_byte = 0
+#             bits_added = 0
+
+#     if bits_added > 0:
+#         current_byte <<= 8 - bits_added
+#         binary_sequence.append(current_byte)
+
+#     return binary_sequence
 
 
 if __name__ == "__main__":
@@ -220,6 +321,11 @@ if __name__ == "__main__":
     # t, e, err = md.populate_api_cache()
     # print(md[367830])
     reader = Reader(md)
+    # content = reader.process_fasta(
+    #     Path(ASSEMBLY_PATH) / "achromobacter_xylosoxidans__01/SAMD00013333.fa",
+    #     kmer_size=4,
+    # )
+    # sequence = content[0]["sequence"]
 
     # reader.process_file("achromobacter_xylosoxidans__01/SAMD00013333.fa")
     reader.process_file("actinobacillus_lignieresii__01.asm.tar.xz")
