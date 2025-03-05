@@ -1,4 +1,5 @@
 import json
+import time
 import pandas as pd
 from pathlib import Path
 from urllib.error import HTTPError
@@ -133,13 +134,13 @@ class Reader:
         self._md = metadata
         self._assembly_path = Path(ASSEMBLY_PATH)
 
-    def process_file(self, filename: str) -> dict:
+    def process_file(self, filename: str, kmer_size: int) -> dict:
         file_path = self._assembly_path / filename
         suffix = file_path.suffix
         if suffix == ".xz":
-            return self.process_archive(file_path)
+            return self.process_archive(file_path, kmer_size=kmer_size)
         elif suffix == ".fa":
-            return self.process_fasta(file_path)
+            return self.process_fasta(file_path, kmer_size=kmer_size)
 
     def read_fasta(self, file_path: Path | str) -> list:
         """Just read and parse file, no processing.
@@ -334,7 +335,63 @@ class Writer:
                         )
 
 
-# def create_db(input_path: Path|str, output_path: Path, kmer_size: int=4):
+def format_duration(seconds):
+    """Convert seconds to a formatted duration string (hh:mm:ss)."""
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
+
+
+def create_db(input_path: Path | str, output_path: Path, kmer_size: int = 4):
+    input_path = Path(input_path)
+    output_path = Path(output_path)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    json_log_path = output_path / "error_log.json"
+
+    if json_log_path.exists():
+        with open(json_log_path, "r", encoding="utf-8") as error_log_file:
+            error_log = json.load(error_log_file)
+    else:
+        error_log = {"complete": [], "incomplete": [], "duration": {}}
+
+    archives = list(input_path.glob("*.xz"))
+
+    md = Metadata()
+    reader = Reader(md)
+    writer = Writer(output_path)
+
+    for archive_path in tqdm(
+        archives, desc=f"Processing {str(input_path)} -> {str(output_path)}", position=0
+    ):
+        if str(archive_path) in error_log["complete"]:
+            continue
+
+        start_time = time.time()
+
+        try:
+            if str(archive_path) in error_log["incomplete"]:
+                print(f"Retrying {archive_path.name}...")
+
+            merged_data = reader.process_file(archive_path, kmer_size)
+            writer.save_data(merged_data)
+
+            error_log["complete"].append(str(archive_path))
+            if str(archive_path) in error_log["incomplete"]:
+                error_log["incomplete"].remove(str(archive_path))
+
+            # Calculer et enregistrer la durée
+            duration = time.time() - start_time
+            error_log["duration"][archive_path.name] = format_duration(duration)
+
+        except Exception as e:
+            print(f"Error processing {archive_path.name}: {e}")
+            if str(archive_path) not in error_log["incomplete"]:
+                error_log["incomplete"].append(str(archive_path))
+
+        finally:
+            with open(json_log_path, "w", encoding="utf-8") as error_log_file:
+                json.dump(error_log, error_log_file, indent=4)
 
 
 # def encode_dna_to_binary(sequence):
@@ -378,13 +435,15 @@ if __name__ == "__main__":
     # reader = Reader(md)
     # reader.process_file("actinobacillus_lignieresii__01.asm.tar.xz")
 
-    import pickle
+    # import pickle
 
-    with open("/data/microtaxo/merged_data.pkl", "rb") as file:
-        loaded_data = pickle.load(file)
-        loaded_data = {
-            "archive": "actinobacillus_lignieresii__01.asm.tar.xz",
-            "merged_data": loaded_data,
-        }
-    writer = Writer("/tmp/microdb1")
-    writer.save_processed_data(loaded_data)
+    # with open("/data/microtaxo/merged_data.pkl", "rb") as file:
+    #     loaded_data = pickle.load(file)
+    #     loaded_data = {
+    #         "archive": "actinobacillus_lignieresii__01.asm.tar.xz",
+    #         "merged_data": loaded_data,
+    #     }
+    # writer = Writer("/tmp/microdb1")
+    # writer.save_processed_data(loaded_data)
+
+    create_db(ASSEMBLY_PATH, "/data/microtaxo/db_full_4", kmer_size=4)
