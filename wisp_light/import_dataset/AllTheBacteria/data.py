@@ -44,7 +44,7 @@ class Metadata:
         """Read DataFrame once then free memory (big file)."""
         # read data : key=seq_id from file headers, value=tax_id
         content = Path(METADATA_PATH) / METADATA_FILENAME
-        df = pd.read_csv(content, sep="\t")
+        df = pd.read_csv(content, sep="\t", low_memory=False)
         return {
             seq_id: API.clean_tax_id(tax_id)
             for seq_id, tax_id in zip(df["sample_accession"], df["tax_id"])
@@ -304,7 +304,9 @@ class Writer:
 
         archive = Path(data["archive"]).stem.split(".")[0]
         merged_data = data["merged_data"]
-        for tax_id, data in merged_data.items():
+        for tax_id, data in tqdm(
+            merged_data.items(), desc="write merged data", position=1, leave=False
+        ):
             tax_path = self._path / str(tax_id)
             tax_path.mkdir(parents=True, exist_ok=True)
 
@@ -314,21 +316,28 @@ class Writer:
                 with open(metadata_path, "w", encoding="utf-8") as md_file:
                     json.dump(data["metadata"], md_file, indent=4)
 
-            # Save headers
+            # Save headers TODO: duplicates if errors?
             headers_path = tax_path / "headers"
             headers_path.mkdir(parents=True, exist_ok=True)
 
-            for source in data["sources"]:
-                file_name = Path(archive)
-                header_file_path = headers_path / f"{file_name}.txt"
-                # Append headers # TODO: duplicates if errors?
-                with open(header_file_path, "a", encoding="utf-8") as header_file:
+            file_name = Path(archive)
+            header_file_path = headers_path / f"{file_name}.txt"
+            with open(header_file_path, "a", encoding="utf-8") as header_file:
+                for source in tqdm(
+                    data["sources"], desc="Save sources", position=2, leave=False
+                ):
                     header_file.write(source["description"] + "\n")
 
             # Save k-mer counts in libSVM format
-            for source in data["sources"]:
-                libsvm_file_path = tax_path / f"{archive}.libsvm"
-                with open(libsvm_file_path, "w", encoding="utf-8") as libsvm_file:
+            libsvm_file_path = tax_path / f"{archive}.libsvm"
+            with open(libsvm_file_path, "w", encoding="utf-8") as libsvm_file:
+                for source in tqdm(
+                    data["sources"],
+                    desc="Save k-mer in libSVM format",
+                    position=2,
+                    leave=False,
+                ):
+
                     for counter in data["counters"]:
                         libsvm_file.write(
                             f"{tax_id} {' '.join([f'{k}:{v}' for k, v in counter.items()])}\n"
