@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 from pathlib import Path
 from urllib.error import HTTPError
@@ -183,7 +184,7 @@ class Reader:
             tax_id_to_data[tax_id]["sources"].append(
                 {
                     "description": sequence["description"],
-                    "file": file_path,
+                    "file": file_path.name,
                 }
             )
 
@@ -288,7 +289,52 @@ class Reader:
                     merged_data[tax_id]["counters"].extend(data["counters"])
                     merged_data[tax_id]["sources"].extend(data["sources"])
 
-            return merged_data
+            return {"archive": archive_path, "merged_data": merged_data}
+
+
+class Writer:
+    def __init__(self, path: Path | str):
+        self._path = Path(path)
+
+    def save_data(self, data: dict):
+        """Saves the processed data into a structured directory."""
+
+        self._path.mkdir(parents=True, exist_ok=True)
+
+        archive = Path(data["archive"]).stem.split(".")[0]
+        merged_data = data["merged_data"]
+        for tax_id, data in merged_data.items():
+            tax_path = self._path / str(tax_id)
+            tax_path.mkdir(parents=True, exist_ok=True)
+
+            # Save metadata
+            metadata_path = tax_path / "metadata.json"
+            if not metadata_path.exists():
+                with open(metadata_path, "w", encoding="utf-8") as md_file:
+                    json.dump(data["metadata"], md_file, indent=4)
+
+            # Save headers
+            headers_path = tax_path / "headers"
+            headers_path.mkdir(parents=True, exist_ok=True)
+
+            for source in data["sources"]:
+                file_name = Path(archive)
+                header_file_path = headers_path / f"{file_name}.txt"
+                # Append headers # TODO: duplicates if errors?
+                with open(header_file_path, "a", encoding="utf-8") as header_file:
+                    header_file.write(source["description"] + "\n")
+
+            # Save k-mer counts in libSVM format
+            for source in data["sources"]:
+                libsvm_file_path = tax_path / f"{archive}.libsvm"
+                with open(libsvm_file_path, "w", encoding="utf-8") as libsvm_file:
+                    for counter in data["counters"]:
+                        libsvm_file.write(
+                            f"{tax_id} {' '.join([f'{k}:{v}' for k, v in counter.items()])}\n"
+                        )
+
+
+# def create_db(input_path: Path|str, output_path: Path, kmer_size: int=4):
 
 
 # def encode_dna_to_binary(sequence):
@@ -320,7 +366,7 @@ if __name__ == "__main__":
     # md.tax_ids()
     # t, e, err = md.populate_api_cache()
     # print(md[367830])
-    reader = Reader(md)
+    #
     # content = reader.process_fasta(
     #     Path(ASSEMBLY_PATH) / "achromobacter_xylosoxidans__01/SAMD00013333.fa",
     #     kmer_size=4,
@@ -328,5 +374,17 @@ if __name__ == "__main__":
     # sequence = content[0]["sequence"]
 
     # reader.process_file("achromobacter_xylosoxidans__01/SAMD00013333.fa")
-    reader.process_file("actinobacillus_lignieresii__01.asm.tar.xz")
-    pass
+
+    # reader = Reader(md)
+    # reader.process_file("actinobacillus_lignieresii__01.asm.tar.xz")
+
+    import pickle
+
+    with open("/data/microtaxo/merged_data.pkl", "rb") as file:
+        loaded_data = pickle.load(file)
+        loaded_data = {
+            "archive": "actinobacillus_lignieresii__01.asm.tar.xz",
+            "merged_data": loaded_data,
+        }
+    writer = Writer("/tmp/microdb1")
+    writer.save_processed_data(loaded_data)
