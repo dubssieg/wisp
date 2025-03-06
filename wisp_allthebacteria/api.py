@@ -1,3 +1,4 @@
+import pickle
 import traceback
 import pandas as pd
 import tqdm
@@ -11,12 +12,17 @@ EMAIL = "cyrille.leroux@irisa.fr"
 
 
 class API:
-    def __init__(self, can_download: bool = True):
+    def __init__(
+        self,
+        can_download: bool = True,
+        api_cache_dir: str | Path = API_CACHE_DIR,
+        email: str = EMAIL,
+    ):
         self._can_download = can_download
-        self._api_cache_dir = API_CACHE_DIR
+        self._api_cache_dir = Path(api_cache_dir)
         self._api_cache = Cache(self._api_cache_dir)
         self._tax_id_errors_ = set()
-        Entrez.email = EMAIL
+        Entrez.email = email
 
     def __getitem__(self, tax_id: int) -> dict:
         if record := self._api_cache.get(tax_id, None):
@@ -84,6 +90,28 @@ class API:
             del self._api_cache[key]
 
         return keys_to_delete
+
+    def export_db(self, pickle_path: str | Path | None = None):
+        if pickle_path is None:
+            pickle_path = Path(__file__).resolve().parent / "out/cache_dump.pkl"
+            pickle_path.parent.mkdir(parents=True, exist_ok=True)
+        pickle_path = Path(pickle_path)
+        exp_cache = dict()
+        for key in self._api_cache:
+            exp_cache[key] = self._api_cache[key]
+
+        with open(pickle_path, "wb") as f:
+            pickle.dump(exp_cache, f)
+
+    def import_db(self, pickle_path: str | Path | None = None):
+        if pickle_path is None:
+            pickle_path = Path(__file__).resolve().parent / "out/cache_dump.pkl"
+            pickle_path.parent.mkdir(parents=True, exist_ok=True)
+        pickle_path = Path(pickle_path)
+        with open(pickle_path, "rb") as f:
+            exp_cache = pickle.load(f)
+        for k, v in exp_cache.items():
+            self._api_cache[k] = v
 
     def _get_api_data(self, tax_id):
         tax_id = self.clean_tax_id(tax_id)

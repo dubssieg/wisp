@@ -133,3 +133,4 @@ dmypy.json
 get_dataset/AllTheBacteria/sandbox.py
 .vscode/launch.json
 memo.txt
+wisp_allthebacteria/out/cache_dump.pkl

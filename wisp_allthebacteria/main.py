@@ -92,6 +92,8 @@ def create_db(
 if __name__ == "__main__":
     api = API()
 
+    api.export()
+
     from database import Database
 
     db = Database("/data/microtaxo/db_full_4", api)
@@ -106,10 +108,10 @@ if __name__ == "__main__":
     #     merged_data = pickle.load(file)
     # writer.save_data(merged_data)
 
-    # create_db(
-    #     ASSEMBLY_PATH,
-    #     "/data/microtaxo/db_full_4",
-    #     kmer_size=4,
-    #     window_size=100,
-    #     num_windows=10,
-    # )
+    create_db(
+        ASSEMBLY_PATH,
+        "/data/microtaxo/db_full_4",
+        kmer_size=4,
+        window_size=100,
+        num_windows=10,
+    )
