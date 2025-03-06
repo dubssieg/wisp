@@ -8,6 +8,7 @@ from tqdm.auto import tqdm
 from metadata import Metadata
 from reader import Reader
 from writer import Writer
+from api import API
 
 
 METADATA_PATH = "/data/microtaxo/allthebacteria_sample/metadata"
@@ -44,7 +45,8 @@ def create_db(
 
     archives = list(input_path.glob("*.xz"))
 
-    md = Metadata(Path(METADATA_PATH) / METADATA_FILENAME)
+    api = API()
+    md = Metadata(csv_path=Path(METADATA_PATH) / METADATA_FILENAME, api=api)
     md.md  # preload
     reader = Reader(md)
     writer = Writer(output_path)
@@ -88,12 +90,20 @@ def create_db(
 
 
 if __name__ == "__main__":
-    import pickle
+    api = API()
+    from database import Database
 
-    writer = Writer(path="/data/microtaxo/db_full_4")
-    with open("/data/microtaxo/merged_data.pkl", "rb") as file:
-        merged_data = pickle.load(file)
-    writer.save_data(merged_data)
+    db = Database("/data/microtaxo/db_full_4", api)
+    print(db.get_tax_ids_by_rank("phylum"))
+    pass
+    # md = Metadata(Path(METADATA_PATH) / METADATA_FILENAME, api)
+    # md._build_graph()
+    # import pickle
+
+    # writer = Writer(path="/data/microtaxo/db_full_4")
+    # with open("/data/microtaxo/merged_data.pkl", "rb") as file:
+    #     merged_data = pickle.load(file)
+    # writer.save_data(merged_data)
 
     # create_db(
     #     ASSEMBLY_PATH,
