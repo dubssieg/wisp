@@ -56,7 +56,7 @@ class Reader:
         return sequences
 
     def process_fasta(
-        self, file_path: str | Path, kmer_size, window_size: int, nums_window: int
+        self, file_path: str | Path, kmer_size, window_size: int, num_windows: int
     ) -> dict:
         """Count and get metadata"""
         file_path = Path(file_path)
