@@ -1,0 +1,30 @@
+42924
+{'CreateDate': '2006/01/23 11:41:48',
+ 'Division': 'Bacteria',
+ 'GeneticCode': {'GCId': '11', 'GCName': 'Bacterial, Archaeal and Plant Plastid'},
+ 'Lineage': 'cellular organisms; Bacteria; Bacillati; Bacillota; Bacilli; Bacillales; Staphylococcaceae; Staphylococcus; Staphylococcus aureus',
+ 'LineageEx': [{'TaxId': '131567', 'ScientificName': 'cellular organisms', 'Rank': 'no rank'}, {'TaxId': '2', 'ScientificName': 'Bacteria', 'Rank': 'superkingdom'}, {'TaxId': '1783272', 'ScientificName': 'Bacillati', 'Rank': 'kingdom'}, {'TaxId': '1239', 'ScientificName': 'Bacillota', 'Rank': 'phylum'}, {'TaxId': '91061', 'ScientificName': 'Bacilli', 'Rank': 'class'}, {'TaxId': '1385', 'ScientificName': 'Bacillales', 'Rank': 'order'}, {'TaxId': '90964', 'ScientificName': 'Staphylococcaceae', 'Rank': 'family'}, {'TaxId': '1279', 'ScientificName': 'Staphylococcus', 'Rank': 'genus'}, {'TaxId': '1280', 'ScientificName': 'Staphylococcus aureus', 'Rank': 'species'}],
+ 'MitoGeneticCode': {'MGCId': '0', 'MGCName': 'Unspecified'},
+ 'OtherNames': {'Misnomer': [], 'Teleomorph': [], 'Synonym': [], 'Acronym': [], 'Anamorph': [], 'EquivalentName': ['Staphylococcus aureus subsp. aureus str. USA300', 'Staphylococcus aureus subsp. aureus strain USA300'], 'GenbankAnamorph': [], 'CommonName': [], 'Name': [], 'GenbankSynonym': [], 'Misspelling': [], 'Includes': [], 'Inpart': []},
+ 'ParentTaxId': '1280',
+ 'PubDate': '2006/02/11 18:00:11',
+ 'Rank': 'strain',
+ 'ScientificName': 'Staphylococcus aureus subsp. aureus USA300',
+ 'TaxId': '367830',
+ 'UpdateDate': '2018/11/23 17:31:12'}
+
+ 561275
+ {'TaxId': '561275',
+ 'ScientificName': 'Mycobacterium tuberculosis variant bovis BCG str. Tokyo 172',
+ 'OtherNames': {'Misnomer': [], 'Teleomorph': [], 'Synonym': ['Mycobacterium bovis BCG str. Tokyo 172'], 'Acronym': [], 'Anamorph': [], 'EquivalentName': ['Mycobacterium bovis BCG Tokyo 172', 'Mycobacterium bovis BCG strain Tokyo 172'], 'GenbankAnamorph': [], 'CommonName': [], 'Name': [], 'GenbankSynonym': [], 'Misspelling': [], 'Includes': [], 'Inpart': []},
+ 'ParentTaxId': '33892',
+ 'Rank': 'strain',
+ 'Division': 'Bacteria',
+ 'GeneticCode': {'GCId': '11', 'GCName': 'Bacterial, Archaeal and Plant Plastid'},
+ 'MitoGeneticCode': {'MGCId': '0', 'MGCName': 'Unspecified'},
+ 'Lineage': 'cellular organisms; Bacteria; Bacillati; Actinomycetota; Actinomycetes; Mycobacteriales; Mycobacteriaceae; Mycobacterium; Mycobacterium tuberculosis complex; Mycobacterium tuberculosis; Mycobacterium tuberculosis variant bovis; Mycobacterium tuberculosis variant bovis BCG',
+ 'LineageEx': [{'TaxId': '131567', 'ScientificName': 'cellular organisms', 'Rank': 'no rank'}, {'TaxId': '2', 'ScientificName': 'Bacteria', 'Rank': 'superkingdom'}, {'TaxId': '1783272', 'ScientificName': 'Bacillati', 'Rank': 'kingdom'}, {'TaxId': '201174', 'ScientificName': 'Actinomycetota', 'Rank': 'phylum'}, {'TaxId': '1760', 'ScientificName': 'Actinomycetes', 'Rank': 'class'}, {'TaxId': '85007', 'ScientificName': 'Mycobacteriales', 'Rank': 'order'}, {'TaxId': '1762', 'ScientificName': 'Mycobacteriaceae', 'Rank': 'family'}, {'TaxId': '1763', 'ScientificName': 'Mycobacterium', 'Rank': 'genus'}, {'TaxId': '77643', 'ScientificName': 'Mycobacterium tuberculosis complex', 'Rank': 'species group'}, {'TaxId': '1773', 'ScientificName': 'Mycobacterium tuberculosis', 'Rank': 'species'}, {'TaxId': '1765', 'ScientificName': 'Mycobacterium tuberculosis variant bovis', 'Rank': 'biotype'}, {'TaxId': '33892', 'ScientificName': 'Mycobacterium tuberculosis variant bovis BCG', 'Rank': 'no rank'}],
+ 'CreateDate': '2008/09/17 12:37:44',
+ 'UpdateDate': '2018/11/23 17:53:12',
+ 'PubDate': '2008/10/15 18:00:10'}
+ 
