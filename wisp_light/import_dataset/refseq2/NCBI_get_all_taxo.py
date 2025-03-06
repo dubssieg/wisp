@@ -4,6 +4,7 @@ from joblib import Memory
 from Bio import Entrez
 from tqdm import tqdm
 
+
 # Configuration d'Entrez
 Entrez.email = "hermann.courteille@inria.fr"
 Entrez.api_key = "b55513ab1634ec527ccf1ec084f3b1c78108"
