@@ -28,7 +28,7 @@ def create_db(
     output_path: Path,
     kmer_size: int,
     window_size: int,
-    num_window: int,
+    num_windows: int,
 ):
     input_path = Path(input_path)
     output_path = Path(output_path)
@@ -65,7 +65,7 @@ def create_db(
                 archive_path,
                 kmer_size=kmer_size,
                 window_size=window_size,
-                num_window=num_window,
+                num_windows=num_windows,
             )
             writer.save_data(merged_data)
 
@@ -73,7 +73,6 @@ def create_db(
             if str(archive_path) in error_log["incomplete"]:
                 error_log["incomplete"].remove(str(archive_path))
 
-            # Calculer et enregistrer la durée
             duration = time.time() - start_time
             error_log["duration"][archive_path.name] = format_duration(duration)
 
@@ -135,5 +134,5 @@ if __name__ == "__main__":
         "/data/microtaxo/db_full_4",
         kmer_size=4,
         window_size=100,
-        num_window=10,
+        num_windows=10,
     )

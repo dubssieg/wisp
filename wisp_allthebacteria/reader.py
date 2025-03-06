@@ -15,7 +15,7 @@ class Reader:
         # self._assembly_path = Path(ASSEMBLY_PATH)
 
     def process_file(
-        self, file_path: str | Path, kmer_size: int, window_size: int, num_window: int
+        self, file_path: str | Path, kmer_size: int, window_size: int, num_windows: int
     ) -> dict:
         suffix = file_path.suffix
         if suffix == ".xz":
@@ -23,14 +23,14 @@ class Reader:
                 file_path,
                 kmer_size=kmer_size,
                 window_size=window_size,
-                num_window=num_window,
+                num_windows=num_windows,
             )
         elif suffix == ".fa":
             return self.process_fasta(
                 file_path,
                 kmer_size=kmer_size,
                 window_size=window_size,
-                num_window=num_window,
+                num_windows=num_windows,
             )
 
     def read_fasta(self, file_path: Path | str) -> list:
@@ -56,7 +56,7 @@ class Reader:
         return sequences
 
     def process_fasta(
-        self, file_path: str | Path, kmer_size, window_size: int, num_window: int
+        self, file_path: str | Path, kmer_size, window_size: int, nums_window: int
     ) -> dict:
         """Count and get metadata"""
         file_path = Path(file_path)
@@ -67,13 +67,20 @@ class Reader:
             sequences, desc=f"Counting {file_path.name}", leave=False, position=2
         ):
             md = self._md[sequence["id"]]
-            tax_id = md["TaxId"]
+            match len(md):
+                case 0:
+                    tax_id = "no-tax-id"
+                case 1:
+                    tax_id = md[0]["TaxId"]
+                case _:
+                    tax_id = "|".join([(m["TaxId"] if m else "no-tax-id") for m in md])
+                    tax_id = f"multiple-{tax_id}"
 
             kmer_count = self._counter(
                 entry=sequence["sequence"],
                 kmer_size=kmer_size,
                 window_size=window_size,
-                num_window=num_window,
+                num_windows=num_windows,
             )
 
             if tax_id not in tax_id_to_data:
@@ -183,7 +190,7 @@ class Reader:
         archive_path: Path | str,
         kmer_size: int,
         window_size: int,
-        num_window: int,
+        num_windows: int,
     ):
         """Read and process an archive."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -203,7 +210,7 @@ class Reader:
                     file_path,
                     kmer_size=kmer_size,
                     window_size=window_size,
-                    num_window=num_window,
+                    num_windows=num_windows,
                 )
 
                 for tax_id, data in file_data.items():
