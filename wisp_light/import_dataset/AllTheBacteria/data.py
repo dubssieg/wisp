@@ -11,10 +11,10 @@ from itertools import product
 
 
 METADATA_PATH = "/data/microtaxo/allthebacteria_sample/metadata"
-ASSEMBLY_PATH = "/data/microtaxo/allthebacteria_sample/assembly"
-METADATA_FILENAME = "ena_metadata.tsv"
-API_CACHE_DIR = "/data/microtaxo/apicache"
-EMAIL = "cyrille.leroux@irisa.fr"
+ASSEMBLY_PATH = "/home/hcourtei/Projects/MicroTaxo/codes/wisp/wisp_light/import_dataset/refseq/"
+METADATA_FILENAME = "assembly_summary.csv"
+API_CACHE_DIR = "/home/hcourtei/Projects/MicroTaxo/codes/wisp/wisp_light/import_dataset/apicache"
+EMAIL = "hermann.courteille@inria.fr"
 
 
 class Metadata:
@@ -316,9 +316,9 @@ class Reader:
 
 if __name__ == "__main__":
     md = Metadata()
-    # md["SAMD00013333.contig0000"]
-    # md.tax_ids()
-    # t, e, err = md.populate_api_cache()
+    md["SAMD00013333.contig0000"]
+    md.tax_ids()
+    t, e, err = md.populate_api_cache()
     # print(md[367830])
     reader = Reader(md)
     # content = reader.process_fasta(

@@ -116,7 +116,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_workers", type=int, default=5, help="Nombre de travailleurs pour le téléchargement et la décompression (par défaut 5)")
 
     args = parser.parse_args()
-    output_dir = '/home/hcourtei/Projects/MicroTaxo/codes/wisp/wisp_light/import_dataset/refseq/out_refseq'
+    output_dir = '/wisp/wisp_light/import_dataset/refseq/out_refseq'
     # completed_csv_out = "assembly_summary_Complete_Genome.csv"
     completed_df = pd.read_csv(args.csv_file, sep="\t")
     #
@@ -127,33 +127,3 @@ if __name__ == "__main__":
     processed_files = download_and_decompress_all(completed_df, args.output_dir, num_workers=args.num_workers)
     #
     print(f"{len(processed_files)} fichiers traités.")
-
-    # completed_csv_out = "assembly_summary_Complete_Genome.csv"
-    # completed_df = pd.read_csv(completed_csv_out, sep="\t")
-    # df = update_downloaded_column(completed_df, output_dir)
-    # print(df[380:420].to_markdown())
-    #
-    # batch = ['NZ_CP040555' ] # list(df['accession'][:100])
-    # def get_batch_taxo_in_df(batch):
-    #     # ['NZ_LT667500', 'NZ_CP028435', 'NZ_CP046329', 'NZ_CP066369', 'NZ_CP066370']
-    #     Entrez.email = "hermann.courteille@irisa.fr"
-    #     res = []
-    #     with Entrez.efetch(db="nucleotide", id=batch, rettype="gb", retmode="text") as taxo_handle:
-    #         records = SeqIO.parse(taxo_handle, 'genbank')
-    #         for idx , record in enumerate(records):
-    #             print(record.id)
-    #             taxonomy = record.annotations.get('taxonomy', [])
-    #             organism = record.annotations.get('organism', "Unknown Organism")
-    #             print(organism)
-    #             order = next((e for e in taxonomy if e.endswith('ales')), None)
-    #             if order:
-    #                 regne, phylum = taxonomy[0], taxonomy[1]
-    #                 group = taxonomy[2] if len(taxonomy) > 2 and not taxonomy[2].endswith('ales') else taxonomy[1]
-    #             family, specie = organism.split(' ')[:2]
-    #             others = organism.split(' ')[2:]
-    #             res.append((regne, phylum, group, order, family, specie, others))
-    #     return res
-    #
-    #
-    # res = get_batch_taxo_in_df(batch)
-    # print(*res, sep="\n")
