@@ -1,5 +1,6 @@
 import json
 import time
+import traceback
 import pandas as pd
 from pathlib import Path
 from urllib.error import HTTPError
@@ -28,7 +29,6 @@ class Metadata:
     def md(self):
         if self._md is None:
             self._md = self._load()
-            # self._replace_tax_id()
         return self._md
 
     def __getitem__(self, seq_id: str) -> dict:
@@ -36,23 +36,29 @@ class Metadata:
         if ".contig" in seq_id:
             seq_id = seq_id.split(".contig")[0]
         data = self.md[seq_id]
-        if not isinstance(data, dict):
-            self._md[seq_id] = data = self._api[data]
+        if not data:
+            return []
+
+        if not isinstance(data[0], dict):
+            data = [self._api[d] for d in data]
+            self._md[seq_id] = data
         return data
 
     def _load(self):
         """Read DataFrame once then free memory (big file)."""
-        # read data : key=seq_id from file headers, value=tax_id
         content = Path(METADATA_PATH) / METADATA_FILENAME
-        df = pd.read_csv(content, sep="\t", low_memory=False)
+        columns = ["sample_accession", "tax_id"]
+        dtype_specification = {col: str for col in columns}
+        df = pd.read_csv(content, sep="\t", usecols=columns, dtype=dtype_specification)
         return {
             seq_id: API.clean_tax_id(tax_id)
-            for seq_id, tax_id in zip(df["sample_accession"], df["tax_id"])
+            for seq_id, tax_id in zip(df[columns[0]], df[columns[1]])
         }
 
 
 class API:
-    def __init__(self):
+    def __init__(self, can_download: bool = True):
+        self._can_download = can_download
         self._api_cache_dir = API_CACHE_DIR
         self._api_cache = Cache(self._api_cache_dir)
         self._df = None
@@ -66,9 +72,11 @@ class API:
             self._df = pd.read_csv(content, sep="\t")
         return self._df
 
-    def __getitem__(self, tax_id):
+    def __getitem__(self, tax_id: int) -> dict:
         if record := self._api_cache.get(tax_id, None):
             return record[0]
+        if self._can_download:
+            return self._get_api_data(tax_id)[0]
         return record
 
     def tax_ids(self) -> list:
@@ -100,32 +108,53 @@ class API:
         return unique_tax_ids, list(extra_tax_ids), list(errors)
 
     @staticmethod
-    def clean_tax_id(tax_id):
-        # error: not a number / None
+    def clean_tax_id(tax_id) -> list:
         if pd.isna(tax_id):
-            return None
+            return []
 
-        # float/string -> int
+        if "," in str(tax_id):
+            try:
+                return [int(num) for num in tax_id.split(",")]
+            except ValueError:
+                return []
+
         try:
-            tax_id = int(tax_id)
+            return [int(float(tax_id))]
         except ValueError:
-            return None
-        return tax_id
+            return []
+
+    def clean_cache(self) -> list:
+        """Clean the cache by removing entries with non-integer keys or empty values."""
+        keys_to_delete = []
+
+        for key in self._api_cache:
+            value = self._api_cache.get(key)
+            if not isinstance(key, int) or not value:
+                keys_to_delete.append(key)
+
+        for key in keys_to_delete:
+            del self._api_cache[key]
+
+        return keys_to_delete
 
     def _get_api_data(self, tax_id):
         tax_id = self.clean_tax_id(tax_id)
+        if not tax_id:
+            return None
+        tax_id = tax_id[0]
 
         # hit cache
-        if tax_id in self._cache:
-            return self._cache[tax_id]
+        if tax_id in self._api_cache:
+            return self._api_cache[tax_id]
 
         # API call + cache
         try:
             handle = Entrez.efetch(db="taxonomy", id=str(tax_id), retmode="xml")
             records = Entrez.read(handle)
-            self._cache[tax_id] = records
+            self._api_cache[tax_id] = records
             return records
         except HTTPError:
+            traceback.print_exc()
             return None
 
 
@@ -134,13 +163,25 @@ class Reader:
         self._md = metadata
         self._assembly_path = Path(ASSEMBLY_PATH)
 
-    def process_file(self, filename: str, kmer_size: int) -> dict:
+    def process_file(
+        self, filename: str, kmer_size: int, window_size: int, num_window: int
+    ) -> dict:
         file_path = self._assembly_path / filename
         suffix = file_path.suffix
         if suffix == ".xz":
-            return self.process_archive(file_path, kmer_size=kmer_size)
+            return self.process_archive(
+                file_path,
+                kmer_size=kmer_size,
+                window_size=window_size,
+                num_window=num_window,
+            )
         elif suffix == ".fa":
-            return self.process_fasta(file_path, kmer_size=kmer_size)
+            return self.process_fasta(
+                file_path,
+                kmer_size=kmer_size,
+                window_size=window_size,
+                num_window=num_window,
+            )
 
     def read_fasta(self, file_path: Path | str) -> list:
         """Just read and parse file, no processing.
@@ -164,7 +205,9 @@ class Reader:
                 )
         return sequences
 
-    def process_fasta(self, file_path: str | Path, kmer_size) -> dict:
+    def process_fasta(
+        self, file_path: str | Path, kmer_size, window_size: int, num_window: int
+    ) -> dict:
         """Count and get metadata"""
         file_path = Path(file_path)
         sequences = self.read_fasta(file_path)
@@ -176,7 +219,12 @@ class Reader:
             md = self._md[sequence["id"]]
             tax_id = md["TaxId"]
 
-            kmer_count = self._counter(sequence["sequence"], kmer_size)
+            kmer_count = self._counter(
+                entry=sequence["sequence"],
+                kmer_size=kmer_size,
+                window_size=window_size,
+                num_window=num_window,
+            )
 
             if tax_id not in tax_id_to_data:
                 tax_id_to_data[tax_id] = {"metadata": md, "counters": [], "sources": []}
@@ -191,7 +239,13 @@ class Reader:
 
         return tax_id_to_data
 
-    def _counter(self, entry: str, kmer_size: int = 4) -> dict:
+    def _counter(
+        self,
+        entry: str,
+        kmer_size: int = 4,
+        window_size: int = 1000,
+        num_windows: int = 100,
+    ) -> dict:
         complements = {
             "A": "T",
             "T": "A",
@@ -226,9 +280,20 @@ class Reader:
             "N": ["A", "T", "C", "G"],
         }
 
-        all_kmers = (
-            entry[i : i + kmer_size] for i in range(len(entry) - kmer_size + 1)
-        )
+        if len(entry) < window_size * num_windows:
+            all_kmers = (
+                entry[i : i + kmer_size] for i in range(len(entry) - kmer_size + 1)
+            )
+        else:
+            step = max(1, (len(entry) - window_size) // (num_windows - 1))
+            positions = range(0, len(entry) - window_size + 1, step)
+
+            all_kmers = (
+                entry[i + j : i + j + kmer_size]
+                for i in positions
+                for j in range(window_size - kmer_size + 1)
+            )
+
         counts = Counter(all_kmers)
         rev_counts = Counter(
             {self._revcomp(k, compl=complements): v for k, v in counts.items()}
@@ -257,12 +322,19 @@ class Reader:
         try:
             result = "".join(compl[s] for s in reversed(string))
         except KeyError as exc:
+            traceback.print_exc()
             raise IndexError(
                 "Complementarity does not include all chars in sequence."
             ) from exc
         return result
 
-    def process_archive(self, archive_path: Path | str, kmer_size: int = 4):
+    def process_archive(
+        self,
+        archive_path: Path | str,
+        kmer_size: int,
+        window_size: int,
+        num_window: int,
+    ):
         """Read and process an archive."""
         with tempfile.TemporaryDirectory() as temp_dir:
             with tarfile.open(archive_path, "r:xz") as tar:
@@ -277,7 +349,12 @@ class Reader:
                 leave=False,
                 position=1,
             ):
-                file_data = self.process_fasta(file_path, kmer_size)
+                file_data = self.process_fasta(
+                    file_path,
+                    kmer_size=kmer_size,
+                    window_size=window_size,
+                    num_window=num_window,
+                )
 
                 for tax_id, data in file_data.items():
                     if tax_id not in merged_data:
@@ -351,7 +428,13 @@ def format_duration(seconds):
     return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
 
 
-def create_db(input_path: Path | str, output_path: Path, kmer_size: int = 4):
+def create_db(
+    input_path: Path | str,
+    output_path: Path,
+    kmer_size: int,
+    window_size: int,
+    num_window: int,
+):
     input_path = Path(input_path)
     output_path = Path(output_path)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -367,6 +450,7 @@ def create_db(input_path: Path | str, output_path: Path, kmer_size: int = 4):
     archives = list(input_path.glob("*.xz"))
 
     md = Metadata()
+    md.md  # preload
     reader = Reader(md)
     writer = Writer(output_path)
 
@@ -382,7 +466,12 @@ def create_db(input_path: Path | str, output_path: Path, kmer_size: int = 4):
             if str(archive_path) in error_log["incomplete"]:
                 print(f"Retrying {archive_path.name}...")
 
-            merged_data = reader.process_file(archive_path, kmer_size)
+            merged_data = reader.process_file(
+                archive_path,
+                kmer_size=kmer_size,
+                window_size=window_size,
+                num_window=num_window,
+            )
             writer.save_data(merged_data)
 
             error_log["complete"].append(str(archive_path))
@@ -395,6 +484,7 @@ def create_db(input_path: Path | str, output_path: Path, kmer_size: int = 4):
 
         except Exception as e:
             print(f"Error processing {archive_path.name}: {e}")
+            traceback.print_exc()
             if str(archive_path) not in error_log["incomplete"]:
                 error_log["incomplete"].append(str(archive_path))
 
@@ -427,7 +517,8 @@ def create_db(input_path: Path | str, output_path: Path, kmer_size: int = 4):
 
 
 if __name__ == "__main__":
-    md = Metadata()
+    # md = Metadata()
+    # md.md
     # md["SAMD00013333.contig0000"]
     # md.tax_ids()
     # t, e, err = md.populate_api_cache()
@@ -455,4 +546,22 @@ if __name__ == "__main__":
     # writer = Writer("/tmp/microdb1")
     # writer.save_processed_data(loaded_data)
 
-    create_db(ASSEMBLY_PATH, "/data/microtaxo/db_full_4", kmer_size=4)
+    # md = Metadata()
+
+    # md_sup_3 = ["SAMN00189190", "SAMN00189191", "SAMN00189193"]
+    # md_none = "SAMEA3400865"
+    # md_1 = "SAMD00020420"
+
+    # md[md_1]
+    # md[md_sup_3[0]]
+
+    api = API()
+    print(api.clean_cache())
+
+    create_db(
+        ASSEMBLY_PATH,
+        "/data/microtaxo/db_full_4",
+        kmer_size=4,
+        window_size=100,
+        num_window=10,
+    )
