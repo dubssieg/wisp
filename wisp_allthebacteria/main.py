@@ -91,18 +91,20 @@ def create_db(
 
 if __name__ == "__main__":
     api = API()
-    # from database import Database
 
-    # db = Database("/data/microtaxo/db_full_4", api)
+    from database import Database
+
+    db = Database("/data/microtaxo/db_full_4", api)
     # print(db.get_tax_ids_by_rank("phylum"))
-    # pass
+    # data = db._get_tax_id_data(222)
+    mat = db.make_dmatrix("phylum", sample_limit_by_tax_id=None)
+    pass
 
-    import pickle
-
-    writer = Writer(path="/data/microtaxo/db_full_4")
-    with open("/data/microtaxo/merged_data.pkl", "rb") as file:
-        merged_data = pickle.load(file)
-    writer.save_data(merged_data)
+    # import pickle
+    # writer = Writer(path="/data/microtaxo/db_full_4")
+    # with open("/data/microtaxo/merged_data.pkl", "rb") as file:
+    #     merged_data = pickle.load(file)
+    # writer.save_data(merged_data)
 
     # create_db(
     #     ASSEMBLY_PATH,
