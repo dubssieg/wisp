@@ -15,6 +15,7 @@ class Writer:
 
         archive = Path(data["archive"]).stem.split(".")[0]
         merged_data = data["merged_data"]
+        # create update files for each tax_id
         for tax_id, data in tqdm(
             merged_data.items(), desc="write merged data", position=1, leave=False
         ):
@@ -41,15 +42,11 @@ class Writer:
 
             # Save k-mer counts in libSVM format
             libsvm_file_path = tax_path / f"{archive}.libsvm"
-            with open(libsvm_file_path, "w", encoding="utf-8") as libsvm_file:
-                for source in tqdm(
-                    data["sources"],
-                    desc="Save k-mer in libSVM format",
-                    position=2,
-                    leave=False,
-                ):
+            lines_to_write = []
+            for counter in data["counters"]:
+                lines_to_write.append(
+                    f"{tax_id} {' '.join([f'{k}:{v}' for k, v in counter.items()])}\n"
+                )
 
-                    for counter in data["counters"]:
-                        libsvm_file.write(
-                            f"{tax_id} {' '.join([f'{k}:{v}' for k, v in counter.items()])}\n"
-                        )
+            with open(libsvm_file_path, "w", encoding="utf-8") as libsvm_file:
+                libsvm_file.writelines(lines_to_write)

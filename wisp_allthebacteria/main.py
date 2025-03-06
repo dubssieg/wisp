@@ -88,51 +88,17 @@ def create_db(
 
 
 if __name__ == "__main__":
-    # md = Metadata()
-    # md.md
-    # md["SAMD00013333.contig0000"]
-    # md.tax_ids()
-    # t, e, err = md.populate_api_cache()
-    # print(md[367830])
-    #
-    # content = reader.process_fasta(
-    #     Path(ASSEMBLY_PATH) / "achromobacter_xylosoxidans__01/SAMD00013333.fa",
+    import pickle
+
+    writer = Writer(path="/data/microtaxo/db_full_4")
+    with open("/data/microtaxo/merged_data.pkl", "rb") as file:
+        merged_data = pickle.load(file)
+    writer.save_data(merged_data)
+
+    # create_db(
+    #     ASSEMBLY_PATH,
+    #     "/data/microtaxo/db_full_4",
     #     kmer_size=4,
+    #     window_size=100,
+    #     num_windows=10,
     # )
-    # sequence = content[0]["sequence"]
-
-    # reader.process_file("achromobacter_xylosoxidans__01/SAMD00013333.fa")
-
-    # reader = Reader(md)
-    # reader.process_file("actinobacillus_lignieresii__01.asm.tar.xz")
-
-    # import pickle
-
-    # with open("/data/microtaxo/merged_data.pkl", "rb") as file:
-    #     loaded_data = pickle.load(file)
-    #     loaded_data = {
-    #         "archive": "actinobacillus_lignieresii__01.asm.tar.xz",
-    #         "merged_data": loaded_data,
-    #     }
-    # writer = Writer("/tmp/microdb1")
-    # writer.save_processed_data(loaded_data)
-
-    # md = Metadata()
-
-    # md_sup_3 = ["SAMN00189190", "SAMN00189191", "SAMN00189193"]
-    # md_none = "SAMEA3400865"
-    # md_1 = "SAMD00020420"
-
-    # md[md_1]
-    # md[md_sup_3[0]]
-
-    # api = API()
-    # print(api.clean_cache())
-
-    create_db(
-        ASSEMBLY_PATH,
-        "/data/microtaxo/db_full_4",
-        kmer_size=4,
-        window_size=100,
-        num_windows=10,
-    )
