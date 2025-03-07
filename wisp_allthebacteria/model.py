@@ -5,10 +5,13 @@ from sklearn.metrics import classification_report
 from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
 import numpy as np
 
+from api import API
+
 
 class XGBoostModel:
-    def __init__(self, params=None):
+    def __init__(self, params=None, api: API | None = None):
         self._params = params if params is not None else {}
+        self._api = api
         self.model = None
         self.trials = Trials()
 
@@ -17,6 +20,7 @@ class XGBoostModel:
         dtrain: DMatrix,
         n_estimators: int = 100,
         nfold: int = 5,
+        tax_id_2_name: bool = True,
     ) -> dict:
         X = dtrain.get_data()
         y = dtrain.get_label().astype(int)
@@ -24,6 +28,10 @@ class XGBoostModel:
         label_encoder = LabelEncoder()
         y_encoded = label_encoder.fit_transform(y)
         labels = label_encoder.classes_
+        if tax_id_2_name and self._api:
+            labels = [
+                f'{self._api[tax_id]["ScientificName"]} [{tax_id}]' for tax_id in labels
+            ]
 
         kf = KFold(n_splits=nfold, shuffle=True, random_state=2025)
         y_pred = np.zeros(y_encoded.shape)
@@ -38,7 +46,7 @@ class XGBoostModel:
             y_encoded, y_pred, target_names=labels, output_dict=True
         )
 
-        final_model = XGBClassifier(**self._params, n_estimators=n_estimators)
-        final_model.fit(X, y_encoded)
+        # final_model = XGBClassifier(**self._params, n_estimators=n_estimators)
+        # final_model.fit(X, y_encoded)
 
         return report
