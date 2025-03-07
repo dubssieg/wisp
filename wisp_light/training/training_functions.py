@@ -148,7 +148,7 @@ def process_genome(genome, phylo_tree, model_dir, params, val_dir, logger, metri
             if gt_taxons['phylum'] != pred_taxons['phylum']:
                 logger.info("ERROR phylum")
                 logger.info(f"-> seq_id {seq_id} -> pred: {pred_taxons} -> gt: {gt_taxons}")
-                file_error_plylum.write(f"-> seq_id {seq_id} -> pred: {pred_taxons} -> gt: {gt_taxons}")
+                file_error_plylum.write(f"seq_id {seq_id}\n pred: {pred_taxons}\n gt  : {gt_taxons} \n")
             prediction_results.append(result)
         except Exception as e:
             logger.debug(f"⚠️ Error for id {seq_id}: {e}")
