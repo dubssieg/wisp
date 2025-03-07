@@ -12,7 +12,6 @@ from metadata import Metadata
 class Reader:
     def __init__(self, metadata: Metadata):
         self._md = metadata
-        # self._assembly_path = Path(ASSEMBLY_PATH)
 
     def process_file(
         self, file_path: str | Path, kmer_size: int, window_size: int, num_windows: int

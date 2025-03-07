@@ -7,9 +7,7 @@ from tqdm.auto import tqdm
 
 class Metadata:
     def __init__(self, csv_path: str | Path, api: API):
-        self._csv_path = Path(
-            csv_path
-        )  # content = Path(METADATA_PATH) / METADATA_FILENAME
+        self._csv_path = Path(csv_path)
         self._md = None
         self._api = api
 

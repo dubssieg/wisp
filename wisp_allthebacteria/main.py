@@ -9,10 +9,8 @@ from metadata import Metadata
 from reader import Reader
 from writer import Writer
 from api import API
+import argparse
 
-
-METADATA_PATH = "/data/microtaxo/allthebacteria_sample/metadata"
-ASSEMBLY_PATH = "/data/microtaxo/allthebacteria_sample/assembly"
 
 METADATA_FILENAME = "ena_metadata.tsv"
 
@@ -26,13 +24,19 @@ def format_duration(seconds):
 
 def create_db(
     input_path: Path | str,
-    output_path: Path,
+    output_path: Path | str,
+    metadata_path: Path | str,
+    api_cache_path: Path | str,
+    api_can_download: bool,
+    email: str,
     kmer_size: int,
     window_size: int,
     num_windows: int,
 ):
     input_path = Path(input_path)
     output_path = Path(output_path)
+    metadata_path = Path(metadata_path)
+    api_cache_path = Path(api_cache_path)
     output_path.mkdir(parents=True, exist_ok=True)
 
     json_log_path = output_path / "error_log.json"
@@ -45,8 +49,8 @@ def create_db(
 
     archives = list(input_path.glob("*.xz"))
 
-    api = API()
-    md = Metadata(csv_path=Path(METADATA_PATH) / METADATA_FILENAME, api=api)
+    api = API(api_cache_dir=api_cache_path, email=email, can_download=api_can_download)
+    md = Metadata(csv_path=metadata_path, api=api)
     md.md  # preload
     reader = Reader(md)
     writer = Writer(output_path)
@@ -89,7 +93,14 @@ def create_db(
                 json.dump(error_log, error_log_file, indent=4)
 
 
-if __name__ == "__main__":
+def load_config(json_file: Path | str):
+    with open(json_file, "r") as file:
+        conf = json.load(file)
+    return conf
+
+
+def debug():
+    """debugging, ignore it"""
     api = API()
 
     api.export()
@@ -100,7 +111,7 @@ if __name__ == "__main__":
     # print(db.get_tax_ids_by_rank("phylum"))
     # data = db._get_tax_id_data(222)
     mat = db.make_dmatrix("phylum", sample_limit_by_tax_id=None)
-    pass
+    print(mat.shape)
 
     # import pickle
     # writer = Writer(path="/data/microtaxo/db_full_4")
@@ -108,10 +119,33 @@ if __name__ == "__main__":
     #     merged_data = pickle.load(file)
     # writer.save_data(merged_data)
 
-    create_db(
-        ASSEMBLY_PATH,
-        "/data/microtaxo/db_full_4",
-        kmer_size=4,
-        window_size=100,
-        num_windows=10,
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="AllTheBacteria Database Scripts")
+    parser.add_argument(
+        "--json",
+        type=str,
+        help="Path to the JSON file containing script configuration",
+        default=Path(__file__).resolve().parent / "config/genouest.json",
     )
+    parser.add_argument("--create-db", action="store_true", help="Create a database")
+    parser.add_argument("--train", action="store_true", help="Train a model")
+
+    args = parser.parse_args()
+
+    conf = load_config(Path(args.json))
+
+    if args.create_db:
+        create_db(
+            input_path=Path(conf["allthebacteria"]["assembly_dir"]),
+            output_path=Path(conf["db"]["output_path"]),
+            metadata_path=Path(conf["allthebacteria"]["metadata_dir"])
+            / METADATA_FILENAME,
+            api_cache_path=Path(conf["api"]["cache_dir"]),
+            api_can_download=conf["api"]["can_download"],
+            email=conf["api"]["email"],
+            kmer_size=conf["db"]["kmer_size"],
+            window_size=conf["db"]["window_size"],
+            num_windows=conf["db"]["num_windows"],
+        )

@@ -7,16 +7,13 @@ from diskcache import Cache
 from urllib.error import HTTPError
 from pathlib import Path
 
-API_CACHE_DIR = "/data/microtaxo/apicache"
-EMAIL = "cyrille.leroux@irisa.fr"
-
 
 class API:
     def __init__(
         self,
+        api_cache_dir: str | Path,
+        email: str,
         can_download: bool = True,
-        api_cache_dir: str | Path = API_CACHE_DIR,
-        email: str = EMAIL,
     ):
         self._can_download = can_download
         self._api_cache_dir = Path(api_cache_dir)
