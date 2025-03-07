@@ -3,7 +3,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
-all_unique_labels = pd.read_csv('all_genome_family.csv',index_col=0)
+# all_unique_labels = pd.read_csv('all_genome_family.csv',index_col=0)
 
 
 def plot_conf_mat(ax, conf_mat,  level, filename=None):

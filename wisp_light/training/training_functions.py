@@ -100,7 +100,7 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4, save_raw_p
     with open(phylo_path, 'rb') as jtree:
         phylo_tree: Tree = pickle.load(jtree)
 
-    model_dir = f"{exp_dir}/model"
+    model_dir = os.path.join(exp_dir,"model")
     process_genome_partial = partial(process_genome, phylo_tree=phylo_tree, model_dir=model_dir,
                                      params=params, val_dir=val_dir, logger=logger, metrics=metrics,
                                      num_processes=num_processes, save_raw_pred=save_raw_pred)
@@ -139,18 +139,21 @@ def process_genome(genome, phylo_tree, model_dir, params, val_dir, logger, metri
     partial_pred = partial(prediction, tree=phylo_tree, model_dir=model_dir, params=params, val_dir=val_dir)
 
     prediction_results = []
-
+    file_error_plylum = open(f"{val_dir}/error_phylum_val.txt", "w")
     for seq_id, seq_data in sequences:
         try:
             result =  partial_pred(seq_id, seq_data)
             pred_taxons = extract_majority_classification(result)
             metrics.update(true_labels=gt_taxons, pred_labels=pred_taxons)
-            logger.debug(f"seq_id {seq_id} -> pred: {pred_taxons} -> gt: {gt_taxons}")
-            prediction_results.append(result)
+            if gt_taxons[1] != pred_taxons[1]:
+                logger.info("ERROR phylum")
+                logger.info(f"-> seq_id {seq_id} -> pred: {pred_taxons} -> gt: {gt_taxons}")
+                file_error_plylum.write(f"-> seq_id {seq_id} -> pred: {pred_taxons} -> gt: {gt_taxons}")
+                prediction_results.append(result)
         except Exception as e:
             logger.debug(f"⚠️ Error for id {seq_id}: {e}")
             prediction_results.append(None)
-
+    file_error_plylum.close()
     if save_raw_pred:
         genome_name = os.path.basename(genome).rsplit('.', 1)[0]
         report_path = os.path.join(val_dir, 'raw_pred', f"{genome_name}_job_output.json")

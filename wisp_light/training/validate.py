@@ -25,20 +25,14 @@ parser.add_argument("--exp_rootdir", type=str, default=os.path.abspath('../../ex
 parser.add_argument("--db_json", type=str, default=None, help="Fichier JSON de la base de données existante.")
 
 args = parser.parse_args()
-
-# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
 args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/refseq_with_taxo_merged"
+# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
+# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/refseq_with_taxo_merged"
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
-if args.db_json:
-    exp_dir = os.path.dirname(args.db_json)
-    log_file = f"{exp_dir}/restart.log"
 
-else:
-
-    exp_dir = f"{args.exp_rootdir}/{args.exp_name}_{day_month_min}"
-    os.makedirs(exp_dir, exist_ok=True)
-    log_file = f"{exp_dir}/init_train.log"
-
+exp_dir = "/home/hcourtei/Projects/MicroTaxo/codes/wisp/exp/model_base_03_07_16_10/"
+os.makedirs(exp_dir, exist_ok=True)
+log_file = f"{exp_dir}/init_eval.log"
 mlflow.set_tracking_uri(f"sqlite:///{os.path.dirname(exp_dir)}/mlflow.db")
 mlflow.set_experiment(args.exp_name)
 
@@ -68,22 +62,6 @@ with mlflow.start_run():
     train_files_list, val_files_list = dataset.train_test_split(test_size=params['test_size'],
                                                                 random_state=params['random_state'])
 
-    if  args.db_json:
 
-        phylo_tree, nb_genome_indexed = load_phylo_tree(args.db_json)
-        logger.info(f"Reload database json {nb_genome_indexed} genomes indexed from {exp_dir} ")
-
-    else:
-        logger.info(f"Starting database creation for {len(train_files_list)} genome files ")
-        start_database = time.time()
-        database_json = os.path.join(exp_dir, 'databases.json')
-        phylo_tree = build_database(train_files_list, params, database_json, logger)
-        database_time = round((time.time() - start_database))
-        logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
-
-    train_model_targets(phylo_tree,  exp_dir, params, logger, num_processes=params['num_processes'])
-
+    # train_model_targets(phylo_tree,  exp_dir, params, logger, num_processes=params['num_processes'])
     validate(val_files_list, exp_dir, params,logger, num_processes=params['num_processes'])
-
-
-
