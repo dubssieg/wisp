@@ -1,7 +1,7 @@
 import pickle
 import traceback
 import pandas as pd
-import tqdm
+from tqdm.auto import tqdm
 from Bio import Entrez
 from diskcache import Cache
 from urllib.error import HTTPError

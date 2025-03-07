@@ -130,6 +130,12 @@ if __name__ == "__main__":
     )
     parser.add_argument("--create-db", action="store_true", help="Create a database")
     parser.add_argument("--train", action="store_true", help="Train a model")
+
+    parser.add_argument(
+        "--populate-api-cache",
+        action="store_true",
+        help="get most of needed data from Entry (but you should use import/export api-cache instead)",
+    )
     parser.add_argument(
         "--import-api-cache",
         action="store_true",
@@ -144,6 +150,16 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     conf = load_config(Path(args.json))
+
+    if args.export_api_cache:
+        API(
+            api_cache_dir=Path(conf["api"]["cache_dir"]),
+            email=conf["api"]["email"],
+            can_download=True,
+        ).populate_api_cache(
+            metadata_csv_path=Path(conf["allthebacteria"]["metadata_dir"])
+            / METADATA_FILENAME
+        )
 
     if args.export_api_cache:
         API(
