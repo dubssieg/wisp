@@ -14,5 +14,8 @@
         "window_size": 100,
         "num_windows": 10,
         "output_path": "/data/microtaxo/db_light_4"
+    },
+    "xgboost":{
+        "gpu": false
     }
 }
