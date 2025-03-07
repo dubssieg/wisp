@@ -1,5 +1,7 @@
 from pathlib import Path
-from xgboost import XGBClassifier, DMatrix
+import pickle
+from xgboost import XGBClassifier, DMatrix, Booster
+
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report
@@ -33,13 +35,14 @@ class XGBoostModel:
         self._api = api
         self._use_gpu = use_gpu
         self._model = None
+        self._labels = None
         # self.trials = Trials()
 
     def train(
         self, dtrain: DMatrix, kfold: int | None = 5, tax_id_2_name: bool = True
-    ) -> dict | XGBClassifier:
+    ) -> dict | list:
         "When using k-fold, just return metrics,"
-        "otherwise, return model trained on all available data."
+        "otherwise, return nothing (and keep model in self._model + labels in self._label)."
         params = self._params.copy()
 
         X = dtrain.get_data()
@@ -78,17 +81,37 @@ class XGBoostModel:
             return report
         else:
             final_model = XGBClassifier(**params)
-            final_model.fit(X, y)
+            final_model.fit(X, y_encoded)
             self._model = final_model
-            return final_model
+            self._labels = labels
 
-    def load(self, path: str | Path) -> None:
+    def load(self, dir_path: str | Path) -> None:
         """Load model from file."""
-        # TODO
+        model_path = Path(dir_path) / "model.bin"
+        label_path = Path(dir_path) / "labels.pkl"
+        if not model_path.is_file():
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+        if not label_path.is_file():
+            raise FileNotFoundError(f"Label file not found: {label_path}")
 
-    def save(self, path: str | Path) -> None:
-        """Save model to file."""
-        # TODO
+        self._model = Booster()
+        self._model.load_model(str(model_path))
+        with open(label_path, "rb") as f:
+            self._model = pickle.load(f)
+
+    def save(self, dir_path: str | Path) -> None:
+        """Save model to directory."""
+        dir_path = Path(dir_path)
+        dir_path.mkdir(parents=True, exist_ok=True)
+        model_path = dir_path / "model.bin"
+        label_path = dir_path / "labels.pkl"
+
+        if self._model is not None:
+            self._model.save_model(str(model_path))
+            with open(label_path, "wb") as f:
+                pickle.dump(self._labels, f)
+        else:
+            raise ValueError("Model is not trained or loaded yet.")
 
     def optimize_hyperparameters(self, dtrain: DMatrix, nfold=5):
         """Optimize hyperparameters using Hyperopt."""

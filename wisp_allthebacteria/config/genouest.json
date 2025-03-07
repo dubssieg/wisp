@@ -13,9 +13,12 @@
         "full": true,
         "window_size": 0,
         "num_windows": 0,
-        "output_path": "/projects/microtaxo/exp_allthebacteria/dbs/db_full_4"
+        "output_dir": "/projects/microtaxo/exp_allthebacteria/dbs/db_full_4"
     },
-    "xgboost":{
-        "gpu": true
-    }    
+    "model":{
+        "gpu": false,
+        "normalize": "min_max",
+        "tax_id_2_name": true,
+        "default_models_dir": "/projects/microtaxo/exp_allthebacteria/models"
+    }  
 }
