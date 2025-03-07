@@ -29,6 +29,7 @@ def create_db(
     api_can_download: bool,
     email: str,
     kmer_size: int,
+    full: int,
     window_size: int,
     num_windows: int,
 ):
@@ -69,6 +70,7 @@ def create_db(
             merged_data = reader.process_file(
                 archive_path,
                 kmer_size=kmer_size,
+                full=full,
                 window_size=window_size,
                 num_windows=num_windows,
             )
@@ -185,6 +187,7 @@ if __name__ == "__main__":
             api_can_download=conf["api"]["can_download"],
             email=conf["api"]["email"],
             kmer_size=conf["db"]["kmer_size"],
+            full=conf["db"]["full"],
             window_size=conf["db"]["window_size"],
             num_windows=conf["db"]["num_windows"],
         )

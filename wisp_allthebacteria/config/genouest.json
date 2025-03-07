@@ -10,8 +10,9 @@
     },
     "db":{
         "kmer_size": 4,
-        "window_size": 100,
-        "num_windows": 10,
-        "output_path": "/projects/microtaxo/exp_allthebacteria/dbs/db_test_4"
+        "full": true,
+        "window_size": 0,
+        "num_windows": 0,
+        "output_path": "/projects/microtaxo/exp_allthebacteria/dbs/db_full_4"
     }
 }

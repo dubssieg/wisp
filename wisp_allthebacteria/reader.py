@@ -14,7 +14,12 @@ class Reader:
         self._md = metadata
 
     def process_file(
-        self, file_path: str | Path, kmer_size: int, window_size: int, num_windows: int
+        self,
+        file_path: str | Path,
+        kmer_size: int,
+        window_size: int,
+        num_windows: int,
+        full: bool = False,
     ) -> dict:
         suffix = file_path.suffix
         if suffix == ".xz":
@@ -23,6 +28,7 @@ class Reader:
                 kmer_size=kmer_size,
                 window_size=window_size,
                 num_windows=num_windows,
+                full=full,
             )
         elif suffix == ".fa":
             return self.process_fasta(
@@ -30,6 +36,7 @@ class Reader:
                 kmer_size=kmer_size,
                 window_size=window_size,
                 num_windows=num_windows,
+                full=full,
             )
 
     def read_fasta(self, file_path: Path | str) -> list:
@@ -55,7 +62,12 @@ class Reader:
         return sequences
 
     def process_fasta(
-        self, file_path: str | Path, kmer_size, window_size: int, num_windows: int
+        self,
+        file_path: str | Path,
+        kmer_size,
+        window_size: int,
+        num_windows: int,
+        full: bool = False,
     ) -> dict:
         """Count and get metadata"""
         file_path = Path(file_path)
@@ -80,6 +92,7 @@ class Reader:
                 kmer_size=kmer_size,
                 window_size=window_size,
                 num_windows=num_windows,
+                full=full,
             )
 
             if tax_id not in tax_id_to_data:
@@ -101,6 +114,7 @@ class Reader:
         kmer_size: int = 4,
         window_size: int = 1000,
         num_windows: int = 100,
+        full: bool = False,
     ) -> dict:
         complements = {
             "A": "T",
@@ -136,7 +150,7 @@ class Reader:
             "N": ["A", "T", "C", "G"],
         }
 
-        if len(entry) < window_size * num_windows:
+        if full or (len(entry) < window_size * num_windows):
             all_kmers = (
                 entry[i : i + kmer_size] for i in range(len(entry) - kmer_size + 1)
             )
@@ -190,6 +204,7 @@ class Reader:
         kmer_size: int,
         window_size: int,
         num_windows: int,
+        full: bool = False,
     ):
         """Read and process an archive."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -210,6 +225,7 @@ class Reader:
                     kmer_size=kmer_size,
                     window_size=window_size,
                     num_windows=num_windows,
+                    full=full,
                 )
 
                 for tax_id, data in file_data.items():
