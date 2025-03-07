@@ -1,3 +1,4 @@
+from pathlib import Path
 from xgboost import XGBClassifier, DMatrix
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import LabelEncoder
@@ -31,12 +32,14 @@ class XGBoostModel:
         self._params = params if params is not None else DEFAULT_PARAMETERS
         self._api = api
         self._use_gpu = use_gpu
-        # self.model = None
+        self._model = None
         # self.trials = Trials()
 
-    def train_with_kfold(
-        self, dtrain: DMatrix, nfold: int = 5, tax_id_2_name: bool = True
-    ) -> dict:
+    def train(
+        self, dtrain: DMatrix, kfold: int | None = 5, tax_id_2_name: bool = True
+    ) -> dict | XGBClassifier:
+        "When using k-fold, just return metrics,"
+        "otherwise, return model trained on all available data."
         params = self._params.copy()
 
         X = dtrain.get_data()
@@ -59,20 +62,40 @@ class XGBoostModel:
             y_dense = y.toarray() if hasattr(y, "toarray") else X
             y = torch.tensor(y_dense, device="cuda")
 
-        kf = KFold(n_splits=nfold, shuffle=True, random_state=2025)
-        y_pred = np.zeros(y_encoded.shape)
+        if kfold is not None:
+            kf = KFold(n_splits=kfold, shuffle=True, random_state=2025)
+            y_pred = np.zeros(y_encoded.shape)
 
-        for train_index, valid_index in tqdm(kf.split(X), desc="k-fold"):
-            model = XGBClassifier(**params)
-            model.fit(X[train_index], y_encoded[train_index])
-            preds = model.predict(X[valid_index])
-            y_pred[valid_index] = preds
+            for train_index, valid_index in tqdm(kf.split(X), desc="k-fold"):
+                model = XGBClassifier(**params)
+                model.fit(X[train_index], y_encoded[train_index])
+                preds = model.predict(X[valid_index])
+                y_pred[valid_index] = preds
 
-        report = classification_report(
-            y_encoded, y_pred, target_names=labels, output_dict=True
-        )
+            report = classification_report(
+                y_encoded, y_pred, target_names=labels, output_dict=True
+            )
+            return report
+        else:
+            final_model = XGBClassifier(**params)
+            final_model.fit(X, y)
+            self._model = final_model
+            return final_model
 
-        # final_model = XGBClassifier(**params, n_estimators=n_estimators)
-        # final_model.fit(X, y_encoded)
+    def load(self, path: str | Path) -> None:
+        """Load model from file."""
+        # TODO
 
-        return report
+    def save(self, path: str | Path) -> None:
+        """Save model to file."""
+        # TODO
+
+    def optimize_hyperparameters(self, dtrain: DMatrix, nfold=5):
+        """Optimize hyperparameters using Hyperopt."""
+        # TODO do it again
+
+    def predict(self, dtest: DMatrix):
+        """Make predictions on the test set."""
+        if self._model is None:
+            raise ValueError("Model loaded.")
+        return self._model.predict(dtest)
