@@ -9,6 +9,9 @@ from datetime import datetime
 
 import mlflow
 
+# /projects/microtaxo/exp_refseq/model_base_02_24_15_18
+# /projects/microtaxo/data/refseq_with_taxo_merged
+
 from utils import setup_logger
 from create_database import check_parameters, build_database, load_phylo_tree
 from training_functions import train_model_targets, validate
@@ -25,12 +28,15 @@ parser.add_argument("--exp_rootdir", type=str, default=os.path.abspath('../../ex
 parser.add_argument("--db_json", type=str, default=None, help="Fichier JSON de la base de données existante.")
 
 args = parser.parse_args()
-args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/refseq_with_taxo_merged"
+exp_dir = "/projects/microtaxo/exp_refseq/model_base_02_24_15_18"
+# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/refseq_with_taxo_merged"
 # args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
 # args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/refseq_with_taxo_merged"
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
 
-exp_dir = "/home/hcourtei/Projects/MicroTaxo/codes/wisp/exp/model_base_03_07_16_10/"
+# exp_dir = "/home/hcourtei/Projects/MicroTaxo/codes/wisp/exp/model_base_03_07_16_10/"
+exp_dir = "/projects/microtaxo/exp_refseq/model_base_02_24_15_18"
+
 os.makedirs(exp_dir, exist_ok=True)
 log_file = f"{exp_dir}/init_eval.log"
 mlflow.set_tracking_uri(f"sqlite:///{os.path.dirname(exp_dir)}/mlflow.db")
