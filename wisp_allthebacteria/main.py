@@ -3,7 +3,6 @@ import time
 import traceback
 from pathlib import Path
 
-
 from tqdm.auto import tqdm
 from metadata import Metadata
 from reader import Reader
@@ -131,10 +130,34 @@ if __name__ == "__main__":
     )
     parser.add_argument("--create-db", action="store_true", help="Create a database")
     parser.add_argument("--train", action="store_true", help="Train a model")
+    parser.add_argument(
+        "--import-api-cache",
+        action="store_true",
+        help="pickle api cache to out/cache_dump.pkl",
+    )
+    parser.add_argument(
+        "--export-api-cache",
+        action="store_true",
+        help="unpickle api cache from out/cache_dump.pkl",
+    )
 
     args = parser.parse_args()
 
     conf = load_config(Path(args.json))
+
+    if args.export_api_cache:
+        API(
+            api_cache_dir=Path(conf["api"]["cache_dir"]),
+            email="",
+            can_download=False,
+        ).export_db()
+
+    if args.import_api_cache:
+        API(
+            api_cache_dir=Path(conf["api"]["cache_dir"]),
+            email="",
+            can_download=False,
+        ).import_db()
 
     if args.create_db:
         create_db(

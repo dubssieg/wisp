@@ -103,7 +103,6 @@ class API:
     def import_db(self, pickle_path: str | Path | None = None):
         if pickle_path is None:
             pickle_path = Path(__file__).resolve().parent / "out/cache_dump.pkl"
-            pickle_path.parent.mkdir(parents=True, exist_ok=True)
         pickle_path = Path(pickle_path)
         with open(pickle_path, "rb") as f:
             exp_cache = pickle.load(f)
