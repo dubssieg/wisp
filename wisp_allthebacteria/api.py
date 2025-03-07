@@ -106,7 +106,7 @@ class API:
         pickle_path = Path(pickle_path)
         with open(pickle_path, "rb") as f:
             exp_cache = pickle.load(f)
-        for k, v in exp_cache.items():
+        for k, v in tqdm(exp_cache.items()):
             self._api_cache[k] = v
 
     def _get_api_data(self, tax_id):
