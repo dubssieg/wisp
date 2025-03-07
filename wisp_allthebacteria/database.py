@@ -47,37 +47,53 @@ class Database:
                 loaded_data[pickle_file.stem] = pickle.load(file)
         return loaded_data
 
-    # def make_dmatrix(self, rank: str) -> xgb.DMatrix:
-    #     tax_ids_by_rank = self.get_tax_ids_by_rank(rank)
-    #     for rank_tax_id, samples_tax_id in tax_ids_by_rank.items():
-    #         tax_id_data = self._get_tax_id_data(samples_tax_id)
+    @staticmethod
+    def _normalize_sum(count_dict: dict) -> dict:
+        total_count = sum(count_dict.values())
+        return {key: value / total_count for key, value in count_dict.items()}
+
+    @staticmethod
+    def _normalize_min_max(count_dict) -> dict:
+        min_value = min(count_dict.values())
+        max_value = max(count_dict.values())
+        if max_value == min_value:
+            return {key: 1.0 for key in count_dict}
+        return {
+            key: (value - min_value) / (max_value - min_value)
+            for key, value in count_dict.items()
+        }
 
     def make_dmatrix(
-        self, rank: str, sample_limit_by_tax_id: int | None = None
+        self,
+        rank: str,
+        sample_limit_by_tax_id: int | None = None,
+        normalize: str | None = None,
     ) -> xgb.DMatrix:
+        """rank can be "phylum, kingdom", etc."""
+        # sort tax_id in DB by given rank
         tax_ids_by_rank = self.get_tax_ids_by_rank(rank)
 
         data = []
         labels = []
 
+        # for each rank
         for rank_tax_id, in_rank_tax_ids in tqdm(
             tax_ids_by_rank.items(), position=0, desc="ranks"
         ):
-
+            # for each tax_id in this rank
             for in_rank_tax_id in tqdm(
                 in_rank_tax_ids, position=1, leave=False, desc=f"rank {rank_tax_id}"
             ):
-
                 tax_id_data = self._get_tax_id_data(in_rank_tax_id)
-
+                # for each data found in archive (assembly/*tar.gz)
                 for file_name, tax_id_data_i in tqdm(
                     tax_id_data.items(),
                     position=2,
                     leave=False,
                     desc=f"sample {in_rank_tax_id}",
                 ):
-
                     sample_count = 0
+                    # for each sequence count from *.fa file
                     for counter in tqdm(
                         tax_id_data_i["counters"],
                         position=3,
@@ -91,15 +107,19 @@ class Database:
                             and sample_count > sample_limit_by_tax_id
                         ):
                             break
+                        # for each "ATGC", etc. count
+                        if normalize == "sum":
+                            counter = self._normalize_sum(counter)
+                        elif normalize == "min_max":
+                            counter = self._normalize_min_max(counter)
+
                         for col_name, value in counter.items():
                             row[self._column_index[col_name]] = value
                         data.append(row)
                         labels.append(rank_tax_id)
 
-        # Convert data and labels to numpy arrays
+        # convert
         data = np.array(data)
         labels = np.array([int(label) for label in labels])
-
-        # Create DMatrix
         dmatrix = xgb.DMatrix(data, label=labels)
         return dmatrix

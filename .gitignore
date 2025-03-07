@@ -130,7 +130,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 /wisp_light/import_dataset/refseq/NCBI_credentials.yaml
-get_dataset/AllTheBacteria/sandbox.py
+
+#misc
+sandbox.py
 .vscode/launch.json
 memo.txt
-wisp_allthebacteria/out/cache_dump.pkl
+*.pkl

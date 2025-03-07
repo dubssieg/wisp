@@ -102,19 +102,20 @@ def load_config(json_file: Path | str):
 
 def debug():
     """debugging, ignore it"""
-    api = API()
-
-    api.export()
-
     from database import Database
+    import pickle
 
-    db = Database("/data/microtaxo/db_full_4", api)
-    # print(db.get_tax_ids_by_rank("phylum"))
-    # data = db._get_tax_id_data(222)
-    mat = db.make_dmatrix("phylum", sample_limit_by_tax_id=None)
+    api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
+    db = Database("/data/microtaxo/db_light_4", api)
+    mat = db.make_dmatrix("phylum", sample_limit_by_tax_id=None, normalize="min_max")
+    with open("wisp_allthebacteria/out/mat.pkl", "wb") as file:
+        pickle.dump(mat, file)
     print(mat.shape)
 
-    # import pickle
+    # api.export()
+    # print(db.get_tax_ids_by_rank("phylum"))
+    # data = db._get_tax_id_data(222)
+
     # writer = Writer(path="/data/microtaxo/db_full_4")
     # with open("/data/microtaxo/merged_data.pkl", "rb") as file:
     #     merged_data = pickle.load(file)
@@ -122,6 +123,7 @@ def debug():
 
 
 if __name__ == "__main__":
+    debug()
 
     parser = argparse.ArgumentParser(description="AllTheBacteria Database Scripts")
     parser.add_argument(
