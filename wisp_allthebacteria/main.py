@@ -103,13 +103,13 @@ def load_config(json_file: Path | str):
 def debug():
     """debugging, ignore it"""
     from database import Database
-    import pickle
+
+    mat1 = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat.pkl")
 
     api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
     db = Database("/data/microtaxo/db_light_4", api)
     mat = db.make_dmatrix("phylum", sample_limit_by_tax_id=None, normalize="min_max")
-    with open("wisp_allthebacteria/out/mat.pkl", "wb") as file:
-        pickle.dump(mat, file)
+    db.serialize_dmatrix(mat, "wisp_allthebacteria/out/mat.pkl")
     print(mat.shape)
 
     # api.export()
@@ -123,7 +123,7 @@ def debug():
 
 
 if __name__ == "__main__":
-    debug()
+    # debug()
 
     parser = argparse.ArgumentParser(description="AllTheBacteria Database Scripts")
     parser.add_argument(

@@ -63,6 +63,21 @@ class Database:
             for key, value in count_dict.items()
         }
 
+    @staticmethod
+    def serialize_dmatrix(dmatrix: xgb.DMatrix, file_path: str | Path):
+        """Dmatrix serialization."""
+        file_path = Path(file_path)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        dmatrix.save_binary(file_path)
+
+    @staticmethod
+    def deserialize_dmatrix(file_path: str | Path) -> xgb.DMatrix:
+        """Dmatrix deserialization."""
+        file_path = Path(file_path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"{file_path} DMatrix not found.")
+        return xgb.DMatrix(file_path)
+
     def make_dmatrix(
         self,
         rank: str,
