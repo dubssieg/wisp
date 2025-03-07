@@ -8,6 +8,7 @@ from metadata import Metadata
 from reader import Reader
 from writer import Writer
 from api import API
+from model import XGBoostModel
 import argparse
 
 
@@ -104,13 +105,16 @@ def debug():
     """debugging, ignore it"""
     from database import Database
 
-    mat1 = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat.pkl")
-
+    mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
     api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
-    db = Database("/data/microtaxo/db_light_4", api)
-    mat = db.make_dmatrix("phylum", sample_limit_by_tax_id=None, normalize="min_max")
-    db.serialize_dmatrix(mat, "wisp_allthebacteria/out/mat.pkl")
-    print(mat.shape)
+    model = XGBoostModel(api=api, use_gpu=False)
+    res = model.train_with_kfold(mat, tax_id_2_name=True)
+    print(res)
+
+    # db = Database("/data/microtaxo/db_full_4", api)
+    # mat = db.make_dmatrix("phylum", sample_limit_by_tax_id=None, normalize="min_max")
+    # db.serialize_dmatrix(mat, "wisp_allthebacteria/out/mat2.pkl")
+    # print((mat.num_row(), mat.num_col()))
 
     # api.export()
     # print(db.get_tax_ids_by_rank("phylum"))
@@ -123,7 +127,7 @@ def debug():
 
 
 if __name__ == "__main__":
-    # debug()
+    debug()
 
     parser = argparse.ArgumentParser(description="AllTheBacteria Database Scripts")
     parser.add_argument(
