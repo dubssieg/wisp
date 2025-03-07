@@ -1,0 +1,18 @@
+{
+    "allthebacteria":{
+        "metadata_dir": "/projects/microtaxo/exp_allthebacteria",
+        "assembly_dir": "/projects/microtaxo/data/AllTheBacteria/assembly"
+    },
+    "api":{
+        "cache_dir": "/projects/microtaxo/exp_allthebacteria/apicache",
+        "can_download": true,
+        "email": "cyrille.leroux@irisa.fr"
+    },
+    "db":{
+        "kmer_size": 4,
+        "full": true,
+        "window_size": 0,
+        "num_windows": 0,
+        "output_path": "/projects/microtaxo/exp_allthebacteria/dbs/db_full_4"
+    }
+}

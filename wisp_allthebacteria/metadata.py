@@ -1,15 +1,15 @@
+from collections import defaultdict
 import pandas as pd
 from api import API
 from pathlib import Path
+from tqdm.auto import tqdm
 
 
 class Metadata:
-    def __init__(self, csv_path: str | Path):
-        self._csv_path = Path(
-            csv_path
-        )  # content = Path(METADATA_PATH) / METADATA_FILENAME
+    def __init__(self, csv_path: str | Path, api: API):
+        self._csv_path = Path(csv_path)
         self._md = None
-        self._api = API()
+        self._api = api
 
     @property
     def md(self):
