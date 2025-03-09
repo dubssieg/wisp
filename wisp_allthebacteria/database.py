@@ -2,6 +2,7 @@ from collections import defaultdict
 from itertools import product
 from pathlib import Path
 import pickle
+import random
 from typing import Any, Generator
 import numpy as np
 from xgboost import DMatrix
@@ -38,15 +39,21 @@ class Database:
 
         return dict(rank_mapping)
 
+    def _get_tax_id_files(self, tax_id: int) -> list:
+        """get all files for a tax_id"""
+        tax_id_path = self._path / str(tax_id)
+        return list(tax_id_path.glob("*.pkl"))
+
+    def _get_file_data(self, file_path: Path) -> dict:
+        with open(file_path, "rb") as file:
+            return pickle.load(file)
+
     # TOFIX: might use to much RAM
     def _get_tax_id_data(self, tax_id: int) -> dict:
         """Read file and get data. Only pickle for now."""
-        tax_id_path = self._path / str(tax_id)
-        pickle_files = list(tax_id_path.glob("*.pkl"))
         loaded_data = dict()
-        for pickle_file in pickle_files:
-            with open(pickle_file, "rb") as file:
-                loaded_data[pickle_file.stem] = pickle.load(file)
+        for pickle_file in self._get_tax_id_files(tax_id):
+            loaded_data[pickle_file.stem] = self._get_file_data(pickle_file)
         return loaded_data
 
     @staticmethod
@@ -92,81 +99,90 @@ class Database:
     #         if key == "rank":
     #             tax_ids_by_rank = self.get_tax_ids_by_rank(value)
 
+    def _get_files_by_rank(self, rank: str):
+        files_by_rank = dict()
+        for rank_tax_id, tax_ids in self.get_tax_ids_by_rank(rank).items():
+            files_by_rank[rank_tax_id] = list()
+            for tax_id in tax_ids:
+                files_by_rank[rank_tax_id].extend(self._get_tax_id_files(tax_id))
+        return files_by_rank
+
     def make_dmatrix(
         self,
         rank: str,
+        batch_size: int,
         sample_limit_by_tax_id: int | None = None,
         normalize: str | None = None,
-        batch_size: int | None = None,
+        max_samples: int | None = None,
     ) -> DMatrix | Generator[DMatrix, None, None]:
         """rank can be "phylum, kingdom", etc.
         if batch_size is set, it will create a generator instead of a DMatrix"""
+        files_by_rank = self._get_files_by_rank(rank)
+        for key in files_by_rank:
+            # FIXME: seed
+            random.shuffle(files_by_rank[key])
 
-        # sort tax_id in DB by given rank
-        tax_ids_by_rank = self.get_tax_ids_by_rank(rank)
+        # by_rank_iterator = {f: 0 for f in files_by_rank.keys()}
+        # by_rank_loop_count = {f: 0 for f in files_by_rank.keys()}
+        current_batch_count = 0
+        total_count = 0
 
-        data = []
-        labels = []
-        current_size = 0
+        # get one file for each rank and when all files for a rank have been read, shuffle them
+        data = list()
+        labels = list()
+        can_add_samples = True
+        pbar = tqdm(total=max_samples, desc="Building Samples")
+        while can_add_samples:
+            # clean
+            to_remove = list()
+            for rank_tax_id, files in files_by_rank.items():
+                if not files:
+                    to_remove.append(rank_tax_id)
+            files_by_rank = {
+                k: v for k, v in files_by_rank.items() if k not in to_remove
+            }
 
-        # for each rank
-        for rank_tax_id, in_rank_tax_ids in tqdm(
-            tax_ids_by_rank.items(), position=0, desc="ranks"
-        ):
-            # for each tax_id in this rank
-            for in_rank_tax_id in tqdm(
-                in_rank_tax_ids, position=1, leave=False, desc=f"rank {rank_tax_id}"
-            ):
-                tax_id_data = self._get_tax_id_data(in_rank_tax_id)
-                # for each data found in archive (assembly/*tar.gz)
-                for file_name, tax_id_data_i in tqdm(
-                    tax_id_data.items(),
-                    position=2,
-                    leave=False,
-                    desc=f"sample {in_rank_tax_id}",
-                ):
-                    sample_count = 0
-                    # for each sequence count from *.fa file
-                    for counter in tqdm(
-                        tax_id_data_i["counters"],
-                        position=3,
-                        leave=False,
-                        desc=f"count for {file_name}",
-                    ):
-                        row = np.zeros(len(self._column_names))
-                        sample_count += 1
-                        if (
-                            sample_limit_by_tax_id is not None
-                            and sample_count > sample_limit_by_tax_id
-                        ):
-                            break
-                        # normalize before adding to data
-                        if normalize == "sum":
-                            counter = self._normalize_sum(counter)
-                        elif normalize == "min_max":
-                            counter = self._normalize_min_max(counter)
+            # for each rank, take one file read it and remove it from the list
+            for rank_tax_id, files in files_by_rank.items():
+                selected_file = files.pop()
+                content = self._get_file_data(selected_file)
+                counters = content["counters"]
+                for counter in counters:
+                    row = np.zeros(len(self._column_names))
+                    if normalize == "sum":
+                        counter = self._normalize_sum(counter)
+                    elif normalize == "min_max":
+                        counter = self._normalize_min_max(counter)
+                    # for each "ATGC", etc. count
+                    # FIXME: optimize this
+                    for col_name, value in counter.items():
+                        row[self._column_index[col_name]] = value
+                    data.append(row)
+                    labels.append(rank_tax_id)
+                    total_count += 1
+                    pbar.update(1)
+                    if max_samples is not None and total_count >= max_samples:
+                        can_add_samples = False
+                        break
+                    current_batch_count += 1
+                    if current_batch_count >= batch_size:
+                        yield self._data2DMatrix(data, labels, shuffle=True)
+                        data = list()
+                        labels = list()
+                        current_batch_count = 0
+        if data:
+            yield self._data2DMatrix(data, labels, shuffle=True)
+            data = list()
+            labels = list()
+            current_batch_count = 0
 
-                        # for each "ATGC", etc. count
-                        for col_name, value in counter.items():
-                            row[self._column_index[col_name]] = value
-                        data.append(row)
-                        labels.append(rank_tax_id)
-                        current_size += 1
-                        if batch_size is not None and current_size >= batch_size:
-                            yield self._data2DMatrix(data, labels)
-                            data = []
-                            labels = []
-                            current_size = 0
-
-        if batch_size is not None:
-            if data:
-                yield self._data2DMatrix(data, labels)
-        else:
-            return self._data2DMatrix(data, labels)
-
-    def _data2DMatrix(self, data: list, labels: list) -> DMatrix:
+    def _data2DMatrix(self, data: list, labels: list, shuffle: bool = False) -> DMatrix:
         data = np.array(data)
         labels = np.array([int(label) for label in labels])
+        if shuffle:
+            permuted_id = np.random.permutation(len(labels))
+            data = data[permuted_id]
+            labels = labels[permuted_id]
         dmatrix = DMatrix(data, label=labels)
         return dmatrix
 
@@ -175,18 +191,26 @@ class Database:
 # FIXME: Ugly code but it will do before next refactor
 class DMatrixGeneratorFactory:
     def __init__(
-        self, database: Database, rank, sample_limit_by_tax_id, normalize, batch_size
+        self,
+        database: Database,
+        rank,
+        sample_limit_by_tax_id,
+        normalize,
+        batch_size,
+        max_samples,
     ):
         self.database = database
         self.rank = rank
         self.sample_limit_by_tax_id = sample_limit_by_tax_id
         self.normalize = normalize
         self.batch_size = batch_size
+        self.max_samples = max_samples
 
     def make_dmatrix_generator(self):
-        self.database.make_dmatrix(
+        return self.database.make_dmatrix(
             rank=self.rank,
             sample_limit_by_tax_id=self.sample_limit_by_tax_id,
             normalize=self.normalize,
             batch_size=self.batch_size,
+            max_samples=self.max_samples,
         )

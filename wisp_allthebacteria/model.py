@@ -63,7 +63,7 @@ class XGBoostModel:
     def train(
         self,
         # dtrain: xgb.DMatrix | Generator[xgb.DMatrix, None, None],
-        dtrain_factor: DMatrixGeneratorFactory,
+        dtrain_factory: DMatrixGeneratorFactory,
         tax_id_classes: list[int],
         num_boost_round: int,
         kfold: int | None = None,
@@ -86,11 +86,9 @@ class XGBoostModel:
         self._report["num_boost_round"] = num_boost_round
         self._report["labels"] = self._labels
 
-        label_encoder = dict()
-
         if kfold is None:
             self._full_train(
-                dtrain=dtrain_factor.make_dmatrix_generator(),
+                dtrain=dtrain_factory.make_dmatrix_generator(),
                 num_boost_round=num_boost_round,
                 label_encoder=label_encoder,
                 params=params,

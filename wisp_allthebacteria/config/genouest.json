@@ -22,7 +22,8 @@
         "scientific_name": true,
         "default_models_dir": "/projects/microtaxo/exp_allthebacteria/models",
         "kfold": 5,
-        "batch_size": 1000000
+        "batch_size": 5000000,
+        "max_samples": 100000000
     },
     "report":{
         "default_reports_dir": "/projects/microtaxo/exp_allthebacteria/reports"
