@@ -269,7 +269,7 @@ def debug():
 
 
 if __name__ == "__main__":
-    debug()
+    # debug()
 
     parser = argparse.ArgumentParser(
         description="AllTheBacteria Database Scripts",

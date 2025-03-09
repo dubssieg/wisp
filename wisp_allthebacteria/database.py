@@ -23,7 +23,7 @@ class Database:
         }
         self._dmatrix_filters = dict()
 
-    def index_by_rank(self, rank: str):
+    def _get_indexed_data_by_rank(self, rank: str):
         # for each tax_id, read files and index sequences
         index_file = (
             self._path / f"index_by_{rank}_{self._db_signature()}_{INDEX_VERSION}.idx"
@@ -44,9 +44,11 @@ class Database:
                 for file_name, data in tqdm(
                     tax_id_data.items(), desc="indexing file", position=3, leave=False
                 ):
-                    for source in data["sources"]:
+                    for pos, source in enumerate(data["sources"]):
                         info = self._parse_source(source)
                         info["file"] = file_name
+                        info["tax_id"] = tax_id
+                        info["pos"] = pos
                         indexed_data[rank_tax_id].append(info)
 
         with open(index_file, "wb") as file:
@@ -100,6 +102,10 @@ class Database:
     def _get_file_data(self, file_path: Path) -> dict:
         with open(file_path, "rb") as file:
             return pickle.load(file)
+
+    def _get_file_data_by_name_and_tax_id(self, file_name: str, tax_id: int) -> dict:
+        file_path = (self._path / str(tax_id) / file_name).with_suffix(".pkl")
+        return self._get_file_data(file_path)
 
     # TOFIX: might use to much RAM
     def _get_tax_id_data(self, tax_id: int) -> dict:
@@ -161,6 +167,73 @@ class Database:
         return files_by_rank
 
     def make_dmatrix(
+        self,
+        rank: str,
+        batch_size: int,
+        sample_limit_by_tax_id: int | None = None,
+        normalize: str | None = None,
+        max_samples: int | None = None,
+    ) -> DMatrix | Generator[DMatrix, None, None]:
+        """rank can be "phylum, kingdom", etc.
+        if batch_size is set, it will create a generator instead of a DMatrix"""
+        indexed_data = self._get_indexed_data_by_rank(rank)
+        # flatten
+        # TODO: balancing strategies
+        indexed_data_flat = [
+            (rank_tax_id, indexed_item)
+            for rank_tax_id, indexed_items in indexed_data.items()
+            for indexed_item in indexed_items
+        ]
+        if max_samples is None or max_samples > len(indexed_data_flat):
+            max_samples = len(indexed_data_flat)
+        # prepare dataset
+        random.shuffle(indexed_data_flat)
+        sample_count = 0
+        pbar = tqdm(total=max_samples, desc="Making samples", position=1)
+        while sample_count < max_samples:
+            # extract sample
+            batch = [
+                indexed_data_flat.pop() for _ in range(batch_size) if indexed_data_flat
+            ]
+            # sort item by file
+            sorted_by_file = defaultdict(list)
+            for rank_tax_id, indexed_item in batch:
+                file_name = indexed_item["file"]
+                tax_id = indexed_item["tax_id"]
+                sorted_by_file[(tax_id, file_name)].append((rank_tax_id, indexed_item))
+            # read files and fill batch
+            data = list()
+            labels = list()
+            for (tax_id, file_name), sorted_item in tqdm(
+                sorted_by_file.items(), desc="Read files", position=2, leave=False
+            ):
+                file_data = self._get_file_data_by_name_and_tax_id(
+                    tax_id=tax_id, file_name=file_name
+                )
+                for rank_tax_id, indexed_item in tqdm(
+                    sorted_item, desc="extract content", position=3, leave=False
+                ):
+                    pos = indexed_item["pos"]
+                    counter = file_data["counters"][pos]
+                    data.append(self._counter_to_row(counter, normalize))
+                    labels.append(rank_tax_id)
+                    sample_count += 1
+                    pbar.update()
+            yield self._data2DMatrix(data, labels)
+
+    def _counter_to_row(self, counter: dict, normalize: str) -> np.array:
+        row = np.zeros(len(self._column_names))
+        if normalize == "sum":
+            counter = self._normalize_sum(counter)
+        elif normalize == "min_max":
+            counter = self._normalize_min_max(counter)
+        # for each "ATGC", etc. count
+        # FIXME: optimize this
+        for col_name, value in counter.items():
+            row[self._column_index[col_name]] = value
+        return row
+
+    def make_dmatrix_old(
         self,
         rank: str,
         batch_size: int,
