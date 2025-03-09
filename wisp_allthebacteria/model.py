@@ -99,6 +99,11 @@ class XGBoostModel:
         self._report["end_dt"] = datetime.now()
         self._report["total_duration"] = time.time() - total_duration_start
 
+        return self._report
+
+    def __kfold_evaluation(self, kfold: int):
+        kf = KFold(n_splits=kfold, shuffle=True, random_state=2025)
+
         # for each batch
 
         # can't test since I can't install cupy TODO: try something else
@@ -114,7 +119,7 @@ class XGBoostModel:
         # need major refactoring for generator
 
         # fold_start_time = time.time()
-        # kf = KFold(n_splits=kfold, shuffle=True, random_state=2025)
+        #
         # y_pred = np.zeros(y_encoded.shape)
 
         # for train_index, valid_index in tqdm(
@@ -133,8 +138,6 @@ class XGBoostModel:
         #     y_encoded, y_pred, labels=range(len(self._labels))
         # )
 
-        return self._report
-
     def _full_train(
         self,
         dtrain: xgb.DMatrix,
@@ -143,15 +146,11 @@ class XGBoostModel:
         label_encoder: dict,
     ) -> dict:
         cpu_mem_stats = list()
-        # if dtrain in not a generator, make it look like one
-        if isinstance(dtrain, xgb.DMatrix):
-            dtrain = [dtrain]
 
         # XGBClassifier do not fully support incremental training
         # self._model = XGBClassifier(**params)
         self._model = None
         for i, dtrain_i in enumerate(dtrain):
-
             if i == 0:
                 self._report["train_dtype"] = dtrain_i.get_data().dtype
             self._report["num_rows"] += dtrain_i.num_row()

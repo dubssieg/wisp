@@ -237,6 +237,7 @@ def debug():
 
     api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
     db = Database("/data/microtaxo/db_full_4", api)
+    db.index_by_rank("phylum")
     matgen = db.make_dmatrix(rank="phylum", normalize="min_max", batch_size=100)
     tax_id_classes = db.get_tax_id_classes("phylum")
     model = XGBoostModel(api=api, use_gpu=False)
@@ -268,7 +269,7 @@ def debug():
 
 
 if __name__ == "__main__":
-    # debug()
+    debug()
 
     parser = argparse.ArgumentParser(
         description="AllTheBacteria Database Scripts",
