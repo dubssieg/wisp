@@ -1,6 +1,9 @@
+from datetime import datetime
 import json
 from pathlib import Path
 import pickle
+import time
+import psutil
 from xgboost import XGBClassifier, DMatrix, Booster
 
 from sklearn.model_selection import KFold
@@ -10,6 +13,7 @@ from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
 import numpy as np
 from tqdm.auto import tqdm
 from api import API
+from utils import system_stats
 import torch
 
 DEFAULT_PARAMETERS = {
@@ -37,29 +41,34 @@ class XGBoostModel:
         self._use_gpu = use_gpu
         self._model = None
         self._labels = None
+        self._report = None
+
         # self.trials = Trials()
 
 
     # def get_model()
 
     def train(
-        self, dtrain: DMatrix, kfold: int | None = 5, tax_id_2_name: bool = True
-    ) -> dict | list:
-        "When using k-fold, just return metrics,"
-        "otherwise, return nothing (and keep model in self._model + labels in self._label)."
+        self, dtrain: DMatrix, kfold: int | None = None, tax_id_2_name: bool = True
+    ) -> dict:
+        "Train (full data) or evaluate (kfold) and return report. Keep model, labels, report."
         params = self._params.copy()
+        self._report = dict()
+        self._report["start_dt"] = datetime.now()
+        total_duration_start = time.time()
 
         X = dtrain.get_data()
         y = dtrain.get_label().astype(int)
         label_encoder = LabelEncoder()
         y_encoded = label_encoder.fit_transform(y)
-        labels = label_encoder.classes_
+        self._labels = label_encoder.classes_
         if tax_id_2_name and self._api:
-            labels = [
-                f'{self._api[tax_id]["ScientificName"]} [{tax_id}]' for tax_id in labels
+            self._labels = [
+                f'{self._api[tax_id]["ScientificName"]} [{tax_id}]' for tax_id in self._labels
             ]
 
-        params["seed"] = 2025
+        if "seed" not in params:
+            params["seed"] = 2025
         if self._use_gpu:
             params["tree_method"] = "hist"
             params["device"] = "cuda"
@@ -69,25 +78,110 @@ class XGBoostModel:
             y_dense = y.toarray() if hasattr(y, "toarray") else X
             y = torch.tensor(y_dense, device="cuda")
 
+        train_durations = []     
+        cpu_mem_stats = []
+
+        self._report["params"] = params
+        self._report["train_shape"] = X.shape
+        self._report["train_dtype"] = X.dtype
+        self._report["train_estimated_size_octets"] = X.shape[0] * X.shape[1] * X.dtype.itemsize
+         
+        
         if kfold is not None:
+            fold_start_time = time.time()
             kf = KFold(n_splits=kfold, shuffle=True, random_state=2025)
             y_pred = np.zeros(y_encoded.shape)
 
             for train_index, valid_index in tqdm(kf.split(X), desc="k-fold"):
                 model = XGBClassifier(**params)
                 model.fit(X[train_index], y_encoded[train_index])
+                cpu_mem_stats.append(system_stats())
                 preds = model.predict(X[valid_index])
                 y_pred[valid_index] = preds
+                train_durations.append(time.time() - fold_start_time)
 
-            report = classification_report(
-                y_encoded, y_pred, target_names=labels, output_dict=True
+
+            cl_reports = classification_report(
+                y_encoded, y_pred, target_names=self._labels, output_dict=True
             )
-            return report
+            self._report["classification_report"] = cl_reports
+        
+            
         else:
+            train_start_time = time.time()
             final_model = XGBClassifier(**params)
             final_model.fit(X, y_encoded)
-            self._model = final_model
-            self._labels = labels
+            cpu_mem_stats.append(system_stats())             
+            self._model = final_model            
+            train_durations.append(time.time() - train_start_time)
+
+        self._report["labels"] = self._labels
+        self._report["system_stats"] = cpu_mem_stats
+        self._report["end_dt"] = datetime.now()      
+        self._report["total_duration"] = time.time() - total_duration_start       
+        
+        return self._report
+
+    def save_report(self, additional_data: dict, path: str | Path):
+        """save self._report + additional data"""
+        report = {**self._report, **additional_data}
+
+        dt_format = "%Y-%m-%d %H:%M:%S"
+        report_lines = []
+
+        # header
+        if "header" in report:
+            for k, v in report["header"].items():
+                report_lines.append(f"{k} : {v}")
+
+        # basic
+        report_lines.append("=== Rapport d'entraînement / évaluation ===")
+        report_lines.append(f"Date de début : {report['start_dt'].strftime(dt_format)}")
+        report_lines.append(f"Date de fin : {report['end_dt'].strftime(dt_format)}")
+        report_lines.append(f"Durée totale : {report['total_duration']:.2f} secondes")
+        report_lines.append("")
+
+        report_lines.append("\n=== Paramètres ===")
+        report_lines.append(json.dumps(report['params'], indent=4))
+        report_lines.append("")
+
+        # training
+        report_lines.append("\n=== Données d'entraînement ===")
+        report_lines.append(f"Forme des données : {report['train_shape']}")
+        report_lines.append(f"Type de données : {report['train_dtype']}")
+        report_lines.append(f"Taille estimée : {report['train_estimated_size_octets'] / (1024 ** 3):.2f} Go")
+        report_lines.append("")
+
+        # classification
+        report_lines.append("\n=== Rapport de classification ===")
+        for label, metrics in report['classification_report'].items():
+            if isinstance(metrics, dict):
+                report_lines.append(f"Label : {label}")
+                for metric_name, value in metrics.items():
+                    report_lines.append(f"  {metric_name} : {value:.4f}")
+            else:
+                report_lines.append(f"{label} : {metrics:.4f}")
+        report_lines.append("")
+
+        # system
+        report_lines.append("\n=== Statistiques Système ===")
+        for index, stats in enumerate(report['system_stats']):
+            if len(report["system_stats"]) > 1:
+                report_lines.append(f" - Fold {index + 1}:")
+            report_lines.append(f"  Utilisation CPU : {stats['cpu_usage']}%")
+            report_lines.append(f"  Utilisation RAM : {stats['ram_usage_percent']}%")
+            report_lines.append(f"  RAM totale : {stats['total_ram'] / (1024 ** 3):.2f} Go")
+            report_lines.append(f"  RAM utilisée : {stats['used_ram'] / (1024 ** 3):.2f} Go")
+            report_lines.append("")
+
+        # write
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, 'w') as file:
+            file.write("\n".join(report_lines))
+
+
+
 
     def load(self, dir_path: str | Path) -> None:
         """Load model from file."""
@@ -132,3 +226,5 @@ class XGBoostModel:
         if self._model is None:
             raise ValueError("Model loaded.")
         return self._model.predict(dtest)
+    
+

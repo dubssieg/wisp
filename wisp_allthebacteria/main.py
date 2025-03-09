@@ -2,7 +2,8 @@ import json
 import time
 import traceback
 from pathlib import Path
-
+import argparse
+from datetime import datetime
 from tqdm.auto import tqdm
 from metadata import Metadata
 from reader import Reader
@@ -10,8 +11,8 @@ from writer import Writer
 from api import API
 from model import XGBoostModel
 from database import Database
-import argparse
-from datetime import datetime
+from utils import format_duration, get_current_datetime_string
+
 
 
 METADATA_FILENAME = "ena_metadata.tsv"
@@ -43,11 +44,7 @@ RANKS = [
 ]
 
 
-def format_duration(seconds):
-    """Convert seconds to a formatted duration string (hh:mm:ss)."""
-    hours, remainder = divmod(seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
+
 
 
 def create_db(conf: dict):
@@ -122,10 +119,6 @@ def load_config(json_file: Path | str):
     return conf
 
 
-def get_current_datetime_string() -> str:
-    return datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-
-
 def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int|None):
     if rank not in RANKS:
         raise ValueError(f"Invalid rank {rank}")
@@ -146,8 +139,8 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int|
         normalize=conf["model"]["normalize"],
     )
 
-    
-    train_res = model.train(mat, tax_id_2_name=conf["model"]["tax_id_2_name"], kfold=kfold)
+
+    report = model.train(mat, tax_id_2_name=conf["model"]["tax_id_2_name"], kfold=kfold)
     # train mode
     if kfold is None:
         if save_path is None:
@@ -161,21 +154,24 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int|
             save_path = (
                 Path(conf["report"]["default_reports_dir"]) / get_current_datetime_string()
             )
-        # TODO: Report class
-        print(train_res)
+    report_header = {
+        "Rang": rank,
+    }    
+    model.save_report(save_path / "report.txt", additional_data=report_header)
+    print(report)
 
 
-def evaluate_model(conf: dict, nfolds: int, model_path: str|Path|None):
-    if model_path is None:
-            raise ValueError("Need --load-model argument")
+# def evaluate_model(conf: dict, nfolds: int, model_path: str|Path|None):
+#     if model_path is None:
+#             raise ValueError("Need --load-model argument")
         
-    api = API(
-        api_cache_dir=Path(conf["api"]["cache_dir"]),
-        email=conf["api"]["email"],
-        can_download=conf["api"]["can_download"],
-    )
-    model = XGBoostModel(api=api, use_gpu=conf["model"]["gpu"])   
-    model.load(model_path)     
+#     api = API(
+#         api_cache_dir=Path(conf["api"]["cache_dir"]),
+#         email=conf["api"]["email"],
+#         can_download=conf["api"]["can_download"],
+#     )
+#     model = XGBoostModel(api=api, use_gpu=conf["model"]["gpu"])   
+#     model.load(model_path)     
 
 
 def populate_api_cache(conf: dict):
@@ -208,11 +204,11 @@ def import_apt_cache(conf: dict):
 def debug():
     """debugging, ignore it"""
 
-    # mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
-    # api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
-    # model = XGBoostModel(api=api, use_gpu=False)
-    # res = model.train_with_kfold(mat, tax_id_2_name=True)
-    # print(res)
+    mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
+    api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
+    model = XGBoostModel(api=api, use_gpu=False)
+    res = model.train(mat, tax_id_2_name=True, kfold=3)
+    print(res)
 
     # db = Database("/data/microtaxo/db_full_4", api)
     # mat = db.make_dmatrix("phylum", sample_limit_by_tax_id=None, normalize="min_max")
