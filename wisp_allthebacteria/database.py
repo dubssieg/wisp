@@ -2,8 +2,9 @@ from collections import defaultdict
 from itertools import product
 from pathlib import Path
 import pickle
+from typing import Generator
 import numpy as np
-import xgboost as xgb
+from xgboost import DMatrix
 from tqdm.auto import tqdm
 from api import API
 
@@ -63,32 +64,35 @@ class Database:
         }
 
     @staticmethod
-    def serialize_dmatrix(dmatrix: xgb.DMatrix, file_path: str | Path):
+    def serialize_dmatrix(dmatrix: DMatrix, file_path: str | Path):
         """Dmatrix serialization."""
         file_path = Path(file_path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         dmatrix.save_binary(file_path)
 
     @staticmethod
-    def deserialize_dmatrix(file_path: str | Path) -> xgb.DMatrix:
+    def deserialize_dmatrix(file_path: str | Path) -> DMatrix:
         """Dmatrix deserialization."""
         file_path = Path(file_path)
         if not file_path.exists():
             raise FileNotFoundError(f"{file_path} DMatrix not found.")
-        return xgb.DMatrix(file_path)
+        return DMatrix(file_path)
 
     def make_dmatrix(
         self,
         rank: str,
         sample_limit_by_tax_id: int | None = None,
         normalize: str | None = None,
-    ) -> xgb.DMatrix:
-        """rank can be "phylum, kingdom", etc."""
+        generator_max_rows: int | None = None,
+    ) -> DMatrix | Generator:
+        """rank can be "phylum, kingdom", etc.
+        if generator_max_rows is set, it will create a generator instead of a DMatrix"""
         # sort tax_id in DB by given rank
         tax_ids_by_rank = self.get_tax_ids_by_rank(rank)
 
         data = []
         labels = []
+        current_size = 0
 
         # for each rank
         for rank_tax_id, in_rank_tax_ids in tqdm(
@@ -121,19 +125,35 @@ class Database:
                             and sample_count > sample_limit_by_tax_id
                         ):
                             break
-                        # for each "ATGC", etc. count
+                        # normalize before adding to data
                         if normalize == "sum":
                             counter = self._normalize_sum(counter)
                         elif normalize == "min_max":
                             counter = self._normalize_min_max(counter)
 
+                        # for each "ATGC", etc. count
                         for col_name, value in counter.items():
                             row[self._column_index[col_name]] = value
                         data.append(row)
                         labels.append(rank_tax_id)
+                        current_size += 1
+                        if (
+                            generator_max_rows is not None
+                            and current_size >= generator_max_rows
+                        ):
+                            yield self._data2DMatrix(data, labels)
+                            data = []
+                            labels = []
+                            current_size = 0
 
-        # convert
+        if generator_max_rows is not None:
+            if data:
+                yield self._data2DMatrix(data, labels)
+        else:
+            return self._data2DMatrix(data, labels)
+
+    def _data2DMatrix(self, data: list, labels: list) -> DMatrix:
         data = np.array(data)
         labels = np.array([int(label) for label in labels])
-        dmatrix = xgb.DMatrix(data, label=labels)
+        dmatrix = DMatrix(data, label=labels)
         return dmatrix

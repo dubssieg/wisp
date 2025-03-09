@@ -20,7 +20,8 @@
         "normalize": "min_max",
         "tax_id_2_name": true,
         "default_models_dir": "/data/microtaxo/models",
-        "kfold": 5
+        "kfold": 5,
+        "dmatrix_batch_size": 1000
     },
     "report":{
         "default_reports_dir": "/data/microtaxo/reports"
