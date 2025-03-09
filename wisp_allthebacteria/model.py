@@ -3,12 +3,13 @@ import json
 from pathlib import Path
 import pickle
 import time
-import psutil
+from matplotlib import pyplot as plt
+import seaborn as sns
 from xgboost import XGBClassifier, DMatrix, Booster
 
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
 import numpy as np
 from tqdm.auto import tqdm
@@ -93,18 +94,21 @@ class XGBoostModel:
             kf = KFold(n_splits=kfold, shuffle=True, random_state=2025)
             y_pred = np.zeros(y_encoded.shape)
 
-            for train_index, valid_index in tqdm(kf.split(X), desc="k-fold"):
+            for train_index, valid_index in tqdm(
+                kf.split(X), desc="k-fold", total=kfold
+            ):
                 model = XGBClassifier(**params)
                 model.fit(X[train_index], y_encoded[train_index])
                 cpu_mem_stats.append(system_stats())
-                preds = model.predict(X[valid_index])
-                y_pred[valid_index] = preds
+                y_pred[valid_index] = model.predict(X[valid_index])
                 train_durations.append(time.time() - fold_start_time)
 
-            cl_reports = classification_report(
+            self._report["classification_report"] = classification_report(
                 y_encoded, y_pred, target_names=self._labels, output_dict=True
             )
-            self._report["classification_report"] = cl_reports
+            self._report["confusion_matrix"] = confusion_matrix(
+                y_encoded, y_pred, labels=range(len(self._labels))
+            )
 
         else:
             train_start_time = time.time()
@@ -166,6 +170,15 @@ class XGBoostModel:
                 report_lines.append(f"{label} : {metrics:.4f}")
         report_lines.append("")
 
+        # confusion matrix
+        report_lines.append("\n=== Matrice de confusion ===")
+        report_lines.append(
+            self._confusion_matrix_to_ascii(
+                report["confusion_matrix"], report["labels"]
+            )
+        )
+        report_lines.append("")
+
         # system
         report_lines.append("\n=== Statistiques Système ===")
         for index, stats in enumerate(report["system_stats"]):
@@ -181,9 +194,49 @@ class XGBoostModel:
         dir_path = Path(dir_path)
         dir_path.mkdir(parents=True, exist_ok=True)
         txt_path = dir_path / "report.txt"
+        cm_path = dir_path / "confusion_matrix.png"
 
         with open(txt_path, "w") as file:
             file.write("\n".join(report_lines))
+
+        self._plot_and_save_confusion_matrix(
+            report["confusion_matrix"], report["labels"], cm_path
+        )
+
+    @staticmethod
+    def _confusion_matrix_to_ascii(conf_matrix: list, labels: list) -> str:
+        max_label_length = max(len(label) for label in labels)
+        header = f"{'':>{max_label_length+2}} " + " ".join(
+            f"{label:>{max_label_length}}" for label in labels
+        )
+        lines = [header]
+
+        for i, label in enumerate(labels):
+            line = f"{label:{max_label_length}}: " + " ".join(
+                f"{conf_matrix[i, j]:{max_label_length}}" for j in range(len(labels))
+            )
+            lines.append(line)
+        return "\n".join(lines)
+
+    @staticmethod
+    def _plot_and_save_confusion_matrix(
+        conf_matrix: list, labels: list, cm_path: str | Path
+    ) -> None:
+        _, ax = plt.subplots(figsize=(10, 7))
+        sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues", ax=ax, cbar=False)
+
+        ax.set_xlabel("Predicted Labels")
+        ax.set_ylabel("True Labels")
+        ax.set_title("Confusion Matrix")
+
+        ax.set_xticks(np.arange(len(labels)) + 0.5)
+        ax.set_yticks(np.arange(len(labels)) + 0.5)
+        ax.set_xticklabels(labels, rotation=45, ha="right")
+        ax.set_yticklabels(labels, rotation=0)
+
+        plt.tight_layout()
+        plt.savefig(cm_path)
+        plt.close()
 
     def load(self, dir_path: str | Path) -> None:
         """Load model from file."""

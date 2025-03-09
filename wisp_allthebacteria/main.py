@@ -157,7 +157,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
         }
     }
 
-    model.save_report(path=save_path / "report.txt", additional_data=report_header)
+    model.save_report(dir_path=save_path, additional_data=report_header)
     print(report)
 
 
@@ -207,7 +207,16 @@ def debug():
     mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
     api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
     model = XGBoostModel(api=api, use_gpu=False)
-    res = model.train(mat, tax_id_2_name=True, kfold=3)
+    res = model.train(mat, tax_id_2_name=True, kfold=2)
+
+    report_header = {
+        "header": {
+            "Rang": "phylum",
+        }
+    }
+    model.save_report(
+        dir_path="wisp_allthebacteria/out/report1", additional_data=report_header
+    )
     print(res)
 
     # db = Database("/data/microtaxo/db_full_4", api)
