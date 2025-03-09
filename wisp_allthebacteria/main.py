@@ -14,7 +14,6 @@ from database import Database
 from utils import format_duration, get_current_datetime_string
 
 
-
 METADATA_FILENAME = "ena_metadata.tsv"
 
 RANKS = [
@@ -42,9 +41,6 @@ RANKS = [
     "superkingdom",
     "tribe",
 ]
-
-
-
 
 
 def create_db(conf: dict):
@@ -119,12 +115,12 @@ def load_config(json_file: Path | str):
     return conf
 
 
-def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int|None):
+def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int | None):
     if rank not in RANKS:
         raise ValueError(f"Invalid rank {rank}")
-    
+
     if kfold is not None and kfold == -1:
-        kfold = conf["model"]["kfold"]    
+        kfold = conf["model"]["kfold"]
 
     api = API(
         api_cache_dir=Path(conf["api"]["cache_dir"]),
@@ -139,39 +135,43 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int|
         normalize=conf["model"]["normalize"],
     )
 
-
     report = model.train(mat, tax_id_2_name=conf["model"]["tax_id_2_name"], kfold=kfold)
     # train mode
     if kfold is None:
         if save_path is None:
             save_path = (
-                Path(conf["model"]["default_models_dir"]) / get_current_datetime_string()
+                Path(conf["model"]["default_models_dir"])
+                / get_current_datetime_string()
             )
         model.save(save_path)
     # evaluate mode with kfold
     else:
         if save_path is None:
             save_path = (
-                Path(conf["report"]["default_reports_dir"]) / get_current_datetime_string()
+                Path(conf["report"]["default_reports_dir"])
+                / get_current_datetime_string()
             )
     report_header = {
-        "Rang": rank,
-    }    
-    model.save_report(save_path / "report.txt", additional_data=report_header)
+        "header": {
+            "Rang": rank,
+        }
+    }
+
+    model.save_report(path=save_path / "report.txt", additional_data=report_header)
     print(report)
 
 
 # def evaluate_model(conf: dict, nfolds: int, model_path: str|Path|None):
 #     if model_path is None:
 #             raise ValueError("Need --load-model argument")
-        
+
 #     api = API(
 #         api_cache_dir=Path(conf["api"]["cache_dir"]),
 #         email=conf["api"]["email"],
 #         can_download=conf["api"]["can_download"],
 #     )
-#     model = XGBoostModel(api=api, use_gpu=conf["model"]["gpu"])   
-#     model.load(model_path)     
+#     model = XGBoostModel(api=api, use_gpu=conf["model"]["gpu"])
+#     model.load(model_path)
 
 
 def populate_api_cache(conf: dict):
@@ -247,7 +247,8 @@ if __name__ == "__main__":
         Evaluate a model for phylum classification 2
             python main.py --evaluate-model-kfold=5 --rank="phylum" --save-path="report_1"
 
-        """)
+        """,
+    )
     parser.add_argument(
         "--json",
         type=str,
@@ -291,16 +292,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--evaluate-model-kfolds",
         type=int,
-        nargs='?',
-        const=-1,        
+        nargs="?",
+        const=-1,
         help="Number of folds for k-fold cross-validation (check config for report location)",
     )
 
     parser.add_argument(
-        "--load-model",
-        type=str,
-        help="Path to load an existing model",
-        default=None
+        "--load-model", type=str, help="Path to load an existing model", default=None
     )
     parser.add_argument(
         "--evaluate-fa",
@@ -328,6 +326,11 @@ if __name__ == "__main__":
         train_model(conf=conf, rank=args.rank, save_path=args.save_path)
 
     if args.evaluate_model_kfolds:
-        train_model(conf=conf, rank=args.rank, save_path=args.save_path, kfold=args.evaluate_model_kfolds)
+        train_model(
+            conf=conf,
+            rank=args.rank,
+            save_path=args.save_path,
+            kfold=args.evaluate_model_kfolds,
+        )
 
     # train-model, save-model, evaluate-model-kfolds, load-model, evaluate-fa
