@@ -2,7 +2,7 @@ from collections import defaultdict
 from itertools import product
 from pathlib import Path
 import pickle
-from typing import Generator
+from typing import Any, Generator
 import numpy as np
 from xgboost import DMatrix
 from tqdm.auto import tqdm
@@ -17,6 +17,7 @@ class Database:
         self._column_index = {
             name: index for index, name in enumerate(self._column_names)
         }
+        self._dmatrix_filters = dict()
 
     def get_tax_ids(self) -> list:
         """All DB tax_ids"""
@@ -37,6 +38,7 @@ class Database:
 
         return dict(rank_mapping)
 
+    # TOFIX: might use to much RAM
     def _get_tax_id_data(self, tax_id: int) -> dict:
         """Read file and get data. Only pickle for now."""
         tax_id_path = self._path / str(tax_id)
@@ -81,6 +83,15 @@ class Database:
     def get_tax_id_classes(self, rank: str) -> int:
         return [int(tax_id) for tax_id in self.get_tax_ids_by_rank(rank).keys()]
 
+    # def add_filter(self, key: str, value: Any):
+    #     self._dmatrix_filters[key] = value
+
+    # def get_tax_id_from_filter(self):
+    #     tax_ids = list()
+    #     for key, value in self._dmatrix_filters.items():
+    #         if key == "rank":
+    #             tax_ids_by_rank = self.get_tax_ids_by_rank(value)
+
     def make_dmatrix(
         self,
         rank: str,
@@ -90,6 +101,7 @@ class Database:
     ) -> DMatrix | Generator[DMatrix, None, None]:
         """rank can be "phylum, kingdom", etc.
         if batch_size is set, it will create a generator instead of a DMatrix"""
+
         # sort tax_id in DB by given rank
         tax_ids_by_rank = self.get_tax_ids_by_rank(rank)
 
@@ -157,3 +169,24 @@ class Database:
         labels = np.array([int(label) for label in labels])
         dmatrix = DMatrix(data, label=labels)
         return dmatrix
+
+
+# TMP
+# FIXME: Ugly code but it will do before next refactor
+class DMatrixGeneratorFactory:
+    def __init__(
+        self, database: Database, rank, sample_limit_by_tax_id, normalize, batch_size
+    ):
+        self.database = database
+        self.rank = rank
+        self.sample_limit_by_tax_id = sample_limit_by_tax_id
+        self.normalize = normalize
+        self.batch_size = batch_size
+
+    def make_dmatrix_generator(self):
+        self.database.make_dmatrix(
+            rank=self.rank,
+            sample_limit_by_tax_id=self.sample_limit_by_tax_id,
+            normalize=self.normalize,
+            batch_size=self.batch_size,
+        )

@@ -9,7 +9,7 @@ from reader import Reader
 from writer import Writer
 from api import API
 from model import XGBoostModel
-from database import Database
+from database import DMatrixGeneratorFactory, Database
 from utils import format_duration, get_current_datetime_string
 
 
@@ -146,16 +146,24 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
     )
     db = Database(path=Path(conf["db"]["output_dir"]), api=api)
     batch_size = conf["model"]["batch_size"]
-    dmat_generator = db.make_dmatrix(
+    # dmat_generator = db.make_dmatrix(
+    #     rank=rank,
+    #     sample_limit_by_tax_id=None,  # TODO
+    #     normalize=conf["model"]["normalize"],
+    #     batch_size=batch_size,
+    # )
+    dgf = DMatrixGeneratorFactory(
+        database=db,
         rank=rank,
-        sample_limit_by_tax_id=None,  # TODO
         normalize=conf["model"]["normalize"],
+        sample_limit_by_tax_id=None,
         batch_size=batch_size,
     )
     tax_id_classes = db.get_tax_id_classes(rank)
 
     report = model.train(
-        dtrain=dmat_generator,
+        # dtrain=dmat_generator,
+        dmatrix_generator_factory=dgf,
         tax_id_classes=tax_id_classes,
         kfold=kfold,
         num_boost_round=conf["model"]["num_boost_round"],

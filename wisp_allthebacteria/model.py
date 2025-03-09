@@ -6,6 +6,7 @@ import time
 from typing import Generator
 from matplotlib import pyplot as plt
 import seaborn as sns
+from database import DMatrixGeneratorFactory, Database
 
 # from xgboost import DMatrix, Booster
 import xgboost as xgb
@@ -61,7 +62,8 @@ class XGBoostModel:
 
     def train(
         self,
-        dtrain: xgb.DMatrix | Generator[xgb.DMatrix, None, None],
+        # dtrain: xgb.DMatrix | Generator[xgb.DMatrix, None, None],
+        dtrain_factor: DMatrixGeneratorFactory,
         tax_id_classes: list[int],
         num_boost_round: int,
         kfold: int | None = None,
@@ -76,17 +78,73 @@ class XGBoostModel:
         self._report["start_dt"] = datetime.now()
         total_duration_start = time.time()
 
+        label_encoder = self._update_labels(tax_id_classes)
+
         self._report["params"] = params
         self._report["num_rows"] = 0
         self._report["x_size"] = 0
         self._report["num_boost_round"] = num_boost_round
+        self._report["labels"] = self._labels
 
         label_encoder = dict()
-        train_durations = list()
+
+        if kfold is None:
+            self._full_train(
+                dtrain=dtrain_factor.make_dmatrix_generator(),
+                num_boost_round=num_boost_round,
+                label_encoder=label_encoder,
+                params=params,
+            )
+        else:
+            pass
+
+        self._report["end_dt"] = datetime.now()
+        self._report["total_duration"] = time.time() - total_duration_start
+
+        # for each batch
+
+        # can't test since I can't install cupy TODO: try something else
+        # if self._use_gpu:
+        #     params["tree_method"] = "hist"
+        #     params["device"] = "cuda"
+
+        #     X_dense = X.toarray() if hasattr(X, "toarray") else X
+        #     X = torch.tensor(X_dense, device="cuda")
+        #     y_dense = y.toarray() if hasattr(y, "toarray") else X
+        #     y = torch.tensor(y_dense, device="cuda")
+
+        # need major refactoring for generator
+
+        # fold_start_time = time.time()
+        # kf = KFold(n_splits=kfold, shuffle=True, random_state=2025)
+        # y_pred = np.zeros(y_encoded.shape)
+
+        # for train_index, valid_index in tqdm(
+        #     kf.split(X), desc="k-fold", total=kfold
+        # ):
+        #     model = XGBClassifier(**params)
+        #     model.fit(X[train_index], y_encoded[train_index])
+        #     cpu_mem_stats.append(system_stats())
+        #     y_pred[valid_index] = model.predict(X[valid_index])
+        #     train_durations.append(time.time() - fold_start_time)
+
+        # self._report["classification_report"] = classification_report(
+        #     y_encoded, y_pred, target_names=self._labels, output_dict=True
+        # )
+        # self._report["confusion_matrix"] = confusion_matrix(
+        #     y_encoded, y_pred, labels=range(len(self._labels))
+        # )
+
+        return self._report
+
+    def _full_train(
+        self,
+        dtrain: xgb.DMatrix,
+        params: dict,
+        num_boost_round: int,
+        label_encoder: dict,
+    ) -> dict:
         cpu_mem_stats = list()
-
-        label_encoder = self._update_labels(tax_id_classes)
-
         # if dtrain in not a generator, make it look like one
         if isinstance(dtrain, xgb.DMatrix):
             dtrain = [dtrain]
@@ -94,11 +152,7 @@ class XGBoostModel:
         # XGBClassifier do not fully support incremental training
         # self._model = XGBClassifier(**params)
         self._model = None
-
-        # for each batch
         for i, dtrain_i in enumerate(dtrain):
-            # X = dtrain_i.get_data()
-            # y = dtrain_i.get_label().astype(int)
 
             if i == 0:
                 self._report["train_dtype"] = dtrain_i.get_data().dtype
@@ -112,58 +166,15 @@ class XGBoostModel:
             y_encoded = [label_encoder[label] for label in y]
             dtrain_i_encoded = xgb.DMatrix(dtrain_i.get_data(), label=y_encoded)
 
-            # can't test since I can't install cupy TODO: try something else
-            # if self._use_gpu:
-            #     params["tree_method"] = "hist"
-            #     params["device"] = "cuda"
+            self._model = xgb.train(
+                params,
+                dtrain_i_encoded,
+                num_boost_round=num_boost_round,
+                xgb_model=self._model,
+            )
+            cpu_mem_stats.append(system_stats())
 
-            #     X_dense = X.toarray() if hasattr(X, "toarray") else X
-            #     X = torch.tensor(X_dense, device="cuda")
-            #     y_dense = y.toarray() if hasattr(y, "toarray") else X
-            #     y = torch.tensor(y_dense, device="cuda")
-
-            # need major refactoring for generator
-            if kfold is not None:
-                pass
-                # fold_start_time = time.time()
-                # kf = KFold(n_splits=kfold, shuffle=True, random_state=2025)
-                # y_pred = np.zeros(y_encoded.shape)
-
-                # for train_index, valid_index in tqdm(
-                #     kf.split(X), desc="k-fold", total=kfold
-                # ):
-                #     model = XGBClassifier(**params)
-                #     model.fit(X[train_index], y_encoded[train_index])
-                #     cpu_mem_stats.append(system_stats())
-                #     y_pred[valid_index] = model.predict(X[valid_index])
-                #     train_durations.append(time.time() - fold_start_time)
-
-                # self._report["classification_report"] = classification_report(
-                #     y_encoded, y_pred, target_names=self._labels, output_dict=True
-                # )
-                # self._report["confusion_matrix"] = confusion_matrix(
-                #     y_encoded, y_pred, labels=range(len(self._labels))
-                # )
-
-            else:
-
-                if i == 0:
-                    train_start_time = time.time()
-                self._model = xgb.train(
-                    params,
-                    dtrain_i_encoded,
-                    num_boost_round=num_boost_round,
-                    xgb_model=self._model,
-                )
-                cpu_mem_stats.append(system_stats())
-                train_durations.append(time.time() - train_start_time)
-
-        self._report["labels"] = self._labels
         self._report["system_stats"] = cpu_mem_stats
-        self._report["end_dt"] = datetime.now()
-        self._report["total_duration"] = time.time() - total_duration_start
-
-        return self._report
 
     def _update_labels(self, tax_id_classes: list[int]) -> dict:
         self._tax_id_labels = tax_id_classes
@@ -273,9 +284,10 @@ class XGBoostModel:
         with open(txt_path, "w") as file:
             file.write("\n".join(report_lines))
 
-        self._plot_and_save_confusion_matrix(
-            report["confusion_matrix"], report["labels"], cm_path
-        )
+        if "confusion_matrix" in report:
+            self._plot_and_save_confusion_matrix(
+                report["confusion_matrix"], report["labels"], cm_path
+            )
 
     @staticmethod
     def _confusion_matrix_to_ascii(conf_matrix: list, labels: list) -> str:
