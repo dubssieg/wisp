@@ -1,4 +1,5 @@
 from collections import defaultdict
+import hashlib
 from itertools import product
 from pathlib import Path
 import pickle
@@ -8,6 +9,8 @@ import numpy as np
 from xgboost import DMatrix
 from tqdm.auto import tqdm
 from api import API
+
+INDEX_VERSION = 1
 
 
 class Database:
@@ -19,6 +22,56 @@ class Database:
             name: index for index, name in enumerate(self._column_names)
         }
         self._dmatrix_filters = dict()
+
+    def index_by_rank(self, rank: str):
+        # for each tax_id, read files and index sequences
+        index_file = (
+            self._path / f"index_by_{rank}_{self._db_signature()}_{INDEX_VERSION}.idx"
+        )
+        # found: load
+        if index_file.exists():
+            with open(index_file, "rb") as file:
+                return pickle.load(file)
+        # not found: compute and save it
+        indexed_data = defaultdict(list)
+        for rank_tax_id, tax_ids in tqdm(
+            self.get_tax_ids_by_rank(rank).items(), desc="Indexing rank", position=1
+        ):
+            for tax_id in tqdm(
+                tax_ids, desc="indexing tax_id", position=2, leave=False
+            ):
+                tax_id_data = self._get_tax_id_data(tax_id)
+                for file_name, data in tqdm(
+                    tax_id_data.items(), desc="indexing file", position=3, leave=False
+                ):
+                    for source in data["sources"]:
+                        info = self._parse_source(source)
+                        info["file"] = file_name
+                        indexed_data[rank_tax_id].append(info)
+
+        with open(index_file, "wb") as file:
+            pickle.dump(indexed_data, file)
+
+        return indexed_data
+
+    @staticmethod
+    def _parse_source(source: str) -> dict:
+        description = source["description"].split()
+        return {
+            "id": description[0].split(".")[0],
+            "len": int(description[1].split("len=")[1]),
+        }
+
+    def _db_signature(self):
+        """list all files to compute a signature"""
+        all_files = set()
+        for tax_id in self.get_tax_ids():
+            for file in self._get_tax_id_files(tax_id):
+                all_files.add(file.stem)
+        all_files_str = ",".join(sorted(all_files))
+        hash_object = hashlib.sha256()
+        hash_object.update(all_files_str.encode())
+        return hash_object.hexdigest()
 
     def get_tax_ids(self) -> list:
         """All DB tax_ids"""
