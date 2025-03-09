@@ -136,6 +136,7 @@ class XGBoostModel:
         if "header" in report:
             for k, v in report["header"].items():
                 report_lines.append(f"{k} : {v}")
+            report_lines.append("")
 
         # basic
         report_lines.append("=== Rapport d'entraînement / évaluation ===")
