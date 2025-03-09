@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import pickle
 from xgboost import XGBClassifier, DMatrix, Booster
@@ -37,6 +38,9 @@ class XGBoostModel:
         self._model = None
         self._labels = None
         # self.trials = Trials()
+
+
+    # def get_model()
 
     def train(
         self, dtrain: DMatrix, kfold: int | None = 5, tax_id_2_name: bool = True
@@ -89,15 +93,19 @@ class XGBoostModel:
         """Load model from file."""
         model_path = Path(dir_path) / "model.bin"
         label_path = Path(dir_path) / "labels.pkl"
+        params_path = dir_path / "params.json"
         if not model_path.is_file():
             raise FileNotFoundError(f"Model file not found: {model_path}")
         if not label_path.is_file():
             raise FileNotFoundError(f"Label file not found: {label_path}")
+        if not params_path.is_file():
+            raise FileNotFoundError(f"Param file not found: {label_path}")        
 
         self._model = Booster()
         self._model.load_model(str(model_path))
         with open(label_path, "rb") as f:
             self._model = pickle.load(f)
+        self._params = json.loads(params_path.read_text())
 
     def save(self, dir_path: str | Path) -> None:
         """Save model to directory."""
@@ -105,11 +113,13 @@ class XGBoostModel:
         dir_path.mkdir(parents=True, exist_ok=True)
         model_path = dir_path / "model.bin"
         label_path = dir_path / "labels.pkl"
+        params_path = dir_path / "params.json"
 
         if self._model is not None:
             self._model.save_model(str(model_path))
             with open(label_path, "wb") as f:
                 pickle.dump(self._labels, f)
+            params_path.write_text(json.dumps(self._params, indent=4))
         else:
             raise ValueError("Model is not trained or loaded yet.")
 

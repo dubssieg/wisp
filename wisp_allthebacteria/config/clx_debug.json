@@ -19,6 +19,10 @@
         "gpu": false,
         "normalize": "min_max",
         "tax_id_2_name": true,
-        "default_models_dir": "/data/microtaxo/models"
+        "default_models_dir": "/data/microtaxo/models",
+        "kfold": 5
+    },
+    "report":{
+        "default_reports_dir": "/data/microtaxo/reports"
     }
 }
