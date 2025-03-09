@@ -13,15 +13,16 @@
         "full":false,
         "window_size": 100,
         "num_windows": 10,
-        "output_dir": "/data/microtaxo/db_full_4"
+        "output_dir": "/data/microtaxo/db_light_4"
     },
     "model":{
         "gpu": false,
         "normalize": "min_max",
-        "tax_id_2_name": true,
+        "num_boost_round":10,
+        "scientific_name": true,
         "default_models_dir": "/data/microtaxo/models",
-        "kfold": 5,
-        "dmatrix_batch_size": 1000
+        "kfold": 3,
+        "batch_size": 100000
     },
     "report":{
         "default_reports_dir": "/data/microtaxo/reports"

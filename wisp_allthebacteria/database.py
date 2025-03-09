@@ -78,15 +78,18 @@ class Database:
             raise FileNotFoundError(f"{file_path} DMatrix not found.")
         return DMatrix(file_path)
 
+    def get_tax_id_classes(self, rank: str) -> int:
+        return [int(tax_id) for tax_id in self.get_tax_ids_by_rank(rank).keys()]
+
     def make_dmatrix(
         self,
         rank: str,
         sample_limit_by_tax_id: int | None = None,
         normalize: str | None = None,
-        generator_max_rows: int | None = None,
-    ) -> DMatrix | Generator:
+        batch_size: int | None = None,
+    ) -> DMatrix | Generator[DMatrix, None, None]:
         """rank can be "phylum, kingdom", etc.
-        if generator_max_rows is set, it will create a generator instead of a DMatrix"""
+        if batch_size is set, it will create a generator instead of a DMatrix"""
         # sort tax_id in DB by given rank
         tax_ids_by_rank = self.get_tax_ids_by_rank(rank)
 
@@ -137,16 +140,13 @@ class Database:
                         data.append(row)
                         labels.append(rank_tax_id)
                         current_size += 1
-                        if (
-                            generator_max_rows is not None
-                            and current_size >= generator_max_rows
-                        ):
+                        if batch_size is not None and current_size >= batch_size:
                             yield self._data2DMatrix(data, labels)
                             data = []
                             labels = []
                             current_size = 0
 
-        if generator_max_rows is not None:
+        if batch_size is not None:
             if data:
                 yield self._data2DMatrix(data, labels)
         else:

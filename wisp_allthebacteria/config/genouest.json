@@ -18,10 +18,11 @@
     "model":{
         "gpu": false,
         "normalize": "min_max",
-        "tax_id_2_name": true,
+        "num_boost_round":100,
+        "scientific_name": true,
         "default_models_dir": "/projects/microtaxo/exp_allthebacteria/models",
         "kfold": 5,
-        "dmatrix_batch_size": 1000000
+        "batch_size": 1000000
     },
     "report":{
         "default_reports_dir": "/projects/microtaxo/exp_allthebacteria/reports"

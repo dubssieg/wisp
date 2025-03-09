@@ -3,7 +3,6 @@ import time
 import traceback
 from pathlib import Path
 import argparse
-from datetime import datetime
 from tqdm.auto import tqdm
 from metadata import Metadata
 from reader import Reader
@@ -113,6 +112,19 @@ def load_config(json_file: Path | str):
     with open(json_file, "r") as file:
         conf = json.load(file)
     return conf
+    # matgen = db.make_dmatrix(rank="phylum", normalize="min_max", batch_size=100)
+    # tax_id_classes = db.get_tax_id_classes("phylum")
+    # model = XGBoostModel(api=api, use_gpu=False)
+    # res = model.train(matgen, kfold=None, tax_id_classes=tax_id_classes)
+
+    # report_header = {
+    #     "header": {
+    #         "Rang": "phylum",
+    #     }
+    # }
+    # model.save_report(
+    #     dir_path="wisp_allthebacteria/out/report1", additional_data=report_header
+    # )
 
 
 def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int | None):
@@ -127,15 +139,27 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
         email=conf["api"]["email"],
         can_download=conf["api"]["can_download"],
     )
-    model = XGBoostModel(api=api, use_gpu=conf["model"]["gpu"])
+    model = XGBoostModel(
+        api=api,
+        use_gpu=conf["model"]["gpu"],
+        scientific_name=conf["model"]["scientific_name"],
+    )
     db = Database(path=Path(conf["db"]["output_dir"]), api=api)
-    mat = db.make_dmatrix(
-        rank,
+    batch_size = conf["model"]["batch_size"]
+    dmat_generator = db.make_dmatrix(
+        rank=rank,
         sample_limit_by_tax_id=None,  # TODO
         normalize=conf["model"]["normalize"],
+        batch_size=batch_size,
     )
+    tax_id_classes = db.get_tax_id_classes(rank)
 
-    report = model.train(mat, tax_id_2_name=conf["model"]["tax_id_2_name"], kfold=kfold)
+    report = model.train(
+        dtrain=dmat_generator,
+        tax_id_classes=tax_id_classes,
+        kfold=kfold,
+        num_boost_round=conf["model"]["num_boost_round"],
+    )
     # train mode
     if kfold is None:
         if save_path is None:
@@ -151,11 +175,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
                 Path(conf["report"]["default_reports_dir"])
                 / get_current_datetime_string()
             )
-    report_header = {
-        "header": {
-            "Rang": rank,
-        }
-    }
+    report_header = {"header": {"Rang": rank, "batch_size": batch_size}}
 
     model.save_report(dir_path=save_path, additional_data=report_header)
     print(report)
@@ -204,10 +224,14 @@ def import_apt_cache(conf: dict):
 def debug():
     """debugging, ignore it"""
 
-    mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
+    # mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
+
     api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
+    db = Database("/data/microtaxo/db_full_4", api)
+    matgen = db.make_dmatrix(rank="phylum", normalize="min_max", batch_size=100)
+    tax_id_classes = db.get_tax_id_classes("phylum")
     model = XGBoostModel(api=api, use_gpu=False)
-    res = model.train(mat, tax_id_2_name=True, kfold=2)
+    res = model.train(matgen, kfold=None, tax_id_classes=tax_id_classes)
 
     report_header = {
         "header": {
@@ -332,7 +356,7 @@ if __name__ == "__main__":
         create_db(conf)
 
     if args.train_model:
-        train_model(conf=conf, rank=args.rank, save_path=args.save_path)
+        train_model(conf=conf, rank=args.rank, save_path=args.save_path, kfold=None)
 
     if args.evaluate_model_kfolds:
         train_model(
