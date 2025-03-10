@@ -5,7 +5,7 @@ from pathlib import Path
 import argparse
 from tqdm.auto import tqdm
 from metadata import Metadata
-from writer import Writer
+from writer_deprecated import Writer
 from reader import Reader
 from api import API
 from model import XGBoostModel
@@ -249,6 +249,7 @@ def debug():
     db.push_file(
         "/data/microtaxo/allthebacteria_sample/assembly/actinobacillus_lignieresii__01.asm.tar.xz"
     )
+    pass
 
     # mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
 
