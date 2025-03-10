@@ -3,18 +3,14 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
-# all_unique_labels = pd.read_csv('all_genome_family.csv',index_col=0)
 
-
-def plot_conf_mat(ax, conf_mat,  level, filename=None):
-
+def plot_conf_mat(conf_mat,  level, filename=None):
+    fig, ax = plt.subplots(figsize=(8, 6))
     # Déterminer si on doit afficher les labels
     afficher_labels = len(conf_mat) <= 15
     # Création de la figure
     cmap = plt.cm.RdBu_r  # Colormap avec bon contraste
     norm = mcolors.PowerNorm(gamma=0.5)  # Accentue les différences des faibles valeurs
-    common_names = [taxon for taxon in all_unique_labels['family'] if taxon in conf_mat_level.index]
-    sub_conf_mat = conf_mat_level.loc[common_names, common_names]
 
     title = f'Conf_mat for level {level}'
 
@@ -35,8 +31,8 @@ def plot_conf_mat(ax, conf_mat,  level, filename=None):
     if filename:
         plt.savefig(filename, dpi=300)
         # Affichage de la matrice
-    # else:
-    #     plt.show()
+    else:
+        plt.show()
 
 if __name__ == '__main__':
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -44,9 +40,9 @@ if __name__ == '__main__':
     csv_file = f"/home/hcourtei/Projects/MicroTaxo/codes/genouest_archive/model_base_02_05_11_26/eval/metrics/ConfMat_{level}.csv"
 
     conf_mat_level = pd.read_csv(csv_file, index_col=0, sep= ";")
-
     print(conf_mat_level)
-    print(all_unique_labels['group'].unique())
+    all_unique_labels = pd.read_csv('all_genome_family.csv',index_col=0)
+
     # plot_conf_mat(ax, conf_mat_level,level=level, filename= None) #csv_file.replace(".csv", ""))
     # plt.show()
     common_names = [taxon for taxon in all_unique_labels[level] if taxon in conf_mat_level.index]
