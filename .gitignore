@@ -135,6 +135,4 @@ dmypy.json
 sandbox.py
 .vscode/launch.json
 memo.txt
-*.pkl
-wisp_allthebacteria/out/report2.xlsx
-*.xlsx
+wisp_allthebacteria/out/*

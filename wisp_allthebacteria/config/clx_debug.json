@@ -13,9 +13,19 @@
         "full":false,
         "window_size": 100,
         "num_windows": 10,
-        "output_path": "/data/microtaxo/db_light_4"
+        "output_dir": "/data/microtaxo/db_full_4"
     },
-    "xgboost":{
-        "gpu": false
+    "model":{
+        "gpu": false,
+        "normalize": "min_max",
+        "num_boost_round":10,
+        "scientific_name": true,
+        "default_models_dir": "/data/microtaxo/models",
+        "kfold": 3,
+        "batch_size": 1000,
+        "max_samples": 10000
+    },
+    "report":{
+        "default_reports_dir": "/data/microtaxo/reports"
     }
 }

@@ -13,9 +13,19 @@
         "full": true,
         "window_size": 0,
         "num_windows": 0,
-        "output_path": "/projects/microtaxo/exp_allthebacteria/dbs/db_full_4"
+        "output_dir": "/projects/microtaxo/exp_allthebacteria/dbs/db_full_4"
     },
-    "xgboost":{
-        "gpu": true
-    }    
+    "model":{
+        "gpu": false,
+        "normalize": "min_max",
+        "num_boost_round":100,
+        "scientific_name": true,
+        "default_models_dir": "/projects/microtaxo/exp_allthebacteria/models",
+        "kfold": 5,
+        "batch_size": 5000000,
+        "max_samples": 100000000
+    },
+    "report":{
+        "default_reports_dir": "/projects/microtaxo/exp_allthebacteria/reports"
+    }
 }
