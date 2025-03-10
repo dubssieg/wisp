@@ -1,4 +1,7 @@
 from datetime import datetime
+from pathlib import Path
+import pickle
+from typing import Any
 
 import psutil
 
@@ -42,6 +45,19 @@ def system_stats() -> dict:
         "total_ram": mem_info.total,
         "used_ram": mem_info.used,
     }
+
+
+def serialize(obj: Any, path: str | Path):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("wb") as file:
+        pickle.dump(obj, file)
+
+
+def deserialize(path: str | Path) -> Any:
+    path = Path(path)
+    with path.open("rb") as file:
+        return pickle.load(file)
 
 
 if __name__ == "__main__":
