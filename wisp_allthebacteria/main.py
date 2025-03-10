@@ -152,19 +152,24 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
     #     normalize=conf["model"]["normalize"],
     #     batch_size=batch_size,
     # )
-    dgf = DMatrixGeneratorFactory(
-        database=db,
+    # dgf = DMatrixGeneratorFactory(
+    #     database=db,
+    #     rank=rank,
+    #     normalize=conf["model"]["normalize"],
+    #     sample_limit_by_tax_id=None,
+    #     batch_size=batch_size,
+    #     max_samples=conf["model"]["max_samples"],
+    # )
+    dmat = db.make_dmatrix(
         rank=rank,
         normalize=conf["model"]["normalize"],
-        sample_limit_by_tax_id=None,
-        batch_size=batch_size,
-        max_samples=conf["model"]["max_samples"],
     )
     tax_id_classes = db.get_tax_id_classes(rank)
 
     report = model.train(
         # dtrain=dmat_generator,
-        dtrain_factory=dgf,
+        # dtrain_factory=dgf,
+        dtrain=dmat,
         tax_id_classes=tax_id_classes,
         kfold=kfold,
         num_boost_round=conf["model"]["num_boost_round"],

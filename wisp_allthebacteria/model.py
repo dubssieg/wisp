@@ -6,7 +6,8 @@ import time
 from typing import Generator
 from matplotlib import pyplot as plt
 import seaborn as sns
-from database import DMatrixGeneratorFactory, Database
+from tqdm.auto import tqdm
+from database import DMatrixGeneratorFactory
 
 # from xgboost import DMatrix, Booster
 import xgboost as xgb
@@ -18,7 +19,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 
 # from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
 import numpy as np
-from tqdm.auto import tqdm
+
 from api import API
 from utils import system_stats, format_duration, format_size
 
@@ -62,8 +63,8 @@ class XGBoostModel:
 
     def train(
         self,
-        # dtrain: xgb.DMatrix | Generator[xgb.DMatrix, None, None],
-        dtrain_factory: DMatrixGeneratorFactory,
+        dtrain: xgb.DMatrix | Generator[xgb.DMatrix, None, None],
+        # dtrain_factory: DMatrixGeneratorFactory,
         tax_id_classes: list[int],
         num_boost_round: int,
         kfold: int | None = None,
@@ -87,22 +88,69 @@ class XGBoostModel:
         self._report["labels"] = self._labels
 
         if kfold is None:
-            self._full_train(
-                dtrain=dtrain_factory.make_dmatrix_generator(),
+            pass
+            # self._full_train(
+            #     dtrain=dtrain_factory.make_dmatrix_generator(),
+            #     num_boost_round=num_boost_round,
+            #     label_encoder=label_encoder,
+            #     params=params,
+            # )
+        else:
+            self.__kfold_evaluation(
+                dtrain=dtrain,
                 num_boost_round=num_boost_round,
                 label_encoder=label_encoder,
                 params=params,
+                kfold=kfold,
             )
-        else:
-            pass
 
         self._report["end_dt"] = datetime.now()
         self._report["total_duration"] = time.time() - total_duration_start
 
         return self._report
 
-    def __kfold_evaluation(self, kfold: int):
+    def __kfold_evaluation(
+        self,
+        dtrain: xgb.DMatrix,
+        num_boost_round: int,
+        params: dict,
+        label_encoder: dict,
+        kfold: int,
+    ):
+
         kf = KFold(n_splits=kfold, shuffle=True, random_state=2025)
+        y = dtrain.get_label().astype(int)
+        y_encoded = np.array([label_encoder[label] for label in y])
+        X = dtrain.get_data()
+
+        y_pred = np.zeros_like(y_encoded, dtype=float)
+        train_durations = list()
+
+        for train_index, valid_index in tqdm(
+            kf.split(y_encoded), desc="k-fold", total=kfold
+        ):
+            fold_start_time = time.time()
+            dtrain_fold = xgb.DMatrix(X[train_index], label=y_encoded[train_index])
+            dvalid_fold = xgb.DMatrix(X[valid_index], label=y_encoded[valid_index])
+
+            model = xgb.train(
+                params,
+                dtrain_fold,
+                num_boost_round=num_boost_round,
+                evals=[(dvalid_fold, "eval")],
+                early_stopping_rounds=10,
+                xgb_model=self._model,
+            )
+
+            y_pred[valid_index] = model.predict(dvalid_fold)
+            train_durations.append(time.time() - fold_start_time)
+
+        self._report["classification_report"] = classification_report(
+            y_encoded, y_pred.round(), target_names=self._labels, output_dict=True
+        )
+        self._report["confusion_matrix"] = confusion_matrix(
+            y_encoded, y_pred.round(), labels=range(len(self._labels))
+        )
 
         # for each batch
 
@@ -182,23 +230,6 @@ class XGBoostModel:
             ]
 
         return {label: idx for idx, label in enumerate(self._tax_id_labels)}
-
-    # def _update_labels(self, y: np.array) -> dict:
-    #     unique_tax_id_labels = np.unique(y)
-
-    #     for tax_id_label in unique_tax_id_labels:
-    #         if tax_id_label not in self._tax_id_labels:
-    #             self._tax_id_labels.append(tax_id_label)
-
-    #     if self._get_scientific_name and self._api:
-    #         self._labels = [
-    #             f'{self._api[tax_id]["ScientificName"]} [{tax_id}]'
-    #             for tax_id in self._tax_id_labels
-    #         ]
-    #     else:
-    #         self._labels = self._tax_id_labels
-
-    #     return {label: idx for idx, label in enumerate(self._tax_id_labels)}
 
     def save_report(self, additional_data: dict, dir_path: str | Path):
         """save self._report + additional data"""
