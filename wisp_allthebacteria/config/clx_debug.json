@@ -10,10 +10,7 @@
     },
     "db":{
         "kmer_size": 4,
-        "full":false,
-        "window_size": 100,
-        "num_windows": 10,
-        "output_dir": "/data/microtaxo/db_full_4"
+        "path": "/data/microtaxo/dbs"
     },
     "model":{
         "gpu": false,

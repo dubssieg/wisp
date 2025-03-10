@@ -5,43 +5,45 @@ from pathlib import Path
 import argparse
 from tqdm.auto import tqdm
 from metadata import Metadata
-from reader import Reader
 from writer import Writer
+from reader import Reader
 from api import API
 from model import XGBoostModel
-from database import DMatrixGeneratorFactory, Database
+from database import Database
 from utils import format_duration, get_current_datetime_string
 
 
 METADATA_FILENAME = "ena_metadata.tsv"
 
 RANKS = [
+    "superkingdom",
+    "kingdom",
+    "phylum",
+    "class",
+    "subclass",
+    "order",
+    "suborder",
+    "family",
+    "subfamily",
+    "tribe",
+    "genus",
+    "subgenus",
+    "species",
+    "subspecies",
+    "strain",
+    # ?
     "biotype",
     "clade",
-    "class",
-    "family",
-    "genus",
-    "kingdom",
     "no rank",
-    "order",
     "pathogroup",
-    "phylum",
     "serogroup",
     "serotype",
-    "species",
     "species group",
     "species subgroup",
-    "strain",
-    "subclass",
-    "subfamily",
-    "subgenus",
-    "suborder",
-    "subspecies",
-    "superkingdom",
-    "tribe",
 ]
 
 
+# FIXME
 def create_db(conf: dict):
     input_path = (Path(conf["allthebacteria"]["assembly_dir"]),)
     output_path = (Path(conf["db"]["output_dir"]),)
@@ -237,26 +239,36 @@ def import_apt_cache(conf: dict):
 
 def debug():
     """debugging, ignore it"""
+    api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
+    md = Metadata(
+        csv_path="/data/microtaxo/allthebacteria_sample/metadata/ena_metadata.tsv",
+        api=api,
+    )
+    reader = Reader(md)
+    db = Database(kmer_size=4, dbs_path="/data/microtaxo/dbs", reader=reader)
+    db.push_file(
+        "/data/microtaxo/allthebacteria_sample/assembly/actinobacillus_lignieresii__01.asm.tar.xz"
+    )
 
     # mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
 
-    api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
-    db = Database("/data/microtaxo/db_full_4", api)
-    db.index_by_rank("phylum")
-    matgen = db.make_dmatrix(rank="phylum", normalize="min_max", batch_size=100)
-    tax_id_classes = db.get_tax_id_classes("phylum")
-    model = XGBoostModel(api=api, use_gpu=False)
-    res = model.train(matgen, kfold=None, tax_id_classes=tax_id_classes)
+    # api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
+    # db = Database("/data/microtaxo/db_full_4", api)
+    # db.index_by_rank("phylum")
+    # matgen = db.make_dmatrix(rank="phylum", normalize="min_max", batch_size=100)
+    # tax_id_classes = db.get_tax_id_classes("phylum")
+    # model = XGBoostModel(api=api, use_gpu=False)
+    # res = model.train(matgen, kfold=None, tax_id_classes=tax_id_classes)
 
-    report_header = {
-        "header": {
-            "Rang": "phylum",
-        }
-    }
-    model.save_report(
-        dir_path="wisp_allthebacteria/out/report1", additional_data=report_header
-    )
-    print(res)
+    # report_header = {
+    #     "header": {
+    #         "Rang": "phylum",
+    #     }
+    # }
+    # model.save_report(
+    #     dir_path="wisp_allthebacteria/out/report1", additional_data=report_header
+    # )
+    # print(res)
 
     # db = Database("/data/microtaxo/db_full_4", api)
     # mat = db.make_dmatrix("phylum", sample_limit_by_tax_id=None, normalize="min_max")
@@ -274,7 +286,7 @@ def debug():
 
 
 if __name__ == "__main__":
-    # debug()
+    debug()
 
     parser = argparse.ArgumentParser(
         description="AllTheBacteria Database Scripts",
