@@ -13,7 +13,6 @@ from training_functions import  validate
 sys.path.append('../../..')
 from wisp.wisp_light.dataset.bactero_set import BacteriaDataset
 
-
 parser = argparse.ArgumentParser(description="Script d'entraînement pour le modèle bactérien.")
 parser.add_argument("--exp_name", type=str, default="model_base", help="Nom de l'expérience.")
 parser.add_argument("--datadir", type=str, default="/projects/microtaxo/data/refseq_with_taxo_merged", help="Répertoire des données.")
