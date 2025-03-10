@@ -17,26 +17,27 @@ class Reader:
         self,
         file_path: str | Path,
         kmer_size: int,
-        window_size: int,
-        num_windows: int,
-        full: bool = False,
+        # window_size: int,
+        # num_windows: int,
+        # full: bool = False,
     ) -> dict:
+        file_path = Path(file_path)
         suffix = file_path.suffix
         if suffix == ".xz":
             return self.process_archive(
                 file_path,
                 kmer_size=kmer_size,
-                window_size=window_size,
-                num_windows=num_windows,
-                full=full,
+                # window_size=window_size,
+                # num_windows=num_windows,
+                # full=full,
             )
         elif suffix == ".fa":
             return self.process_fasta(
                 file_path,
                 kmer_size=kmer_size,
-                window_size=window_size,
-                num_windows=num_windows,
-                full=full,
+                # window_size=window_size,
+                # num_windows=num_windows,
+                # full=full,
             )
 
     def read_fasta(self, file_path: Path | str) -> list:
@@ -65,9 +66,9 @@ class Reader:
         self,
         file_path: str | Path,
         kmer_size,
-        window_size: int,
-        num_windows: int,
-        full: bool = False,
+        # window_size: int,
+        # num_windows: int,
+        # full: bool = False,
     ) -> dict:
         """Count and get metadata"""
         file_path = Path(file_path)
@@ -90,9 +91,9 @@ class Reader:
             kmer_count = self._counter(
                 entry=sequence["sequence"],
                 kmer_size=kmer_size,
-                window_size=window_size,
-                num_windows=num_windows,
-                full=full,
+                # window_size=window_size,
+                # num_windows=num_windows,
+                # full=full,
             )
 
             if tax_id not in tax_id_to_data:
@@ -112,9 +113,9 @@ class Reader:
         self,
         entry: str,
         kmer_size: int = 4,
-        window_size: int = 1000,
-        num_windows: int = 100,
-        full: bool = False,
+        # window_size: int = 1000,
+        # num_windows: int = 100,
+        # full: bool = False,
     ) -> dict:
         complements = {
             "A": "T",
@@ -150,21 +151,22 @@ class Reader:
             "N": ["A", "T", "C", "G"],
         }
 
-        if full or (len(entry) < window_size * num_windows):
-            all_kmers = (
-                entry[i : i + kmer_size] for i in range(len(entry) - kmer_size + 1)
-            )
-        else:
-            step = max(1, (len(entry) - window_size) // (num_windows - 1))
-            positions = range(0, len(entry) - window_size + 1, step)
+        # if full or (len(entry) < window_size * num_windows):
+        #     all_kmers = (
+        #         entry[i : i + kmer_size] for i in range(len(entry) - kmer_size + 1)
+        #     )
+        # else:
+        #     step = max(1, (len(entry) - window_size) // (num_windows - 1))
+        #     positions = range(0, len(entry) - window_size + 1, step)
 
-            all_kmers = (
-                entry[i + j : i + j + kmer_size]
-                for i in positions
-                for j in range(window_size - kmer_size + 1)
-            )
+        #     all_kmers = (
+        #         entry[i + j : i + j + kmer_size]
+        #         for i in positions
+        #         for j in range(window_size - kmer_size + 1)
+        #     )
+        kmers = (entry[i : i + kmer_size] for i in range(len(entry) - kmer_size + 1))
 
-        counts = Counter(all_kmers)
+        counts = Counter(kmers)
         rev_counts = Counter(
             {self._revcomp(k, compl=complements): v for k, v in counts.items()}
         )
@@ -202,9 +204,9 @@ class Reader:
         self,
         archive_path: Path | str,
         kmer_size: int,
-        window_size: int,
-        num_windows: int,
-        full: bool = False,
+        # window_size: int,
+        # num_windows: int,
+        # full: bool = False,
     ):
         """Read and process an archive."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -223,9 +225,9 @@ class Reader:
                 file_data = self.process_fasta(
                     file_path,
                     kmer_size=kmer_size,
-                    window_size=window_size,
-                    num_windows=num_windows,
-                    full=full,
+                    # window_size=window_size,
+                    # num_windows=num_windows,
+                    # full=full,
                 )
 
                 for tax_id, data in file_data.items():
