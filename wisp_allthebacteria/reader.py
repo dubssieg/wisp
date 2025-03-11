@@ -1,4 +1,5 @@
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from itertools import product
 from pathlib import Path
 import tarfile
@@ -10,8 +11,9 @@ from metadata import Metadata
 
 
 class Reader:
-    def __init__(self, metadata: Metadata):
+    def __init__(self, metadata: Metadata, num_workers: int = 1):
         self._md = metadata
+        self._num_workers = num_workers
 
     def process_file(
         self,
@@ -40,7 +42,8 @@ class Reader:
                 full=full,
             )
 
-    def read_fasta(self, file_path: Path | str) -> list:
+    @staticmethod
+    def read_fasta(file_path: Path | str) -> list:
         """Just read and parse file, no processing.
         Return a list of:
             'id' = 'SAMD00013333'
@@ -68,10 +71,37 @@ class Reader:
                 )
         return sequences
 
+    @staticmethod
+    def process_sequence(
+        sequence: str, kmer_size: int, window_size: int, step: int, full: bool, md: dict
+    ):
+        """need to be static for ProcessPoolExecutor"""
+        # md = self._md[sequence["id"]]
+        match len(md):
+            case 0:
+                tax_id = "no-tax-id"
+            case 1:
+                tax_id = md[0]["TaxId"]
+            case _:
+                tax_id = (
+                    f"multiple-{'|'.join(m['TaxId'] if m else 'no-tax-id' for m in md)}"
+                )
+
+        kmer_count = Reader._counter(
+            entry=sequence["sequence"],
+            kmer_size=kmer_size,
+            window_size=window_size,
+            step=step,
+            full=full,
+        )
+
+        source = {k: v for k, v in sequence.items() if k != "sequence"}
+        return tax_id, kmer_count, source
+
     def process_fasta(
         self,
         file_path: str | Path,
-        kmer_size,
+        kmer_size: int,
         window_size: int,
         step: int,
         full: bool = False,
@@ -81,44 +111,43 @@ class Reader:
         sequences = self.read_fasta(file_path)
         tax_id_to_data = {}
 
-        for sequence in tqdm(
-            sequences, desc=f"Counting {file_path.name}", leave=False, position=2
-        ):
-            md = self._md[sequence["id"]]
-            match len(md):
-                case 0:
-                    tax_id = "no-tax-id"
-                case 1:
-                    tax_id = md[0]["TaxId"]
-                case _:
-                    tax_id = "|".join([(m["TaxId"] if m else "no-tax-id") for m in md])
-                    tax_id = f"multiple-{tax_id}"
-
-            kmer_count = self._counter(
-                entry=sequence["sequence"],
-                kmer_size=kmer_size,
-                window_size=window_size,
-                step=step,
-                full=full,
-            )
-
-            if tax_id not in tax_id_to_data:
-                tax_id_to_data[tax_id] = {"metadata": md, "counters": [], "sources": []}
-
-            source = {
-                "id": sequence["id"],
-                "contig": sequence["contig"],
-                "file": sequence["file"],
-                "win": 0,
+        with ProcessPoolExecutor(max_workers=self._num_workers) as executor:
+            future_to_sequence = {
+                executor.submit(
+                    self.process_sequence,
+                    sequence=seq,
+                    kmer_size=kmer_size,
+                    window_size=window_size,
+                    step=step,
+                    full=full,
+                    md=self._md[seq["id"]],
+                ): seq
+                for seq in sequences
             }
-            source = {k: v for k, v in sequence.items() if k != "sequence"}
-            tax_id_to_data[tax_id]["counters"].extend(kmer_count)
-            tax_id_to_data[tax_id]["sources"].append(source)
+
+            for future in tqdm(
+                as_completed(future_to_sequence),
+                desc=f"Counting {file_path.name}",
+                leave=False,
+                position=2,
+                total=len(sequences),
+            ):
+                tax_id, kmer_count, source = future.result()
+
+                if tax_id not in tax_id_to_data:
+                    tax_id_to_data[tax_id] = {
+                        # "metadata": md,
+                        "counters": [],
+                        "sources": [],
+                    }
+
+                tax_id_to_data[tax_id]["counters"].extend(kmer_count)
+                tax_id_to_data[tax_id]["sources"].extend([source] * len(kmer_count))
 
         return tax_id_to_data
 
+    @staticmethod
     def _counter(
-        self,
         entry: str,
         kmer_size: int = 4,
         window_size: int = 10000,
@@ -185,7 +214,7 @@ class Reader:
 
             counts = Counter(kmers)
             rev_counts = Counter(
-                {self._revcomp(k, compl=complements): v for k, v in counts.items()}
+                {Reader._revcomp(k, compl=complements): v for k, v in counts.items()}
             )
             counts += rev_counts
 
@@ -255,9 +284,9 @@ class Reader:
                 for tax_id, data in file_data.items():
                     if tax_id not in merged_data:
                         merged_data[tax_id] = {
-                            "metadata": data["metadata"],
-                            "counters": list(),
-                            "sources": list(),
+                            # "metadata": data["metadata"],
+                            "counters": [],
+                            "sources": [],
                         }
 
                     merged_data[tax_id]["counters"].extend(data["counters"])

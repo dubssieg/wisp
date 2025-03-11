@@ -243,8 +243,9 @@ def debug():
     md = Metadata(
         csv_path="/data/microtaxo/allthebacteria_sample/metadata/ena_metadata.tsv",
         api=api,
+        start_loaded=True,
     )
-    reader = Reader(md)
+    reader = Reader(md, num_workers=8)
     db = Database(
         kmer_size=4,
         window_size=10000,
