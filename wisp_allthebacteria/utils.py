@@ -67,11 +67,11 @@ def cpu_count(needed: str | int = 8) -> int:
     max_cpu = os.cpu_count()
     if max_cpu is None:
         raise RuntimeError("Cannot get cpu count")
-    if needed == "all":
+    if needed == "max":
         return max_cpu
-    elif needed == "all_minus_1" and max_cpu > 1:
+    elif needed == "max_minus_1" and max_cpu > 1:
         return max_cpu - 1
-    elif needed == "all_minus_2" and max_cpu > 2:
+    elif needed == "max_minus_2" and max_cpu > 2:
         return max_cpu - 2
     else:
         raise RuntimeError(f"Cannot get cpu count with: {needed}")

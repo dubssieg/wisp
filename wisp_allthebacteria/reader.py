@@ -11,9 +11,12 @@ from metadata import Metadata
 
 
 class Reader:
-    def __init__(self, metadata: Metadata, num_workers: int = 1):
+    def __init__(
+        self, metadata: Metadata, num_workers: int = 20, max_parallel_fasta: int = 4
+    ):
         self._md = metadata
         self._num_workers = num_workers
+        self._max_parallel_fasta = max_parallel_fasta
 
     def process_file(
         self,
@@ -23,6 +26,7 @@ class Reader:
         step: int,
         full: bool = False,
     ) -> dict:
+        """Just call process_archive of process_fasta, based on file suffix."""
         file_path = Path(file_path)
         suffix = file_path.suffix
         if suffix == ".xz":
@@ -42,34 +46,111 @@ class Reader:
                 full=full,
             )
 
-    @staticmethod
-    def read_fasta(file_path: Path | str) -> list:
-        """Just read and parse file, no processing.
-        Return a list of:
-            'id' = 'SAMD00013333'
-            'contig' = 'contig00001'
-            'file' = 'SAMEA1561896.fa'
-            'sequence' = 'GGAGGGAACAGCGGGGCGGGCGGCGT..."""
-        file_path = Path(file_path)
-        if not file_path.exists():
-            raise FileNotFoundError(f"File {file_path} not found.")
+    def process_archive(
+        self,
+        archive_path: Path | str,
+        kmer_size: int,
+        window_size: int,
+        step: int,
+        full: bool = False,
+    ):
+        """Extract and process an archive."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with tarfile.open(archive_path, "r:xz") as tar:
+                tar.extractall(path=temp_dir)
 
-        sequences = []
-        with open(file_path, "r") as handle:
-            for record in SeqIO.parse(handle, "fasta"):
-                if ".contig" in record.id:
-                    r_id, r_contig = record.id.split(".")[:2]
-                else:
-                    r_id, r_contig = record.id, ""
-                sequences.append(
-                    {
-                        "id": r_id,
-                        "contig": r_contig,
-                        "file": file_path.stem,
-                        "sequence": str(record.seq),
+            extracted_files = list(Path(temp_dir).rglob("*.fa"))
+            merged_data = {}
+
+            fasta_workers = min(self._max_parallel_fasta, len(extracted_files))
+
+            # remaining workers to distribute for process_sequence
+            sequence_workers = max(
+                1, (self._num_workers - fasta_workers) // fasta_workers
+            )
+
+            with ProcessPoolExecutor(max_workers=fasta_workers) as executor:
+                future_to_file = {
+                    executor.submit(
+                        self.process_fasta,
+                        file_path=file_path,
+                        kmer_size=kmer_size,
+                        window_size=window_size,
+                        step=step,
+                        full=full,
+                        sequence_workers=sequence_workers,
+                    ): file_path
+                    for file_path in extracted_files
+                }
+
+                for future in tqdm(
+                    as_completed(future_to_file),
+                    desc=f"Processing {Path(archive_path).name}",
+                    leave=False,
+                    position=1,
+                    total=len(extracted_files),
+                ):
+                    file_data = future.result()
+
+                    for tax_id, data in file_data.items():
+                        if tax_id not in merged_data:
+                            merged_data[tax_id] = {
+                                "counters": [],
+                                "sources": [],
+                            }
+
+                        merged_data[tax_id]["counters"].extend(data["counters"])
+                        merged_data[tax_id]["sources"].extend(data["sources"])
+
+            return {"archive": archive_path, "merged_data": merged_data}
+
+    def process_fasta(
+        self,
+        file_path: str | Path,
+        kmer_size: int,
+        window_size: int,
+        step: int,
+        full: bool = False,
+        sequence_workers: int = 1,
+    ) -> dict:
+        """Count and get metadata"""
+        file_path = Path(file_path)
+        sequences = self._read_fasta(file_path)
+        tax_id_to_data = {}
+
+        with ProcessPoolExecutor(max_workers=sequence_workers) as executor:
+            future_to_sequence = {
+                executor.submit(
+                    self.process_sequence,
+                    sequence=seq,
+                    kmer_size=kmer_size,
+                    window_size=window_size,
+                    step=step,
+                    full=full,
+                    md=self._md[seq["id"]],
+                ): seq
+                for seq in sequences
+            }
+
+            for future in tqdm(
+                as_completed(future_to_sequence),
+                desc=f"Counting {file_path.name}",
+                leave=False,
+                position=2,
+                total=len(sequences),
+            ):
+                tax_id, kmer_count, source = future.result()
+
+                if tax_id not in tax_id_to_data:
+                    tax_id_to_data[tax_id] = {
+                        "counters": [],
+                        "sources": [],
                     }
-                )
-        return sequences
+
+                tax_id_to_data[tax_id]["counters"].extend(kmer_count)
+                tax_id_to_data[tax_id]["sources"].extend([source] * len(kmer_count))
+
+        return tax_id_to_data
 
     @staticmethod
     def process_sequence(
@@ -97,54 +178,6 @@ class Reader:
 
         source = {k: v for k, v in sequence.items() if k != "sequence"}
         return tax_id, kmer_count, source
-
-    def process_fasta(
-        self,
-        file_path: str | Path,
-        kmer_size: int,
-        window_size: int,
-        step: int,
-        full: bool = False,
-    ) -> dict:
-        """Count and get metadata"""
-        file_path = Path(file_path)
-        sequences = self.read_fasta(file_path)
-        tax_id_to_data = {}
-
-        with ProcessPoolExecutor(max_workers=self._num_workers) as executor:
-            future_to_sequence = {
-                executor.submit(
-                    self.process_sequence,
-                    sequence=seq,
-                    kmer_size=kmer_size,
-                    window_size=window_size,
-                    step=step,
-                    full=full,
-                    md=self._md[seq["id"]],
-                ): seq
-                for seq in sequences
-            }
-
-            for future in tqdm(
-                as_completed(future_to_sequence),
-                desc=f"Counting {file_path.name}",
-                leave=False,
-                position=2,
-                total=len(sequences),
-            ):
-                tax_id, kmer_count, source = future.result()
-
-                if tax_id not in tax_id_to_data:
-                    tax_id_to_data[tax_id] = {
-                        # "metadata": md,
-                        "counters": [],
-                        "sources": [],
-                    }
-
-                tax_id_to_data[tax_id]["counters"].extend(kmer_count)
-                tax_id_to_data[tax_id]["sources"].extend([source] * len(kmer_count))
-
-        return tax_id_to_data
 
     @staticmethod
     def _counter(
@@ -251,45 +284,31 @@ class Reader:
             ) from exc
         return result
 
-    def process_archive(
-        self,
-        archive_path: Path | str,
-        kmer_size: int,
-        window_size: int,
-        step: int,
-        full: bool = False,
-    ):
-        """Read and process an archive."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with tarfile.open(archive_path, "r:xz") as tar:
-                tar.extractall(path=temp_dir)
+    @staticmethod
+    def _read_fasta(file_path: Path | str) -> list:
+        """Just read and parse file, no processing.
+        Return a list of:
+            'id' = 'SAMD00013333'
+            'contig' = 'contig00001'
+            'file' = 'SAMEA1561896.fa'
+            'sequence' = 'GGAGGGAACAGCGGGGCGGGCGGCGT..."""
+        file_path = Path(file_path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"File {file_path} not found.")
 
-            extracted_files = list(Path(temp_dir).rglob("*.fa"))
-            merged_data = {}
-
-            for file_path in tqdm(
-                extracted_files,
-                desc=f"Processing {Path(archive_path).name}",
-                leave=False,
-                position=1,
-            ):
-                file_data = self.process_fasta(
-                    file_path,
-                    kmer_size=kmer_size,
-                    window_size=window_size,
-                    step=step,
-                    full=full,
+        sequences = []
+        with open(file_path, "r") as handle:
+            for record in SeqIO.parse(handle, "fasta"):
+                if ".contig" in record.id:
+                    r_id, r_contig = record.id.split(".")[:2]
+                else:
+                    r_id, r_contig = record.id, ""
+                sequences.append(
+                    {
+                        "id": r_id,
+                        "contig": r_contig,
+                        "file": file_path.stem,
+                        "sequence": str(record.seq),
+                    }
                 )
-
-                for tax_id, data in file_data.items():
-                    if tax_id not in merged_data:
-                        merged_data[tax_id] = {
-                            # "metadata": data["metadata"],
-                            "counters": [],
-                            "sources": [],
-                        }
-
-                    merged_data[tax_id]["counters"].extend(data["counters"])
-                    merged_data[tax_id]["sources"].extend(data["sources"])
-
-            return {"archive": archive_path, "merged_data": merged_data}
+        return sequences

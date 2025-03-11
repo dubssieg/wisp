@@ -59,7 +59,11 @@ def create_db(conf: dict):
         can_download=conf["api"]["can_download"],
     )
     md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
-    reader = Reader(md, num_workers=cpu_count(conf["db"]["create_db_cpu"]))
+    reader = Reader(
+        md,
+        num_workers=cpu_count(conf["db"]["create_db_workers"]),
+        max_parallel_fasta=conf["db"]["create_db_max_parallel_fasta"],
+    )
 
     db = Database(
         kmer_size=conf["db"]["kmer_size"],
