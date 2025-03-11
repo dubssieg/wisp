@@ -29,5 +29,13 @@
     },
     "report":{
         "default_reports_dir": "/data/microtaxo/reports"
+    },
+    "log":{
+        "log_path": "/data/microtaxo/logs/log.txt",
+        "terminal_level": "info",
+        "file_level": "debug",
+        "file_size": 10000000,
+        "file_count": 3,
+        "ignore_list": ["matplotlib"]
     }
 }

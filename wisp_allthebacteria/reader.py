@@ -1,6 +1,7 @@
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from itertools import product
+import logging
 from pathlib import Path
 import tarfile
 import tempfile
@@ -8,15 +9,23 @@ import traceback
 from Bio import SeqIO
 from tqdm.auto import tqdm
 from metadata import Metadata
+from utils import config_logger
+
+LOG = logging.getLogger(__name__)
 
 
 class Reader:
     def __init__(
-        self, metadata: Metadata, num_workers: int = 20, max_parallel_fasta: int = 4
+        self,
+        metadata: Metadata,
+        num_workers: int = 20,
+        max_parallel_fasta: int = 4,
+        log_config: dict = None,  # needed for new processes
     ):
         self._md = metadata
         self._num_workers = num_workers
         self._max_parallel_fasta = max_parallel_fasta
+        self._log_config = log_config
 
     def process_file(
         self,
@@ -27,7 +36,8 @@ class Reader:
         full: bool = False,
     ) -> dict:
         """Just call process_archive of process_fasta, based on file suffix."""
-        file_path = Path(file_path)
+        file_path = Path(file_path).resolve()
+        LOG.debug(f"processing file: {file_path}")
         suffix = file_path.suffix
         if suffix == ".xz":
             return self.process_archive(
@@ -45,6 +55,7 @@ class Reader:
                 step=step,
                 full=full,
             )
+        LOG.debug(f"processed file: {file_path}")
 
     def process_archive(
         self,
@@ -55,19 +66,28 @@ class Reader:
         full: bool = False,
     ):
         """Extract and process an archive."""
+        archive_path = Path(archive_path).resolve()
+        LOG.debug(f"processing archive file: {archive_path}")
         with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir = Path(temp_dir).resolve()
             with tarfile.open(archive_path, "r:xz") as tar:
                 tar.extractall(path=temp_dir)
+                LOG.debug(f"archive extracted: {temp_dir}")
 
-            extracted_files = list(Path(temp_dir).rglob("*.fa"))
+            extracted_files = list(temp_dir.rglob("*.fa"))
+            LOG.debug(f"archive extracted, {len(extracted_files)} files found")
+
             merged_data = {}
 
             fasta_workers = min(self._max_parallel_fasta, len(extracted_files))
+            LOG.debug(f"fasta workers: {fasta_workers}")
 
             # remaining workers to distribute for process_sequence
             sequence_workers = max(
                 1, (self._num_workers - fasta_workers) // fasta_workers
             )
+            LOG.debug(f"sequence workers: {sequence_workers}")
+            LOG.debug(f"starting process pool with {fasta_workers} workers")
 
             with ProcessPoolExecutor(max_workers=fasta_workers) as executor:
                 future_to_file = {
@@ -102,7 +122,8 @@ class Reader:
                         merged_data[tax_id]["counters"].extend(data["counters"])
                         merged_data[tax_id]["sources"].extend(data["sources"])
 
-            return {"archive": archive_path, "merged_data": merged_data}
+        LOG.debug(f"processed archive file: {archive_path}")
+        return {"archive": archive_path, "merged_data": merged_data}
 
     def process_fasta(
         self,
@@ -114,10 +135,12 @@ class Reader:
         sequence_workers: int = 1,
     ) -> dict:
         """Count and get metadata"""
-        file_path = Path(file_path)
+        file_path = Path(file_path).resolve()
+        LOG.debug(f"processing fasta file: {file_path}")
         sequences = self._read_fasta(file_path)
         tax_id_to_data = {}
 
+        LOG.debug(f"starting fasta process pool with {sequence_workers} workers")
         with ProcessPoolExecutor(max_workers=sequence_workers) as executor:
             future_to_sequence = {
                 executor.submit(
@@ -128,6 +151,7 @@ class Reader:
                     step=step,
                     full=full,
                     md=self._md[seq["id"]],
+                    # log_config=self._log_config,
                 ): seq
                 for seq in sequences
             }
@@ -150,13 +174,21 @@ class Reader:
                 tax_id_to_data[tax_id]["counters"].extend(kmer_count)
                 tax_id_to_data[tax_id]["sources"].extend([source] * len(kmer_count))
 
+        LOG.debug(f"processed fasta file: {file_path}")
         return tax_id_to_data
 
     @staticmethod
     def process_sequence(
-        sequence: str, kmer_size: int, window_size: int, step: int, full: bool, md: dict
+        sequence: str,
+        kmer_size: int,
+        window_size: int,
+        step: int,
+        full: bool,
+        md: dict,
+        # log_config: dict,
     ):
         """need to be static for ProcessPoolExecutor"""
+        # config_logger(**log_config)  # for new processes
         # md = self._md[sequence["id"]]
         match len(md):
             case 0:
@@ -292,7 +324,7 @@ class Reader:
             'contig' = 'contig00001'
             'file' = 'SAMEA1561896.fa'
             'sequence' = 'GGAGGGAACAGCGGGGCGGGCGGCGT..."""
-        file_path = Path(file_path)
+        file_path = Path(file_path).resolve()
         if not file_path.exists():
             raise FileNotFoundError(f"File {file_path} not found.")
 

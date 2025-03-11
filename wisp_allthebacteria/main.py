@@ -1,16 +1,18 @@
 import json
+import logging
 import time
 import traceback
 from pathlib import Path
 import argparse
 from tqdm.auto import tqdm
 from metadata import Metadata
-from writer_deprecated import Writer
 from reader import Reader
 from api import API
 from model import XGBoostModel
 from database import Database
-from utils import format_duration, get_current_datetime_string, cpu_count
+from utils import format_duration, get_current_datetime_string, cpu_count, config_logger
+
+LOG = logging.getLogger(__name__)
 
 
 METADATA_FILENAME = "ena_metadata.tsv"
@@ -44,7 +46,7 @@ RANKS = [
 
 
 def create_db(conf: dict):
-
+    LOG.info("create_db")
     input_path = Path(conf["allthebacteria"]["assembly_dir"])
     output_path = Path(conf["db"]["path"])
     metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
@@ -133,6 +135,7 @@ def load_config(json_file: Path | str):
 
 
 def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int | None):
+    LOG.info("train_model")
     if rank not in RANKS:
         raise ValueError(f"Invalid rank {rank}")
 
@@ -214,6 +217,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
 
 
 def populate_api_cache(conf: dict):
+    LOG.info("populate_api_cache")
     API(
         api_cache_dir=Path(conf["api"]["cache_dir"]),
         email=conf["api"]["email"],
@@ -225,6 +229,7 @@ def populate_api_cache(conf: dict):
 
 
 def export_api_cache(conf: dict):
+    LOG.info("export_apt_cache")
     API(
         api_cache_dir=Path(conf["api"]["cache_dir"]),
         email="",
@@ -233,6 +238,7 @@ def export_api_cache(conf: dict):
 
 
 def import_apt_cache(conf: dict):
+    LOG.info("import_apt_cache")
     API(
         api_cache_dir=Path(conf["api"]["cache_dir"]),
         email="",
@@ -242,6 +248,7 @@ def import_apt_cache(conf: dict):
 
 def debug():
     """debugging, ignore it"""
+    LOG.info("debug")
     api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
     md = Metadata(
         csv_path="/data/microtaxo/allthebacteria_sample/metadata/ena_metadata.tsv",
@@ -381,6 +388,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     conf = load_config(Path(args.json))
+
+    config_logger(**conf["log"])
 
     if args.populate_api_cache:
         populate_api_cache(conf)

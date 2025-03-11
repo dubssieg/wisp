@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 import sys
 from typing import Literal
@@ -7,6 +8,8 @@ from functools import lru_cache
 from tqdm.auto import tqdm
 
 from reader import Reader
+
+LOG = logging.getLogger(__name__)
 
 DB_TYPE = Literal["counter", "source", "index", "md"]
 LAST_VALID_ID = "_last_valid_id_"
@@ -36,6 +39,9 @@ class Database:
         """undo unfinished transactions"""
         md_db = self._get_db(db_type="md")
         if CURRENT_TRANSACTION in md_db:
+            LOG.warning(
+                f"cleaning database {self.get_db_path()} (last transaction failed)"
+            )
             data = md_db[CURRENT_TRANSACTION]
             merged_data = data["merged_data"]
             for tax_id in tqdm(merged_data.keys(), desc="cleaning cache"):
@@ -53,16 +59,18 @@ class Database:
                         del source_db[current_id]
                         deleting = True
             del md_db[CURRENT_TRANSACTION]
+            LOG.warning("database cleaned")
 
     def push_file(self, file_path: str | Path):
         """Add content."""
         file_path = Path(file_path).resolve()
+        LOG.debug(f"push file: {file_path}")
         md_db = self._get_db(db_type="md")
         archive = file_path.stem.split(".")[0]
         archives = md_db.get(ARCHIVES, [])
 
         if archive in archives:
-            print(f"{archive} already in DB: skip")
+            LOG.info(f"{archive} already in DB: skip")
             return
 
         data = self._reader.process_file(
@@ -72,6 +80,7 @@ class Database:
             step=self._step,
             full=self._full,
         )
+        LOG.debug(f"file processed: {file_path}, start transaction")
         # from utils import deserialize
         # data = deserialize("wisp_allthebacteria/out/data.pkl")
 
@@ -81,6 +90,7 @@ class Database:
 
         merged_data = data["merged_data"]
         # warning, tax_id is a str
+        LOG.debug(f"add data to: {self.get_db_path()}")
         for tax_id, tdata in tqdm(merged_data.items(), desc=f"Pushing {archive}"):
             tax_id = self._parse_tax_id(tax_id)
             last_valid_id = self._get_last_valid_id(tax_id)
@@ -92,18 +102,21 @@ class Database:
                 enumerate(zip(sources, counters)),
                 desc="Adding counters and sources",
                 total=len(counters),
+                leave=False,
             ):
                 current_id = last_valid_id + i + 1
                 counter_db[current_id] = counter
                 source_db[current_id] = source
                 last_valid_ids[tax_id] = current_id
 
+        LOG.debug(f"data added: {self.get_db_path()}, ending transaction")
         # end transaction
         del md_db[CURRENT_TRANSACTION]
         for tax_id, last_valid_id in last_valid_ids.items():
             self._set_last_valid_id(tax_id=tax_id, last_valid_id=last_valid_id)
         archives.append(archive)
         md_db[ARCHIVES] = archives
+        LOG.debug("transaction ended successfully")
 
     def _get_last_valid_id(self, tax_id: int) -> int:
         """Get last inserted id"""

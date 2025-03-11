@@ -1,4 +1,6 @@
 from datetime import datetime
+import logging
+from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
 import pickle
@@ -77,14 +79,40 @@ def cpu_count(needed: str | int = 8) -> int:
         raise RuntimeError(f"Cannot get cpu count with: {needed}")
 
 
-if __name__ == "__main__":
-    print(format_duration(100))
-    print(format_duration(1000))
-    print(format_duration(10000))
-    print(format_duration(100000))
-    print(format_duration(1000000))
-    print(format_size(100))
-    print(format_size(10000))
-    print(format_size(1000000000))
-    print(format_size(100000000000000))
-    print(format_size(100000000000000000))
+def config_logger(
+    log_path: str | Path,
+    terminal_level: str,
+    file_level: str,
+    file_size: int,
+    file_count: int,
+    ignore_list: list[str],
+) -> None:
+    """Terminal + files configuration."""
+    # common config
+    logger = logging.getLogger("")
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(
+        "%(asctime)s :: %(levelname)s :: %(name)s ::  %(process)d :: %(message)s"
+    )
+
+    # terminal config
+    terminal_handler = logging.StreamHandler()
+    terminal_handler.setFormatter(formatter)
+    terminal_handler.setLevel(getattr(logging, terminal_level.upper()))
+    logger.addHandler(terminal_handler)
+
+    # files config
+    path = Path(log_path).resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    file_handler = RotatingFileHandler(
+        path,
+        mode="a",
+        maxBytes=file_size,
+        backupCount=file_count,
+    )
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(getattr(logging, file_level.upper()))
+    logger.addHandler(file_handler)
+
+    for module in ignore_list:
+        logging.getLogger(module).setLevel(logging.CRITICAL)

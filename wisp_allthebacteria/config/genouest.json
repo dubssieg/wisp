@@ -29,5 +29,13 @@
     },
     "report":{
         "default_reports_dir": "/projects/microtaxo/exp_allthebacteria/reports"
+    },
+    "log":{
+        "log_path": "/projects/microtaxo/exp_allthebacteria/logs",
+        "terminal_level": "warning",
+        "file_level": "debug",
+        "file_size": 10000000,
+        "file_count": 3,
+        "ignore_list": ["matplotlib"]
     }
 }
