@@ -127,14 +127,19 @@ class Database:
     @lru_cache(maxsize=100)
     def _get_db(self, db_type: DB_TYPE, tax_id: int | None = None) -> Cache:
         """Get sub DB"""
-        path = self._dbs_path / str(self._kmer_size) / db_type
-        if self._full:
-            path /= "full"
-        else:
-            path /= f"{self._window_size}_{self._step}"
+        path = self.get_db_path()
+        path /= db_type
         if tax_id:
             path /= str(tax_id)
 
         path.mkdir(parents=True, exist_ok=True)
 
         return Cache(path, size_limit=sys.maxsize)
+
+    def get_db_path(self):
+        path = self._dbs_path / str(self._kmer_size)
+        if self._full:
+            path /= "full"
+        else:
+            path /= f"{self._window_size}_{self._step}"
+        return path

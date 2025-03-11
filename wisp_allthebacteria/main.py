@@ -10,7 +10,7 @@ from reader import Reader
 from api import API
 from model import XGBoostModel
 from database import Database
-from utils import format_duration, get_current_datetime_string
+from utils import format_duration, get_current_datetime_string, cpu_count
 
 
 METADATA_FILENAME = "ena_metadata.tsv"
@@ -43,21 +43,13 @@ RANKS = [
 ]
 
 
-# FIXME
 def create_db(conf: dict):
-    input_path = (Path(conf["allthebacteria"]["assembly_dir"]),)
-    output_path = (Path(conf["db"]["output_dir"]),)
-    metadata_path = (Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME,)
+
+    input_path = Path(conf["allthebacteria"]["assembly_dir"])
+    output_path = Path(conf["db"]["path"])
+    metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
     api_cache_path = Path(conf["api"]["cache_dir"])
     output_path.mkdir(parents=True, exist_ok=True)
-
-    json_log_path = output_path / "error_log.json"
-
-    if json_log_path.exists():
-        with open(json_log_path, "r", encoding="utf-8") as error_log_file:
-            error_log = json.load(error_log_file)
-    else:
-        error_log = {"complete": [], "incomplete": [], "duration": {}}
 
     archives = list(input_path.glob("*.xz"))
 
@@ -66,48 +58,55 @@ def create_db(conf: dict):
         email=conf["api"]["email"],
         can_download=conf["api"]["can_download"],
     )
-    md = Metadata(csv_path=metadata_path, api=api)
-    md.md  # preload
-    reader = Reader(md)
-    writer = Writer(output_path)
+    md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
+    reader = Reader(md, num_workers=cpu_count(conf["db"]["create_db_cpu"]))
+
+    db = Database(
+        kmer_size=conf["db"]["kmer_size"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=output_path,
+        reader=reader,
+    )
+
+    json_create_db_path = db.get_db_path() / "create_db.json"
+    if json_create_db_path.exists():
+        with open(json_create_db_path, "r", encoding="utf-8") as json_file:
+            json_create_db = json.load(json_file)
+    else:
+        json_create_db = {"complete": [], "incomplete": [], "duration": {}}
 
     for archive_path in tqdm(
         archives, desc=f"Processing {str(input_path)} -> {str(output_path)}", position=0
     ):
-        if str(archive_path) in error_log["complete"]:
+        if str(archive_path) in json_create_db["complete"]:
             continue
 
         start_time = time.time()
 
         try:
-            if str(archive_path) in error_log["incomplete"]:
+            if str(archive_path) in json_create_db["incomplete"]:
                 print(f"Retrying {archive_path.name}...")
 
-            merged_data = reader.process_file(
-                archive_path,
-                kmer_size=conf["db"]["kmer_size"],
-                full=conf["db"]["full"],
-                window_size=conf["db"]["window_size"],
-                num_windows=conf["db"]["num_windows"],
-            )
-            writer.save_data(merged_data)
+            db.push_file(archive_path)
 
-            error_log["complete"].append(str(archive_path))
-            if str(archive_path) in error_log["incomplete"]:
-                error_log["incomplete"].remove(str(archive_path))
+            json_create_db["complete"].append(str(archive_path))
+            if str(archive_path) in json_create_db["incomplete"]:
+                json_create_db["incomplete"].remove(str(archive_path))
 
             duration = time.time() - start_time
-            error_log["duration"][archive_path.name] = format_duration(duration)
+            json_create_db["duration"][archive_path.name] = format_duration(duration)
 
         except Exception as e:
             print(f"Error processing {archive_path.name}: {e}")
             traceback.print_exc()
-            if str(archive_path) not in error_log["incomplete"]:
-                error_log["incomplete"].append(str(archive_path))
+            if str(archive_path) not in json_create_db["incomplete"]:
+                json_create_db["incomplete"].append(str(archive_path))
 
         finally:
-            with open(json_log_path, "w", encoding="utf-8") as error_log_file:
-                json.dump(error_log, error_log_file, indent=4)
+            with open(json_create_db_path, "w", encoding="utf-8") as error_log_file:
+                json.dump(json_create_db, error_log_file, indent=4)
 
 
 def load_config(json_file: Path | str):
@@ -295,7 +294,7 @@ def debug():
 
 
 if __name__ == "__main__":
-    debug()
+    # debug()
 
     parser = argparse.ArgumentParser(
         description="AllTheBacteria Database Scripts",

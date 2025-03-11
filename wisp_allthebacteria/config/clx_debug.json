@@ -13,7 +13,8 @@
         "path": "/data/microtaxo/dbs",
         "full": false,
         "window_size": 10000,
-        "step": 5000
+        "step": 5000,
+        "create_db_cpu": "all_minus_2"
     },
     "model":{
         "gpu": false,

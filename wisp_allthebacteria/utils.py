@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 from pathlib import Path
 import pickle
 from typing import Any
@@ -58,6 +59,22 @@ def deserialize(path: str | Path) -> Any:
     path = Path(path)
     with path.open("rb") as file:
         return pickle.load(file)
+
+
+def cpu_count(needed: str | int = 8) -> int:
+    if isinstance(needed, int):
+        return needed
+    max_cpu = os.cpu_count()
+    if max_cpu is None:
+        raise RuntimeError("Cannot get cpu count")
+    if needed == "all":
+        return max_cpu
+    elif needed == "all_minus_1" and max_cpu > 1:
+        return max_cpu - 1
+    elif needed == "all_minus_2" and max_cpu > 2:
+        return max_cpu - 2
+    else:
+        raise RuntimeError(f"Cannot get cpu count with: {needed}")
 
 
 if __name__ == "__main__":
