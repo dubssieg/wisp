@@ -17,9 +17,9 @@ class Reader:
         self,
         file_path: str | Path,
         kmer_size: int,
-        # window_size: int,
-        # num_windows: int,
-        # full: bool = False,
+        window_size: int,
+        step: int,
+        full: bool = False,
     ) -> dict:
         file_path = Path(file_path)
         suffix = file_path.suffix
@@ -27,24 +27,25 @@ class Reader:
             return self.process_archive(
                 file_path,
                 kmer_size=kmer_size,
-                # window_size=window_size,
-                # num_windows=num_windows,
-                # full=full,
+                window_size=window_size,
+                step=step,
+                full=full,
             )
         elif suffix == ".fa":
             return self.process_fasta(
                 file_path,
                 kmer_size=kmer_size,
-                # window_size=window_size,
-                # num_windows=num_windows,
-                # full=full,
+                window_size=window_size,
+                step=step,
+                full=full,
             )
 
     def read_fasta(self, file_path: Path | str) -> list:
         """Just read and parse file, no processing.
         Return a list of:
-            'id' = 'SAMD00013333.contig00001'
-            'description' = 'SAMD00013333.contig00001 len=378640 cov=42.4 ...
+            'id' = 'SAMD00013333'
+            'contig' = 'contig00001'
+            'file' = 'SAMEA1561896.fa'
             'sequence' = 'GGAGGGAACAGCGGGGCGGGCGGCGT..."""
         file_path = Path(file_path)
         if not file_path.exists():
@@ -53,10 +54,15 @@ class Reader:
         sequences = []
         with open(file_path, "r") as handle:
             for record in SeqIO.parse(handle, "fasta"):
+                if ".contig" in record.id:
+                    r_id, r_contig = record.id.split(".")[:2]
+                else:
+                    r_id, r_contig = record.id, ""
                 sequences.append(
                     {
-                        "id": record.id,
-                        "description": record.description,
+                        "id": r_id,
+                        "contig": r_contig,
+                        "file": file_path.stem,
                         "sequence": str(record.seq),
                     }
                 )
@@ -66,9 +72,9 @@ class Reader:
         self,
         file_path: str | Path,
         kmer_size,
-        # window_size: int,
-        # num_windows: int,
-        # full: bool = False,
+        window_size: int,
+        step: int,
+        full: bool = False,
     ) -> dict:
         """Count and get metadata"""
         file_path = Path(file_path)
@@ -91,21 +97,23 @@ class Reader:
             kmer_count = self._counter(
                 entry=sequence["sequence"],
                 kmer_size=kmer_size,
-                # window_size=window_size,
-                # num_windows=num_windows,
-                # full=full,
+                window_size=window_size,
+                step=step,
+                full=full,
             )
 
             if tax_id not in tax_id_to_data:
                 tax_id_to_data[tax_id] = {"metadata": md, "counters": [], "sources": []}
 
-            tax_id_to_data[tax_id]["counters"].append(kmer_count)
-            tax_id_to_data[tax_id]["sources"].append(
-                {
-                    "description": sequence["description"],
-                    "file": file_path.name,
-                }
-            )
+            source = {
+                "id": sequence["id"],
+                "contig": sequence["contig"],
+                "file": sequence["file"],
+                "win": 0,
+            }
+            source = {k: v for k, v in sequence.items() if k != "sequence"}
+            tax_id_to_data[tax_id]["counters"].extend(kmer_count)
+            tax_id_to_data[tax_id]["sources"].append(source)
 
         return tax_id_to_data
 
@@ -113,9 +121,9 @@ class Reader:
         self,
         entry: str,
         kmer_size: int = 4,
-        # window_size: int = 1000,
-        # num_windows: int = 100,
-        # full: bool = False,
+        window_size: int = 10000,
+        step: int = 5000,
+        full: bool = False,
     ) -> dict:
         complements = {
             "A": "T",
@@ -151,40 +159,54 @@ class Reader:
             "N": ["A", "T", "C", "G"],
         }
 
-        # if full or (len(entry) < window_size * num_windows):
-        #     all_kmers = (
-        #         entry[i : i + kmer_size] for i in range(len(entry) - kmer_size + 1)
-        #     )
-        # else:
-        #     step = max(1, (len(entry) - window_size) // (num_windows - 1))
-        #     positions = range(0, len(entry) - window_size + 1, step)
+        seq_len = len(entry)
+        if full or seq_len <= window_size:
+            windows = [(0, seq_len)]
+        else:
+            num_windows = (seq_len - window_size) // step + 1
+            step = (
+                (seq_len - window_size) // (num_windows - 1)
+                if num_windows > 1
+                else step
+            )
+            windows = [
+                (i * step, min(i * step + window_size, seq_len))
+                for i in range(num_windows)
+            ]
+            if windows[-1][1] < seq_len:
+                windows.append((seq_len - window_size, seq_len))
 
-        #     all_kmers = (
-        #         entry[i + j : i + j + kmer_size]
-        #         for i in positions
-        #         for j in range(window_size - kmer_size + 1)
-        #     )
-        kmers = (entry[i : i + kmer_size] for i in range(len(entry) - kmer_size + 1))
+        window_counters = []
 
-        counts = Counter(kmers)
-        rev_counts = Counter(
-            {self._revcomp(k, compl=complements): v for k, v in counts.items()}
-        )
-        counts += rev_counts
+        for start, end in windows:
+            kmers = (
+                entry[i : i + kmer_size] for i in range(start, end - kmer_size + 1)
+            )
 
-        for filtered_kmer in (alpha * kmer_size for alpha in "ATCG"):
-            counts.pop(filtered_kmer, None)
+            counts = Counter(kmers)
+            rev_counts = Counter(
+                {self._revcomp(k, compl=complements): v for k, v in counts.items()}
+            )
+            counts += rev_counts
 
-        counts_purged = {}
-        for key, count in counts.items():
-            list_of_keys = [degenerate_map.get(x, [x]) for x in key]
-            list_of_keys = ["".join(item) for item in product(*list_of_keys)]
+            for filtered_kmer in (alpha * kmer_size for alpha in "ATCG"):
+                counts.pop(filtered_kmer, None)
 
-            for prob_key in list_of_keys:
+            counts_purged = {}
+            for key, count in counts.items():
+                list_of_keys = [
+                    "".join(item)
+                    for item in product(*[degenerate_map.get(x, [x]) for x in key])
+                ]
                 kmer_number = count // len(list_of_keys)
-                counts_purged[prob_key] = counts_purged.get(prob_key, 0) + kmer_number
+                for prob_key in list_of_keys:
+                    counts_purged[prob_key] = (
+                        counts_purged.get(prob_key, 0) + kmer_number
+                    )
 
-        return counts_purged
+            window_counters.append(counts_purged)
+
+        return window_counters
 
     @staticmethod
     def _revcomp(string: str, compl=None) -> str:
@@ -204,9 +226,9 @@ class Reader:
         self,
         archive_path: Path | str,
         kmer_size: int,
-        # window_size: int,
-        # num_windows: int,
-        # full: bool = False,
+        window_size: int,
+        step: int,
+        full: bool = False,
     ):
         """Read and process an archive."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -225,9 +247,9 @@ class Reader:
                 file_data = self.process_fasta(
                     file_path,
                     kmer_size=kmer_size,
-                    # window_size=window_size,
-                    # num_windows=num_windows,
-                    # full=full,
+                    window_size=window_size,
+                    step=step,
+                    full=full,
                 )
 
                 for tax_id, data in file_data.items():

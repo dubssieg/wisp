@@ -245,7 +245,14 @@ def debug():
         api=api,
     )
     reader = Reader(md)
-    db = Database(kmer_size=4, dbs_path="/data/microtaxo/dbs", reader=reader)
+    db = Database(
+        kmer_size=4,
+        window_size=10000,
+        step=3000,
+        full=False,
+        dbs_path="/data/microtaxo/dbs",
+        reader=reader,
+    )
     db.push_file(
         "/data/microtaxo/allthebacteria_sample/assembly/actinobacillus_lignieresii__01.asm.tar.xz"
     )

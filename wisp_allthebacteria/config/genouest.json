@@ -10,9 +10,9 @@
     },
     "db":{
         "kmer_size": 4,
-        "full": true,
-        "window_size": 0,
-        "num_windows": 0,
+        "full": false,
+        "window_size": 10000,
+        "step": 8000,
         "output_dir": "/projects/microtaxo/exp_allthebacteria/dbs/db_full_4"
     },
     "model":{

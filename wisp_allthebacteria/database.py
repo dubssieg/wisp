@@ -15,10 +15,21 @@ ARCHIVES = "_archives_"
 
 
 class Database:
-    def __init__(self, kmer_size: int, dbs_path: str | Path, reader: Reader):
+    def __init__(
+        self,
+        kmer_size: int,
+        window_size: int,
+        step: int,
+        full: bool,
+        dbs_path: str | Path,
+        reader: Reader,
+    ):
         self._dbs_path = Path(dbs_path).resolve()
         self._kmer_size = kmer_size
         self._reader = reader
+        self._window_size = window_size
+        self._step = step
+        self._full = full
         self.clean()
 
     def clean(self):
@@ -54,12 +65,17 @@ class Database:
             print(f"{archive} already in DB: skip")
             return
 
-        # data = self._reader.process_file(
-        #     file_path=file_path, kmer_size=self._kmer_size
-        # )
-        from utils import deserialize
+        data = self._reader.process_file(
+            file_path=file_path,
+            kmer_size=self._kmer_size,
+            window_size=self._window_size,
+            step=self._step,
+            full=self._full,
+        )
+        # from utils import deserialize
+        # data = deserialize("wisp_allthebacteria/out/data.pkl")
 
-        data = deserialize("wisp_allthebacteria/out/new_content.pkl")
+        # mark transaction
         md_db[CURRENT_TRANSACTION] = data
         last_valid_ids = dict()
 
@@ -112,6 +128,10 @@ class Database:
     def _get_db(self, db_type: DB_TYPE, tax_id: int | None = None) -> Cache:
         """Get sub DB"""
         path = self._dbs_path / str(self._kmer_size) / db_type
+        if self._full:
+            path /= "full"
+        else:
+            path /= f"{self._window_size}_{self._step}"
         if tax_id:
             path /= str(tax_id)
 
