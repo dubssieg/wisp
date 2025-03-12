@@ -96,9 +96,12 @@ def create_db(conf: dict):
 
         try:
             if str(archive_path) in json_create_db["incomplete"]:
-                print(f"Retrying {archive_path.name}...")
+                LOG.info(f"Retrying {archive_path.name}...")
 
-            db.push_file(archive_path)
+            if db.has_archive(archive_path):
+                LOG.info(f"Archive already in DB: {archive_path}")
+            else:
+                db.push_file(archive_path)
 
             json_create_db["complete"].append(str(archive_path))
             if str(archive_path) in json_create_db["incomplete"]:
@@ -107,33 +110,23 @@ def create_db(conf: dict):
             duration = time.time() - start_time
             json_create_db["duration"][archive_path.name] = format_duration(duration)
 
+            with open(json_create_db_path, "w", encoding="utf-8") as json_file:
+                json.dump(json_create_db, json_file, indent=4)
+
         except Exception as e:
             LOG.error(f"Error processing {archive_path.name}: {e}")
             if str(archive_path) not in json_create_db["incomplete"]:
                 json_create_db["incomplete"].append(str(archive_path))
 
         finally:
-            with open(json_create_db_path, "w", encoding="utf-8") as error_log_file:
-                json.dump(json_create_db, error_log_file, indent=4)
+            with open(json_create_db_path, "w", encoding="utf-8") as json_file:
+                json.dump(json_create_db, json_file, indent=4)
 
 
 def load_config(json_file: Path | str):
     with open(json_file, "r") as file:
         conf = json.load(file)
     return conf
-    # matgen = db.make_dmatrix(rank="phylum", normalize="min_max", batch_size=100)
-    # tax_id_classes = db.get_tax_id_classes("phylum")
-    # model = XGBoostModel(api=api, use_gpu=False)
-    # res = model.train(matgen, kfold=None, tax_id_classes=tax_id_classes)
-
-    # report_header = {
-    #     "header": {
-    #         "Rang": "phylum",
-    #     }
-    # }
-    # model.save_report(
-    #     dir_path="wisp_allthebacteria/out/report1", additional_data=report_header
-    # )
 
 
 def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int | None):
@@ -308,7 +301,6 @@ def debug():
 
 
 if __name__ == "__main__":
-    # debug()
 
     parser = argparse.ArgumentParser(
         description="AllTheBacteria Database Scripts",

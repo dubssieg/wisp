@@ -59,6 +59,11 @@ class Database:
 
         return {"tax_ids": tax_ids, "archives": archives, "counters": counters}
 
+    def has_archive(self, path: str | Path) -> bool:
+        """Check if archive already was pushed in base."""
+        md_db = self._get_db(db_type="md")
+        return self._archive_stem(path) in md_db.get(ARCHIVES, [])
+
     def clean(self):
         """Undo unfinished transactions"""
         md_db = self._get_db(db_type="md")
@@ -92,7 +97,7 @@ class Database:
         file_path = Path(file_path).resolve()
         LOG.debug(f"push file: {file_path}")
         md_db = self._get_db(db_type="md")
-        archive = file_path.stem.split(".")[0]
+        archive = self._archive_stem(file_path)
         archives = md_db.get(ARCHIVES, [])
 
         if archive in archives:
@@ -111,12 +116,15 @@ class Database:
         db_thread = threading.Thread(target=self._add_data_to_db, kwargs={"data": data})
         db_thread.start()
 
+    def _archive_stem(self, path: str | Path) -> str:
+        return Path(path).stem.split(".")[0]
+
     def _add_data_to_db(self, data):
         with self._db_lock:
             md_db = self._get_db(db_type="md")
             md_db[CURRENT_TRANSACTION] = data
             archives = md_db.get(ARCHIVES, [])
-            archive = data["archive"].stem.split(".")[0]
+            archive = self._archive_stem(data["archive"])
 
             last_valid_ids = {}
 
