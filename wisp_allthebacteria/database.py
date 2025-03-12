@@ -6,9 +6,9 @@ from typing import Literal
 
 from diskcache import Cache
 from functools import lru_cache
-from tqdm.auto import tqdm
 
 from reader import Reader
+from utils import slurm_tqdm
 
 LOG = logging.getLogger(__name__)
 
@@ -68,7 +68,9 @@ class Database:
             )
             data = md_db[CURRENT_TRANSACTION]
             merged_data = data["merged_data"]
-            for tax_id in tqdm(merged_data.keys(), desc="cleaning DB"):
+            for tax_id in slurm_tqdm(
+                merged_data.keys(), desc="cleaning DB", disable=True
+            ):
                 counter_db = self._get_db(db_type="counter", tax_id=tax_id)
                 source_db = self._get_db(db_type="source", tax_id=tax_id)
                 current_id = self._get_last_valid_id(tax_id)
@@ -121,8 +123,12 @@ class Database:
             merged_data = data["merged_data"]
             # warning, tax_id is a str
             LOG.debug(f"Add data to: {self.get_db_path()}")
-            for tax_id, tdata in tqdm(
-                merged_data.items(), desc=f"Pushing {archive}", position=1, leave=False
+            for tax_id, tdata in slurm_tqdm(
+                merged_data.items(),
+                desc=f"Pushing {archive}",
+                position=1,
+                leave=False,
+                disable=True,
             ):
                 tax_id = self._parse_tax_id(tax_id)
                 last_valid_id = self._get_last_valid_id(tax_id)
@@ -135,12 +141,13 @@ class Database:
                 batch_counters = {}
                 batch_sources = {}
 
-                for i, (source, counter) in tqdm(
+                for i, (source, counter) in slurm_tqdm(
                     enumerate(zip(sources, counters)),
                     desc="Adding counters and sources",
                     total=len(counters),
                     position=2,
                     leave=False,
+                    disable=True,
                 ):
                     current_id = last_valid_id + i + 1
                     batch_counters[current_id] = counter
@@ -148,14 +155,22 @@ class Database:
 
                 LOG.debug(f"Pushing {len(batch_counters)} counters to DB")
                 with counter_db.transact():
-                    for current_id, counter in tqdm(
-                        batch_counters.items(), desc="Counters", position=3, leave=False
+                    for current_id, counter in slurm_tqdm(
+                        batch_counters.items(),
+                        desc="Counters",
+                        position=3,
+                        leave=False,
+                        disable=True,
                     ):
                         counter_db[current_id] = counter
                 LOG.debug(f"Pushing {len(batch_sources)} sources to DB")
                 with source_db.transact():
-                    for current_id, source in tqdm(
-                        batch_sources.items(), desc="Sources", position=3, leave=False
+                    for current_id, source in slurm_tqdm(
+                        batch_sources.items(),
+                        desc="Sources",
+                        position=3,
+                        leave=False,
+                        disable=True,
                     ):
                         source_db[current_id] = source
                 LOG.debug("Counters and sources successfully added")

@@ -7,9 +7,8 @@ import tarfile
 import tempfile
 import traceback
 from Bio import SeqIO
-from tqdm.auto import tqdm
 from metadata import Metadata
-from utils import system_stats
+from utils import system_stats, slurm_tqdm
 
 LOG = logging.getLogger(__name__)
 
@@ -68,7 +67,7 @@ class Reader:
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()
         LOG.debug(
-            f"Processing archive file: {archive_path} - {system_stats(as_str=True)}"
+            f"Processing archive file: {archive_path}({archive_path.stat().st_size}) - {system_stats(as_str=True)}"
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir).resolve()
@@ -82,6 +81,7 @@ class Reader:
 
             fasta_workers = min(self._num_workers, len(extracted_files))
             LOG.debug(f"Processing {fasta_workers} FASTA files in parallel")
+            remaining = len(extracted_files)
 
             with ProcessPoolExecutor(max_workers=fasta_workers) as executor:
                 future_to_file = {
@@ -96,12 +96,13 @@ class Reader:
                     for file_path in extracted_files
                 }
 
-                for future in tqdm(
+                for future in slurm_tqdm(
                     as_completed(future_to_file),
                     desc=f"Processing {Path(archive_path).name}",
                     leave=False,
                     position=1,
                     total=len(extracted_files),
+                    disable=False,
                 ):
                     try:
                         file_data = future.result()
@@ -111,6 +112,10 @@ class Reader:
 
                             merged_data[tax_id]["counters"].extend(data["counters"])
                             merged_data[tax_id]["sources"].extend(data["sources"])
+                            remaining -= 1
+                            LOG.debug(
+                                f"{future_to_file[future].name} DONE, remaing: {remaining} / {len(extracted_files)}"
+                            )
 
                     except Exception as e:
                         LOG.exception(f"Error processing {future_to_file[future]}: {e}")
@@ -128,7 +133,9 @@ class Reader:
     ) -> dict:
         """Process a FASTA file using multithreading."""
         file_path = Path(file_path).resolve()
-        LOG.debug(f"Processing FASTA file: {file_path} - {system_stats(as_str=True)}")
+        LOG.debug(
+            f"Processing FASTA file: {file_path.name} - {system_stats(as_str=True)}"
+        )
 
         sequences = self._read_fasta(file_path)
         tax_id_to_data = {}
@@ -137,7 +144,6 @@ class Reader:
         LOG.debug(
             f"Processing {len(sequences)} sequences with {sequence_workers} threads"
         )
-
         with ThreadPoolExecutor(max_workers=sequence_workers) as executor:
             future_to_sequence = {
                 executor.submit(
@@ -152,12 +158,13 @@ class Reader:
                 for seq in sequences
             }
 
-            for future in tqdm(
+            for future in slurm_tqdm(
                 as_completed(future_to_sequence),
                 desc=f"Counting {file_path.name}",
                 leave=False,
                 position=2,
                 total=len(sequences),
+                disable=True,
             ):
                 try:
                     tax_id, kmer_count, source = future.result()
@@ -172,7 +179,7 @@ class Reader:
                     LOG.exception(f"Error processing sequence in {file_path}: {e}")
                     raise
 
-        LOG.debug(f"FASTA file: {file_path} DONE - {system_stats(as_str=True)}")
+        LOG.debug(f"FASTA file: {file_path.name} DONE - {system_stats(as_str=True)}")
         return tax_id_to_data
 
     @staticmethod

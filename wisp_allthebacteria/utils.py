@@ -7,6 +7,7 @@ import pickle
 from typing import Any
 import concurrent.futures
 import psutil
+from tqdm.auto import tqdm
 
 
 def format_duration(seconds: float) -> str:
@@ -159,6 +160,13 @@ def config_logger(
 
     for module in ignore_list:
         logging.getLogger(module).setLevel(logging.CRITICAL)
+
+
+def slurm_tqdm(iterable, *args, **kwargs):
+    # usage slurm_tqdm(..., disable=True)
+    if os.getenv("SLURM_JOB_ID") and kwargs.pop("disable", False):
+        return iterable
+    return tqdm(iterable, *args, **kwargs)
 
 
 if __name__ == "__main__":

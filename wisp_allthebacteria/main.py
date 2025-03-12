@@ -1,5 +1,6 @@
 import json
 import logging
+import sys
 import time
 import traceback
 from pathlib import Path
@@ -307,7 +308,7 @@ def debug():
 
 
 if __name__ == "__main__":
-    debug()
+    # debug()
 
     parser = argparse.ArgumentParser(
         description="AllTheBacteria Database Scripts",
@@ -387,11 +388,21 @@ if __name__ == "__main__":
         help="Path to a FASTA file for evaluation (check config for report location)",
     )
 
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Dev only, do not use",
+    )
+
     args = parser.parse_args()
 
     conf = load_config(Path(args.json))
 
     config_logger(**conf["log"])
+
+    if args.debug:
+        debug()
+        sys.exit("debug")
 
     if args.populate_api_cache:
         populate_api_cache(conf)
