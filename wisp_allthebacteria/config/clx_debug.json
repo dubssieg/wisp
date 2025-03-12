@@ -10,10 +10,12 @@
     },
     "db":{
         "kmer_size": 4,
-        "full":false,
-        "window_size": 100,
-        "num_windows": 10,
-        "output_dir": "/data/microtaxo/db_full_4"
+        "path": "/data/microtaxo/dbs",
+        "full": false,
+        "window_size": 10000,
+        "step": 5000,
+        "create_db_workers": 8,
+        "sequences_threads": 2
     },
     "model":{
         "gpu": false,
@@ -27,5 +29,13 @@
     },
     "report":{
         "default_reports_dir": "/data/microtaxo/reports"
+    },
+    "log":{
+        "log_path": "/data/microtaxo/logs/log.txt",
+        "terminal_level": "info",
+        "file_level": "debug",
+        "file_size": 10000000,
+        "file_count": 3,
+        "ignore_list": ["matplotlib"]
     }
 }

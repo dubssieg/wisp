@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 import traceback
 from pathlib import Path
@@ -6,56 +7,51 @@ import argparse
 from tqdm.auto import tqdm
 from metadata import Metadata
 from reader import Reader
-from writer import Writer
 from api import API
 from model import XGBoostModel
-from database import DMatrixGeneratorFactory, Database
-from utils import format_duration, get_current_datetime_string
+from database import Database
+from utils import format_duration, get_current_datetime_string, cpu_count, config_logger
+
+LOG = logging.getLogger(__name__)
 
 
 METADATA_FILENAME = "ena_metadata.tsv"
 
 RANKS = [
+    "superkingdom",
+    "kingdom",
+    "phylum",
+    "class",
+    "subclass",
+    "order",
+    "suborder",
+    "family",
+    "subfamily",
+    "tribe",
+    "genus",
+    "subgenus",
+    "species",
+    "subspecies",
+    "strain",
+    # ?
     "biotype",
     "clade",
-    "class",
-    "family",
-    "genus",
-    "kingdom",
     "no rank",
-    "order",
     "pathogroup",
-    "phylum",
     "serogroup",
     "serotype",
-    "species",
     "species group",
     "species subgroup",
-    "strain",
-    "subclass",
-    "subfamily",
-    "subgenus",
-    "suborder",
-    "subspecies",
-    "superkingdom",
-    "tribe",
 ]
 
 
 def create_db(conf: dict):
-    input_path = (Path(conf["allthebacteria"]["assembly_dir"]),)
-    output_path = (Path(conf["db"]["output_dir"]),)
-    metadata_path = (Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME,)
+    LOG.info("create_db")
+    input_path = Path(conf["allthebacteria"]["assembly_dir"])
+    output_path = Path(conf["db"]["path"])
+    metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
     api_cache_path = Path(conf["api"]["cache_dir"])
     output_path.mkdir(parents=True, exist_ok=True)
-
-    json_log_path = output_path / "error_log.json"
-
-    if json_log_path.exists():
-        with open(json_log_path, "r", encoding="utf-8") as error_log_file:
-            error_log = json.load(error_log_file)
-    else:
-        error_log = {"complete": [], "incomplete": [], "duration": {}}
 
     archives = list(input_path.glob("*.xz"))
 
@@ -64,48 +60,59 @@ def create_db(conf: dict):
         email=conf["api"]["email"],
         can_download=conf["api"]["can_download"],
     )
-    md = Metadata(csv_path=metadata_path, api=api)
-    md.md  # preload
-    reader = Reader(md)
-    writer = Writer(output_path)
+    md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
+    reader = Reader(
+        md,
+        num_workers=cpu_count(conf["db"]["create_db_workers"]),
+        sequences_threads=conf["db"]["sequences_threads"],
+    )
+
+    db = Database(
+        kmer_size=conf["db"]["kmer_size"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=output_path,
+        reader=reader,
+    )
+
+    json_create_db_path = db.get_db_path() / "create_db.json"
+    if json_create_db_path.exists():
+        with open(json_create_db_path, "r", encoding="utf-8") as json_file:
+            json_create_db = json.load(json_file)
+    else:
+        json_create_db = {"complete": [], "incomplete": [], "duration": {}}
 
     for archive_path in tqdm(
         archives, desc=f"Processing {str(input_path)} -> {str(output_path)}", position=0
     ):
-        if str(archive_path) in error_log["complete"]:
+        if str(archive_path) in json_create_db["complete"]:
             continue
 
         start_time = time.time()
 
         try:
-            if str(archive_path) in error_log["incomplete"]:
+            if str(archive_path) in json_create_db["incomplete"]:
                 print(f"Retrying {archive_path.name}...")
 
-            merged_data = reader.process_file(
-                archive_path,
-                kmer_size=conf["db"]["kmer_size"],
-                full=conf["db"]["full"],
-                window_size=conf["db"]["window_size"],
-                num_windows=conf["db"]["num_windows"],
-            )
-            writer.save_data(merged_data)
+            db.push_file(archive_path)
 
-            error_log["complete"].append(str(archive_path))
-            if str(archive_path) in error_log["incomplete"]:
-                error_log["incomplete"].remove(str(archive_path))
+            json_create_db["complete"].append(str(archive_path))
+            if str(archive_path) in json_create_db["incomplete"]:
+                json_create_db["incomplete"].remove(str(archive_path))
 
             duration = time.time() - start_time
-            error_log["duration"][archive_path.name] = format_duration(duration)
+            json_create_db["duration"][archive_path.name] = format_duration(duration)
 
         except Exception as e:
             print(f"Error processing {archive_path.name}: {e}")
             traceback.print_exc()
-            if str(archive_path) not in error_log["incomplete"]:
-                error_log["incomplete"].append(str(archive_path))
+            if str(archive_path) not in json_create_db["incomplete"]:
+                json_create_db["incomplete"].append(str(archive_path))
 
         finally:
-            with open(json_log_path, "w", encoding="utf-8") as error_log_file:
-                json.dump(error_log, error_log_file, indent=4)
+            with open(json_create_db_path, "w", encoding="utf-8") as error_log_file:
+                json.dump(json_create_db, error_log_file, indent=4)
 
 
 def load_config(json_file: Path | str):
@@ -128,6 +135,7 @@ def load_config(json_file: Path | str):
 
 
 def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int | None):
+    LOG.info("train_model")
     if rank not in RANKS:
         raise ValueError(f"Invalid rank {rank}")
 
@@ -209,6 +217,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
 
 
 def populate_api_cache(conf: dict):
+    LOG.info("populate_api_cache")
     API(
         api_cache_dir=Path(conf["api"]["cache_dir"]),
         email=conf["api"]["email"],
@@ -220,6 +229,7 @@ def populate_api_cache(conf: dict):
 
 
 def export_api_cache(conf: dict):
+    LOG.info("export_apt_cache")
     API(
         api_cache_dir=Path(conf["api"]["cache_dir"]),
         email="",
@@ -228,6 +238,7 @@ def export_api_cache(conf: dict):
 
 
 def import_apt_cache(conf: dict):
+    LOG.info("import_apt_cache")
     API(
         api_cache_dir=Path(conf["api"]["cache_dir"]),
         email="",
@@ -237,26 +248,46 @@ def import_apt_cache(conf: dict):
 
 def debug():
     """debugging, ignore it"""
+    LOG.info("debug")
+    api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
+    md = Metadata(
+        csv_path="/data/microtaxo/allthebacteria_sample/metadata/ena_metadata.tsv",
+        api=api,
+        start_loaded=True,
+    )
+    reader = Reader(md, num_workers=8)
+    db = Database(
+        kmer_size=4,
+        window_size=10000,
+        step=3000,
+        full=False,
+        dbs_path="/data/microtaxo/dbs",
+        reader=reader,
+    )
+    db.push_file(
+        "/data/microtaxo/allthebacteria_sample/assembly/actinobacillus_lignieresii__01.asm.tar.xz"
+    )
+    pass
 
     # mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
 
-    api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
-    db = Database("/data/microtaxo/db_full_4", api)
-    db.index_by_rank("phylum")
-    matgen = db.make_dmatrix(rank="phylum", normalize="min_max", batch_size=100)
-    tax_id_classes = db.get_tax_id_classes("phylum")
-    model = XGBoostModel(api=api, use_gpu=False)
-    res = model.train(matgen, kfold=None, tax_id_classes=tax_id_classes)
+    # api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
+    # db = Database("/data/microtaxo/db_full_4", api)
+    # db.index_by_rank("phylum")
+    # matgen = db.make_dmatrix(rank="phylum", normalize="min_max", batch_size=100)
+    # tax_id_classes = db.get_tax_id_classes("phylum")
+    # model = XGBoostModel(api=api, use_gpu=False)
+    # res = model.train(matgen, kfold=None, tax_id_classes=tax_id_classes)
 
-    report_header = {
-        "header": {
-            "Rang": "phylum",
-        }
-    }
-    model.save_report(
-        dir_path="wisp_allthebacteria/out/report1", additional_data=report_header
-    )
-    print(res)
+    # report_header = {
+    #     "header": {
+    #         "Rang": "phylum",
+    #     }
+    # }
+    # model.save_report(
+    #     dir_path="wisp_allthebacteria/out/report1", additional_data=report_header
+    # )
+    # print(res)
 
     # db = Database("/data/microtaxo/db_full_4", api)
     # mat = db.make_dmatrix("phylum", sample_limit_by_tax_id=None, normalize="min_max")
@@ -357,6 +388,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     conf = load_config(Path(args.json))
+
+    config_logger(**conf["log"])
 
     if args.populate_api_cache:
         populate_api_cache(conf)

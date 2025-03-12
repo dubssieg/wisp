@@ -10,10 +10,12 @@
     },
     "db":{
         "kmer_size": 4,
-        "full": true,
-        "window_size": 0,
-        "num_windows": 0,
-        "output_dir": "/projects/microtaxo/exp_allthebacteria/dbs/db_full_4"
+        "path": "/projects/microtaxo/exp_allthebacteria/dbs",
+        "full": false,
+        "window_size": 10000,
+        "step": 8000,
+        "create_db_workers": 50,
+        "sequences_threads": 4    
     },
     "model":{
         "gpu": false,
@@ -27,5 +29,13 @@
     },
     "report":{
         "default_reports_dir": "/projects/microtaxo/exp_allthebacteria/reports"
+    },
+    "log":{
+        "log_path": "/projects/microtaxo/exp_allthebacteria/logs/log.txt",
+        "terminal_level": "warning",
+        "file_level": "debug",
+        "file_size": 10000000,
+        "file_count": 3,
+        "ignore_list": ["matplotlib"]
     }
 }

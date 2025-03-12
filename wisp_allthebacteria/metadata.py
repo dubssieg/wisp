@@ -6,10 +6,12 @@ from tqdm.auto import tqdm
 
 
 class Metadata:
-    def __init__(self, csv_path: str | Path, api: API):
+    def __init__(self, csv_path: str | Path, api: API, start_loaded: bool = False):
         self._csv_path = Path(csv_path)
         self._md = None
         self._api = api
+        if start_loaded:
+            self.md
 
     @property
     def md(self):
