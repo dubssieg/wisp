@@ -1,7 +1,10 @@
 import json
 import logging
-
 from numpy import argmax, amax, mean, ndarray,array, vectorize
+import sys
+sys.path.append('..')
+from wisp.wisp_light.dataset.RefSeqDataset import TAXO_LEVELS
+
 
 def softmax(predictions: ndarray, func: str, reads_threshold: float) -> list:
     """Given a set of predictions, computes the consensus within it by ignoring some low-signifiance scores.
@@ -90,8 +93,7 @@ def extract_majority_classification(sequence):
     Returns:
         dict: Dictionnaire avec la classification majoritaire pour chaque niveau.
     """
-    classification_order = ['domain', 'phylum', 'group', 'order', 'family']
-    classification = dict(zip(classification_order, [None] * len(classification_order)))
+    classification = dict(zip(TAXO_LEVELS, [None] * len(TAXO_LEVELS)))
 
     # Niveau de classification pour chaque taxon (ordre défini)
 
@@ -103,8 +105,8 @@ def extract_majority_classification(sequence):
             if isinstance(value, dict):  # Si la valeur est un sous-dictionnaire
                 major_taxon = max(value.items(), key=lambda x: x[1])[0]
                 # Assigner le taxon majoritaire selon l'ordre des clés
-                if classification[classification_order[id_level]] is None:
-                    classification[classification_order[id_level]] = major_taxon
+                if classification[TAXO_LEVELS[id_level]] is None:
+                    classification[TAXO_LEVELS[id_level]] = major_taxon
 
     return classification
 
