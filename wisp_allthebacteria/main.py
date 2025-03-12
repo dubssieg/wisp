@@ -249,11 +249,11 @@ def import_apt_cache(conf: dict):
 def debug():
     """debugging, ignore it"""
     LOG.info("debug")
-    api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
+    api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", can_download=True)
     md = Metadata(
         csv_path="/data/microtaxo/allthebacteria_sample/metadata/ena_metadata.tsv",
         api=api,
-        start_loaded=True,
+        start_loaded=False,
     )
     reader = Reader(md, num_workers=8)
     db = Database(
@@ -264,6 +264,7 @@ def debug():
         dbs_path="/data/microtaxo/dbs",
         reader=reader,
     )
+    db.get_info()
     db.push_file(
         "/data/microtaxo/allthebacteria_sample/assembly/actinobacillus_lignieresii__01.asm.tar.xz"
     )

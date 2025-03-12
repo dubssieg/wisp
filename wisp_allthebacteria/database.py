@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 import sys
+import threading
 from typing import Literal
 
 from diskcache import Cache
@@ -33,6 +34,7 @@ class Database:
         self._window_size = window_size
         self._step = step
         self._full = full
+        self._db_lock = threading.Lock()
         self.clean()
 
     def get_info(self) -> dict:
@@ -47,7 +49,7 @@ class Database:
         return {"tax_ids": tax_ids}
 
     def clean(self):
-        """undo unfinished transactions"""
+        """Undo unfinished transactions"""
         md_db = self._get_db(db_type="md")
         if CURRENT_TRANSACTION in md_db:
             LOG.warning(
@@ -92,63 +94,69 @@ class Database:
             full=self._full,
         )
         LOG.debug(f"File processed: {file_path}, start transaction")
-        # from utils import deserialize
-        # data = deserialize("wisp_allthebacteria/out/data.pkl")
 
-        # mark transaction
-        md_db[CURRENT_TRANSACTION] = data
-        last_valid_ids = {}
+        db_thread = threading.Thread(target=self._add_data_to_db, kwargs={"data": data})
+        db_thread.start()
 
-        merged_data = data["merged_data"]
-        # warning, tax_id is a str
-        LOG.debug(f"Add data to: {self.get_db_path()}")
-        for tax_id, tdata in tqdm(
-            merged_data.items(), desc=f"Pushing {archive}", position=1, leave=False
-        ):
-            tax_id = self._parse_tax_id(tax_id)
-            last_valid_id = self._get_last_valid_id(tax_id)
-            counters = tdata["counters"]
-            sources = tdata["sources"]
-            counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-            source_db = self._get_db(db_type="source", tax_id=tax_id)
+    def _add_data_to_db(self, data):
+        with self._db_lock:
+            md_db = self._get_db(db_type="md")
+            md_db[CURRENT_TRANSACTION] = data
+            archives = md_db.get(ARCHIVES, [])
+            archive = data["archive"].stem.split(".")[0]
 
-            # populate and add batch of counters/sources
-            batch_counters = {}
-            batch_sources = {}
+            last_valid_ids = {}
 
-            for i, (source, counter) in tqdm(
-                enumerate(zip(sources, counters)),
-                desc="Adding counters and sources",
-                total=len(counters),
-                position=2,
-                leave=False,
+            merged_data = data["merged_data"]
+            # warning, tax_id is a str
+            LOG.debug(f"Add data to: {self.get_db_path()}")
+            for tax_id, tdata in tqdm(
+                merged_data.items(), desc=f"Pushing {archive}", position=1, leave=False
             ):
-                current_id = last_valid_id + i + 1
-                batch_counters[current_id] = counter
-                batch_sources[current_id] = source
+                tax_id = self._parse_tax_id(tax_id)
+                last_valid_id = self._get_last_valid_id(tax_id)
+                counters = tdata["counters"]
+                sources = tdata["sources"]
+                counter_db = self._get_db(db_type="counter", tax_id=tax_id)
+                source_db = self._get_db(db_type="source", tax_id=tax_id)
 
-            LOG.debug(f"Pushing {len(batch_counters)} counters to DB")
-            with counter_db.transact():
-                for current_id, counter in tqdm(
-                    batch_counters.items(), desc="Counters", position=3, leave=False
-                ):
-                    counter_db[current_id] = counter
-            LOG.debug(f"Pushing {len(batch_sources)} sources to DB")
-            with source_db.transact():
-                for current_id, source in tqdm(
-                    batch_sources.items(), desc="Sources", position=3, leave=False
-                ):
-                    source_db[current_id] = source
-            LOG.debug("Counters and sources successfully added")
+                # populate and add batch of counters/sources
+                batch_counters = {}
+                batch_sources = {}
 
-        LOG.debug(f"Data added: {self.get_db_path()}, ending transaction")
-        # end transaction
-        del md_db[CURRENT_TRANSACTION]
-        for tax_id, last_valid_id in last_valid_ids.items():
-            self._set_last_valid_id(tax_id=tax_id, last_valid_id=last_valid_id)
-        archives.append(archive)
-        md_db[ARCHIVES] = archives
-        LOG.debug("Transaction ended successfully")
+                for i, (source, counter) in tqdm(
+                    enumerate(zip(sources, counters)),
+                    desc="Adding counters and sources",
+                    total=len(counters),
+                    position=2,
+                    leave=False,
+                ):
+                    current_id = last_valid_id + i + 1
+                    batch_counters[current_id] = counter
+                    batch_sources[current_id] = source
+
+                LOG.debug(f"Pushing {len(batch_counters)} counters to DB")
+                with counter_db.transact():
+                    for current_id, counter in tqdm(
+                        batch_counters.items(), desc="Counters", position=3, leave=False
+                    ):
+                        counter_db[current_id] = counter
+                LOG.debug(f"Pushing {len(batch_sources)} sources to DB")
+                with source_db.transact():
+                    for current_id, source in tqdm(
+                        batch_sources.items(), desc="Sources", position=3, leave=False
+                    ):
+                        source_db[current_id] = source
+                LOG.debug("Counters and sources successfully added")
+
+            LOG.debug(f"Data added: {self.get_db_path()}, ending transaction")
+            # end transaction
+            del md_db[CURRENT_TRANSACTION]
+            for tax_id, last_valid_id in last_valid_ids.items():
+                self._set_last_valid_id(tax_id=tax_id, last_valid_id=last_valid_id)
+            archives.append(archive)
+            md_db[ARCHIVES] = archives
+            LOG.debug("Transaction ended successfully")
 
     def _get_last_valid_id(self, tax_id: int) -> int:
         """Get last inserted id"""
