@@ -39,14 +39,25 @@ class Database:
 
     def get_info(self) -> dict:
         """Get DB infos: tax_ids, number of counters, etc."""
-        # TODO: get more data
-        counters_dir = self.get_db_path() / "counters"
+        # tax_ids
+        counters_dir = self.get_db_path() / "counter"
         tax_ids = [
             int(dir.name)
             for dir in counters_dir.iterdir()
             if dir.is_dir() and dir.name.isdigit()
         ]
-        return {"tax_ids": tax_ids}
+
+        # archives pushed
+        md_db = self._get_db(db_type="md")
+        archives = md_db.get(ARCHIVES, [])
+
+        # counters for each tax_id
+        counters = {}
+        for tax_id in tax_ids:
+            counter_db = self._get_db(db_type="counter", tax_id=tax_id)
+            counters[tax_id] = len(counter_db)
+
+        return {"tax_ids": tax_ids, "archives": archives, "counters": counters}
 
     def clean(self):
         """Undo unfinished transactions"""

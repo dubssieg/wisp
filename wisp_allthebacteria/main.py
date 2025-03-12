@@ -259,7 +259,7 @@ def debug():
     db = Database(
         kmer_size=4,
         window_size=10000,
-        step=3000,
+        step=5000,
         full=False,
         dbs_path="/data/microtaxo/dbs",
         reader=reader,
@@ -306,7 +306,7 @@ def debug():
 
 
 if __name__ == "__main__":
-    # debug()
+    debug()
 
     parser = argparse.ArgumentParser(
         description="AllTheBacteria Database Scripts",
