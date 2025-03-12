@@ -66,7 +66,8 @@ class RefSeqDataset:
 
 if __name__ == '__main__':
     index_csv = 'complete_refseq_referent_genome_with_taxo.tsv'
-    datadir = '/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1'
+    datadir = '/projects/microtaxo/data/refseq2'
+    # datadir = '/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1'
     ds = RefSeqDataset(index_csv,datadir)
 
     # print(ds.index_with_label['file'])

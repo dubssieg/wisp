@@ -26,8 +26,9 @@ parser.add_argument("--exp_rootdir", type=str, default=os.path.abspath('../../ex
 parser.add_argument("--db_json", type=str, default=None, help="Fichier JSON de la base de données existante.")
 
 args = parser.parse_args()
-args.index_csv = "/home/hcourtei/Projects/MicroTaxo/codes/wisp/wisp_light/import_dataset/refseq2/complete_refseq_referent_genome_with_taxo.tsv"
-args.datadir = '/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1'
+print("current working directory: ", os.getcwd())
+args.index_csv = "../dataset/complete_refseq_referent_genome_with_taxo.tsv"
+args.datadir = '/projects/microtaxo/data/refseq2' # '/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1' #  #
 
 # args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/refseq_with_taxo_merged"
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
