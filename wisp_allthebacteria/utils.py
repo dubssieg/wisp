@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import pickle
 from typing import Any
-
+import concurrent.futures
 import psutil
 
 
@@ -112,6 +112,15 @@ def cpu_count(needed: str | int = 8) -> int:
         raise RuntimeError(f"Cannot get cpu count with: {needed}")
 
 
+class BrokenProcessPoolFilter(logging.Filter):
+    def filter(self, record):
+        if record.exc_info:
+            exc_type = record.exc_info[0]
+            if issubclass(exc_type, concurrent.futures.process.BrokenProcessPool):
+                record.exc_text = None
+        return True
+
+
 def config_logger(
     log_path: str | Path,
     terminal_level: str,
@@ -145,6 +154,7 @@ def config_logger(
     )
     file_handler.setFormatter(formatter)
     file_handler.setLevel(getattr(logging, file_level.upper()))
+    file_handler.addFilter(BrokenProcessPoolFilter())
     logger.addHandler(file_handler)
 
     for module in ignore_list:
