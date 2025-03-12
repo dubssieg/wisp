@@ -9,6 +9,7 @@ import traceback
 from Bio import SeqIO
 from tqdm.auto import tqdm
 from metadata import Metadata
+from utils import system_stats
 
 LOG = logging.getLogger(__name__)
 
@@ -64,8 +65,9 @@ class Reader:
     ):
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()
-        LOG.debug(f"Processing archive file: {archive_path}")
-
+        LOG.debug(
+            f"Processing archive file: {archive_path}, before: {system_stats(as_str=True)}"
+        )
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir).resolve()
             with tarfile.open(archive_path, "r:xz") as tar:
@@ -111,7 +113,9 @@ class Reader:
                     except Exception as e:
                         LOG.exception(f"Error processing {future_to_file[future]}: {e}")
 
-        LOG.debug(f"Archive file: {archive_path} DONE")
+        LOG.debug(
+            f"Archive file: {archive_path} DONE, after: {system_stats(as_str=True)}"
+        )
         return {"archive": archive_path, "merged_data": merged_data}
 
     def process_fasta(
@@ -124,7 +128,9 @@ class Reader:
     ) -> dict:
         """Process a FASTA file using multithreading."""
         file_path = Path(file_path).resolve()
-        LOG.debug(f"Processing FASTA file: {file_path}")
+        LOG.debug(
+            f"Processing FASTA file: {file_path}, before: {system_stats(as_str=True)}"
+        )
 
         sequences = self._read_fasta(file_path)
         tax_id_to_data = {}
@@ -167,7 +173,7 @@ class Reader:
                 except Exception as e:
                     LOG.exception(f"Error processing sequence in {file_path}: {e}")
 
-        LOG.debug(f"FASTA file: {file_path} DONE")
+        LOG.debug(f"FASTA file: {file_path} DONE, after: {system_stats(as_str=True)}")
         return tax_id_to_data
 
     @staticmethod

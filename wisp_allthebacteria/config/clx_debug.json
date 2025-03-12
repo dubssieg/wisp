@@ -14,8 +14,8 @@
         "full": false,
         "window_size": 10000,
         "step": 5000,
-        "create_db_workers": "max_minus_2",
-        "sequences_threads": 4
+        "create_db_workers": 8,
+        "sequences_threads": 2
     },
     "model":{
         "gpu": false,

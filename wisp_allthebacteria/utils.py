@@ -40,14 +40,31 @@ def get_current_datetime_string() -> str:
     return datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
 
-def system_stats() -> dict:
+def system_stats(as_str: bool = False) -> dict:
     mem_info = psutil.virtual_memory()
-    return {
-        "cpu_usage": psutil.cpu_percent(interval=1),
+    load_avg = psutil.getloadavg()
+    num_cpus = psutil.cpu_count()
+
+    stats = {
+        "load_avg_1min": load_avg[0],
+        "load_avg_5min": load_avg[1],
+        "load_avg_15min": load_avg[2],
+        "num_cpus": num_cpus,
         "ram_usage_percent": mem_info.percent,
         "total_ram": mem_info.total,
         "used_ram": mem_info.used,
     }
+
+    if as_str:
+        return (
+            f"Load Avg (1/5/15 min): {load_avg[0]:.2f}/{load_avg[1]:.2f}/{load_avg[2]:.2f}, "
+            f"CPUs: {num_cpus}, "
+            f"RAM Usage: {mem_info.percent:.2f}%, "
+            f"Total RAM: {format_size(mem_info.total)}, "
+            f"Used RAM: {format_size(mem_info.used)}"
+        )
+
+    return stats
 
 
 def serialize(obj: Any, path: str | Path):
@@ -75,6 +92,8 @@ def cpu_count(needed: str | int = 8) -> int:
         return max_cpu - 1
     elif needed == "max_minus_2" and max_cpu > 2:
         return max_cpu - 2
+    elif needed == "half":
+        return max_cpu // 2
     else:
         raise RuntimeError(f"Cannot get cpu count with: {needed}")
 
@@ -116,3 +135,8 @@ def config_logger(
 
     for module in ignore_list:
         logging.getLogger(module).setLevel(logging.CRITICAL)
+
+
+if __name__ == "__main__":
+    print(system_stats())
+    print(system_stats(as_str=True))
