@@ -4,13 +4,17 @@ from copy import copy
 from xgboost import DMatrix, train
 from xgboost.core import XGBoostError
 import uuid
+import sys
+sys.path.append('..')
+from wisp.wisp_light.dataset.RefSeqDataset import TAXO_LEVELS
 
-
+# TAXO_LEVELS  = ['root', 'phylum', 'class', 'order', 'family']
 
 def make_model(output_dir: str, database: dict, params: dict, logger,  taxo_level: str, taxo_target: str) :
     """Builds the model and saves it"""
     # Creating the booster
-    levels = ["root", "domain", "phylum", "group", "order", "family", "specie"]
+    # levels_old = ["root", "domain", "phylum", "group", "order", "family", "specie"]
+    levels  = ['root'] + TAXO_LEVELS #, 'phylum', 'class', 'order', 'family']
     level_up: int = levels.index(taxo_level) + 1
     next_level: str = levels[level_up]
 

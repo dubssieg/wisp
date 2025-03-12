@@ -2,7 +2,9 @@ from collections import defaultdict
 from sklearn.metrics import confusion_matrix
 import numpy as np
 import pandas as pd
-
+import sys
+sys.path.append('..')
+from wisp.wisp_light.dataset.RefSeqDataset import TAXO_LEVELS
 
 class ConfusionMatrixTracker:
     def __init__(self):
@@ -18,7 +20,7 @@ class ConfusionMatrixTracker:
             true_labels (dict): {niveau: classe_vraie}
             pred_labels (dict): {niveau: classe_prédite}
         """
-        for level in ['domain', 'phylum', 'group', 'order', 'family']:
+        for level in TAXO_LEVELS:
             true_value = true_labels.get(level)
             pred_value = pred_labels.get(level)
 

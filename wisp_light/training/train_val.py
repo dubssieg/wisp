@@ -2,20 +2,18 @@ import argparse
 import os
 import sys
 import time
-
 import yaml
 import logging
-from datetime import datetime
-
 import mlflow
+from datetime import datetime
 
 from utils import setup_logger
 from create_database import check_parameters, build_database, load_phylo_tree
 from training_functions import train_model_targets, validate
 
 sys.path.append('../../..')
-from wisp.wisp_light.dataset.bactero_set import BacteriaDataset
-
+from wisp.wisp_light.dataset.RefSeqDataset import RefSeqDataset
+# from wisp.wisp_light.dataset.bactero_set import BacteriaDataset
 
 parser = argparse.ArgumentParser(description="Script d'entraînement pour le modèle bactérien.")
 parser.add_argument("--exp_name", type=str, default="model_base", help="Nom de l'expérience.")
@@ -25,9 +23,11 @@ parser.add_argument("--exp_rootdir", type=str, default=os.path.abspath('../../ex
 parser.add_argument("--db_json", type=str, default=None, help="Fichier JSON de la base de données existante.")
 
 args = parser.parse_args()
+print("current working directory: ", os.getcwd())
+args.index_csv = "../dataset/complete_refseq_referent_genome_with_taxo.tsv"
+args.datadir = '/projects/microtaxo/data/refseq2' # '/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1' #  #
 
-# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
-args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/refseq_with_taxo_merged"
+# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/refseq_with_taxo_merged"
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
 if args.db_json:
     exp_dir = os.path.dirname(args.db_json)
@@ -61,12 +61,14 @@ with mlflow.start_run():
 
     logger.info(f"Fichier {args.params_file} copié dans {params_copy_path}")
 
-    dataset = BacteriaDataset(args.datadir, logger)
-    dataset.filter_family_by_min_species(min_family_threshold=params['min_family_threshold'],
-                                         max_family_repr=params['max_family_repr'])
+    # dataset = BacteriaDataset(args.datadir, logger)
+    # dataset.filter_family_by_min_species(min_family_threshold=params['min_family_threshold'],
+    #                                      max_family_repr=params['max_family_repr'])
+    dataset = RefSeqDataset(args.index_csv, args.datadir)
 
-    train_files_list, val_files_list = dataset.train_test_split(test_size=params['test_size'],
-                                                                random_state=params['random_state'])
+    train_dataset, val_dataset = dataset.split(test_size=0.2, random_state=42)
+    # train_files_list, val_files_list = dataset.train_test_split(test_size=params['test_size'],
+    #                                                             random_state=params['random_state'])
 
     if  args.db_json:
 
@@ -74,16 +76,16 @@ with mlflow.start_run():
         logger.info(f"Reload database json {nb_genome_indexed} genomes indexed from {exp_dir} ")
 
     else:
-        logger.info(f"Starting database creation for {len(train_files_list)} genome files ")
+        logger.info(f"Starting database creation for {len(train_dataset)} genome files ")
         start_database = time.time()
         database_json = os.path.join(exp_dir, 'databases.json')
-        phylo_tree = build_database(train_files_list, params, database_json, logger)
+        phylo_tree = build_database(train_dataset, params, database_json, logger)
         database_time = round((time.time() - start_database))
         logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
 
     train_model_targets(phylo_tree,  exp_dir, params, logger, num_processes=params['num_processes'])
-
-    validate(val_files_list, exp_dir, params,logger, num_processes=params['num_processes'])
+    #
+    validate(val_dataset, exp_dir, params,logger, num_processes=params['num_processes'])
 
 
 

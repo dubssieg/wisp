@@ -21,14 +21,14 @@ parser.add_argument("--exp_rootdir", type=str, default=os.path.abspath('../../ex
 parser.add_argument("--db_json", type=str, default=None, help="Fichier JSON de la base de données existante.")
 
 args = parser.parse_args()
-args.datadir ="/projects/microtaxo/data/refseq_with_taxo_merged"
-# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
+#args.datadir ="/projects/microtaxo/data/refseq_with_taxo_merged"
+args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
 # args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/refseq_with_taxo_merged"
 # args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/refseq_with_taxo_merged"
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
 
-# exp_dir = "/home/hcourtei/Projects/MicroTaxo/codes/wisp/exp/model_base_03_07_16_10/"
-exp_dir = "/projects/microtaxo/exp_refseq/model_base_02_24_15_18"
+exp_dir = "/home/hcourtei/Projects/MicroTaxo/codes/wisp/exp/model_base_03_07_16_10/"
+#exp_dir = "/projects/microtaxo/exp_refseq/model_base_02_24_15_18"
 
 os.makedirs(exp_dir, exist_ok=True)
 log_file = f"{exp_dir}/eval_{day_month_min}.log"

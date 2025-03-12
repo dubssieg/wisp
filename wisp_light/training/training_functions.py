@@ -13,26 +13,25 @@ import mlflow
 
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 from create_model import make_model
-from create_database import check_parameters
 from create_prediction import prediction
 from utils import  extract_majority_classification, setup_logger
 from metrics import ConfusionMatrixTracker, compute_accuracy_from_conf_matrix_df
 
 sys.path.append('../../..')
-from wisp.wisp_light.dataset.bactero_set import TAXO_LEVELS
 from wisp.wisp_light.visu.plots_tools import plot_conf_mat
+from wisp.wisp_light.dataset.RefSeqDataset import TAXO_LEVELS
 
+# TAXO_LEVELS  = ['root', 'phylum', 'class', 'order', 'family']
 
 def train_model_targets(phylo_tree, exp_dir, params, logger, num_processes=4):
     start_model = time.time()
 
-    levels = ['root', 'domain', 'phylum', 'group', 'order']
+    # levels = ['root', 'phylum', 'class', 'order']
 
     nodes_per_level: dict = {
         level: [node.tag for node in list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))]
-        for i, level in enumerate(levels)}  # jusqu'à order (drop family level)
+        for i, level in enumerate(['root']+ TAXO_LEVELS[:-1])}  # jusqu'à order (drop family level)
 
     # display_json_preview(output_file, num_elements=1)
     with open(f'{exp_dir}/databases.json', 'r', encoding='utf-8') as jdb:
@@ -87,9 +86,9 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, num_processes=4):
 
 
 
-def validate(input_files, exp_dir,  params, logger,  num_processes=4, save_raw_pred=False):
+def validate(val_dataset, exp_dir,  params, logger,  num_processes=4, save_raw_pred=False):
     start_validation = time.time()
-    logger.info(f"Start evaluation for {len(input_files)} genome files")
+    logger.info(f"Start evaluation for {len(val_dataset)} genome files")
 
     metrics = ConfusionMatrixTracker()
 
@@ -103,13 +102,13 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4, save_raw_p
     model_dir = os.path.join(exp_dir,"model")
     process_genome_partial = partial(process_genome, phylo_tree=phylo_tree, model_dir=model_dir,
                                      params=params, val_dir=val_dir, logger=logger, metrics=metrics,
-                                     num_processes=num_processes, save_raw_pred=save_raw_pred)
+                                     save_raw_pred=save_raw_pred)
 
 
     # Parallelize across genomes
     with ThreadPoolExecutor(max_workers=num_processes) as executor:
         # Submit the processing of each genome as a task to the executor
-        futures = [executor.submit(process_genome_partial, genome) for genome in input_files]
+        futures = [executor.submit(process_genome_partial, sample) for sample in val_dataset]
 
         for future in tqdm(as_completed(futures), total=len(futures), desc="Predicting Genomes"):
             future.result()  #Handle exceptions by raising them if any
@@ -119,18 +118,17 @@ def validate(input_files, exp_dir,  params, logger,  num_processes=4, save_raw_p
     logger.info(f"Finished validation  in {validation_time} s")
 
 
-def process_genome(genome, phylo_tree, model_dir, params, val_dir, logger, metrics, num_processes, save_raw_pred):
-    base_name = os.path.basename(genome).split('.')[0]
-    taxons = base_name.split('_')
+def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, metrics, save_raw_pred):
+    genome, gt_taxons = sample
+    # base_name = os.path.basename(genome).split('.')[0]
+    # taxons = base_name.split('_')
     logger.debug('-' * 60)
-    logger.debug(f" -> Predicting for file {base_name}")
+    logger.debug(f" -> Predicting for file {genome}")
 
     # Ensure there are at least 6 taxonomic levels
-    if len(taxons) < len(TAXO_LEVELS):
+    if not list(gt_taxons.keys()) == TAXO_LEVELS :
         raise ValueError(f"Genome file '{genome}' must contain at least {len(TAXO_LEVELS)} "
                          f"taxonomic levels separated by underscores.")
-
-    gt_taxons = dict(zip(TAXO_LEVELS, taxons[:6]))
 
     with open(genome, 'r', encoding='utf-8') as freader:
         genome_data = {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')}
@@ -168,7 +166,7 @@ def log_val_metrics(metrics, val_dir, logger):
     logger.info("=" * 60)
     logger.info("VALIDATION metrics")
 
-    for id_level, level in enumerate(TAXO_LEVELS[:-1]):
+    for id_level, level in enumerate(TAXO_LEVELS):
         conf_mat_level = all_val_conf_matrix[level]
         accuracy_level = compute_accuracy_from_conf_matrix_df(conf_mat_level)
         mlflow.log_metric(f"accuracy_{level}", accuracy_level)
@@ -193,20 +191,20 @@ if __name__=='__main__':
     datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
     exp_dir = os.path.abspath('../../../exp/model_laptop')
     #
-    input_files = [os.path.abspath(os.path.join(dirpath, f))
-                   for dirpath, _, filenames in os.walk(datadir)
-                   for f in filenames]
-
-    with open(params_file, 'r') as file:
-        params = yaml.safe_load(file)
-
-    check_parameters(params)
-    all_val_conf_matrix = validate(input_files, exp_dir, params, num_processes=4)
-
-    print("Validation Metrics")
-    for level in TAXO_LEVELS[:-1]:
-        conf_mat_level = all_val_conf_matrix[level]
-        accuracy_level = compute_accuracy_from_conf_matrix_df(conf_mat_level)
-        print(f" level {level}, accuracy {accuracy_level}" )
-        print(conf_mat_level.to_markdown())
+    # input_files = [os.path.abspath(os.path.join(dirpath, f))
+    #                for dirpath, _, filenames in os.walk(datadir)
+    #                for f in filenames]
+    #
+    # with open(params_file, 'r') as file:
+    #     params = yaml.safe_load(file)
+    #
+    # check_parameters(params)
+    # all_val_conf_matrix = validate(input_files, exp_dir, params, num_processes=4)
+    #
+    # print("Validation Metrics")
+    # for level in TAXO_LEVELS[:-1]:
+    #     conf_mat_level = all_val_conf_matrix[level]
+    #     accuracy_level = compute_accuracy_from_conf_matrix_df(conf_mat_level)
+    #     print(f" level {level}, accuracy {accuracy_level}" )
+    #     print(conf_mat_level.to_markdown())
 

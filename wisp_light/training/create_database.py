@@ -13,11 +13,14 @@ from treelib.exceptions import DuplicatedNodeIdError
 from tqdm import tqdm
 from utils import setup_logger
 from collections import defaultdict
+import sys
+sys.path.append('..')
+from wisp.wisp_light.dataset.RefSeqDataset import TAXO_LEVELS
 
-TAXO_LEVELS = ["domain", "phylum", "group", "order", "family"]
 
+# TAXO_LEVELS  = ['root', 'phylum', 'class', 'order', 'family']
 
-
+TAXO_LEVELS =  ['phylum', 'class', 'order', 'family']
 
 def load_phylo_tree(databse_json: str) :
     with open(databse_json, 'r', encoding='utf-8') as f:
@@ -56,7 +59,7 @@ def load_phylo_tree(databse_json: str) :
     nb_genome_indexed = len(db_data['datas'])
     return phylo_tree, nb_genome_indexed
 
-def build_database(input_file_list: list[str], params: dict, database_json: str , logger) ->  Tree:
+def build_database(train_dataset: list[str], params: dict, database_json: str , logger) ->  Tree:
     """Builds a json file with taxa levels as dict information"""
     # creating encoder
     my_encoder: dict = encoder(ksize=params['ksize'])
@@ -74,7 +77,8 @@ def build_database(input_file_list: list[str], params: dict, database_json: str 
 
         total_dna_length = 0
         total_nb_count_win = 0
-        for id_genome, genome in (pbar:= tqdm(enumerate(input_file_list))):
+        for id_genome, sample in (pbar:= tqdm(enumerate(train_dataset))):
+            genome, taxonomy = sample
             # pbar.set_description(f"Genome {path.basename(genome)}")
             with open(genome, 'r', encoding='utf-8') as freader:
                 # genome_data: list = [str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')]
@@ -93,7 +97,7 @@ def build_database(input_file_list: list[str], params: dict, database_json: str 
                 encoded: list[dict] = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
                 del counters
                 # Dumping in output file
-                taxonomy, phylo_tree = taxonomy_information(genome, phylo_tree)
+                phylo_tree = taxonomy_information(taxonomy, phylo_tree)
 
                 logger.debug("-"*60)
                 logger.debug(f"\nTaxo {taxonomy}")
@@ -130,8 +134,8 @@ def build_database(input_file_list: list[str], params: dict, database_json: str 
                     new_tag = taxa_codes[level][node.tag]
                     logger.debug(f"for NODE tag {node.tag} get node.data.code {new_tag}")
                     node.data.code = new_tag
-        avg_dna_length = int(total_dna_length / len(input_file_list))
-        avg_nb_count_win = int(total_nb_count_win / len(input_file_list))
+        avg_dna_length = int(total_dna_length / len(train_dataset))
+        avg_nb_count_win = int(total_nb_count_win / len(train_dataset))
         logger.info(f"avg_nb_count_win {avg_nb_count_win} avg_dna_length {avg_dna_length:,d}".replace(",", " "))
     return phylo_tree
 
@@ -344,14 +348,18 @@ def encode_kmer(kmer: str) -> int:
     return int(''.join([mapper[k] for k in kmer]))
 
 
-def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tree]:
+def taxonomy_information(taxo_dict:dict, tree_struct: Tree) ->  Tree:
     """Returns taxonomy position information"""
-    taxa_family = ['root'] + TAXO_LEVELS
-    only_name_file = os.path.splitext(os.path.basename(genome_path))[0]
+    # genome_path = "Bacteria_Pseudomonadati_Bacteroidota_Flavobacteriales_Elizabethkingia_meningoseptica.fna"
+    # taxa_family_old = ['root'] + TAXO_LEVELS[1:]
+    assert list(taxo_dict.keys()) == TAXO_LEVELS
+    taxa_family = ['root'] + list(taxo_dict.keys())
+    # only_name_file = os.path.splitext(os.path.basename(genome_path))[0]
     # example 'Bacteria_Campylobacterota_Epsilonproteobacteria_Campylobacterales_Campylobacter_hyointestinalis'
-    taxo_info: list = only_name_file.split('_')[:5] # only 5 first
+    # taxo_info: list = only_name_file.split('_')[:5] # only 5 first
     # ['Bacteria', 'Campylobacterota', 'Epsilonproteobacteria', 'Campylobacterales', 'Campylobacter']
-    parents = ['Root'] + taxo_info
+    # parents_old = ['Root'] + taxo_info
+    parents = ['Root'] + list(taxo_dict.values())
 
     for i, x in enumerate(parents):
         # y = x
@@ -367,7 +375,7 @@ def taxonomy_information(genome_path: str, tree_struct: Tree) -> tuple[dict, Tre
                 # logger.error(f"Error: Duplicate node with  {os.path.basename(genome_path)}.  {e}")
                 pass
 
-    return dict(zip(TAXO_LEVELS, taxo_info)), tree_struct
+    return tree_struct # dict(zip(TAXO_LEVELS, taxo_info)),
 
 
 
