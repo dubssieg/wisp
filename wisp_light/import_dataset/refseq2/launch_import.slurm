@@ -14,6 +14,6 @@
 # Charger l'env
 . ~/envtaxo2/bin/activate
 
-python import_refseq.py --num_workers 5  --output_dir /projects/microtaxo/data/refseq2
+python import_refseq.py --num_workers 5  --output_dir /projects/microtaxo/data/refseq3
 
 

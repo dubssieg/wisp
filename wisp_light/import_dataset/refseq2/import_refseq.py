@@ -110,16 +110,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Téléchargement et décompression de fichiers génomiques.")
     parser.add_argument("--output_dir", type=str,
                         help="Répertoire de sortie pour les fichiers téléchargés et décompressés",
-                        default='/home/hcourtei/Projects/MicroTaxo/codes/wisp/wisp_light/import_dataset/refseq/out_refseq')
+                        default='/projects/microtaxo/data/refseq3')
     parser.add_argument("--csv_file", type=str, help="Fichier CSV contenant les chemins FTP",
-                        default="assembly_summary_Complete_Genome.csv")
+                        default="reference_genome_summary.tsv")
     parser.add_argument("--num_workers", type=int, default=5, help="Nombre de travailleurs pour le téléchargement et la décompression (par défaut 5)")
 
     args = parser.parse_args()
-    output_dir = '/wisp/wisp_light/import_dataset/refseq/out_refseq'
+    args.output_dir = '/wisp/wisp_light/import_dataset/refseq/out_refseq'
     # completed_csv_out = "assembly_summary_Complete_Genome.csv"
     completed_df = pd.read_csv(args.csv_file, sep="\t")
-    #
+
     # # Créer le répertoire de sortie si nécessaire
     os.makedirs(args.output_dir, exist_ok=True)
     #
