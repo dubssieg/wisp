@@ -61,9 +61,11 @@ def create_db(conf: dict):
         can_download=conf["api"]["can_download"],
     )
     md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
+    num_workers = cpu_count(conf["db"]["create_db_workers"])
+    LOG.info(f"Max CPUs: {cpu_count('max')}, using{num_workers}")
     reader = Reader(
         md,
-        num_workers=cpu_count(conf["db"]["create_db_workers"]),
+        num_workers=num_workers,
         sequences_threads=conf["db"]["sequences_threads"],
     )
 
@@ -105,8 +107,7 @@ def create_db(conf: dict):
             json_create_db["duration"][archive_path.name] = format_duration(duration)
 
         except Exception as e:
-            print(f"Error processing {archive_path.name}: {e}")
-            traceback.print_exc()
+            LOG.error(f"Error processing {archive_path.name}: {e}")
             if str(archive_path) not in json_create_db["incomplete"]:
                 json_create_db["incomplete"].append(str(archive_path))
 
@@ -306,7 +307,7 @@ def debug():
 
 
 if __name__ == "__main__":
-    # debug()
+    debug()
 
     parser = argparse.ArgumentParser(
         description="AllTheBacteria Database Scripts",

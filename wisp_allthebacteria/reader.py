@@ -35,7 +35,9 @@ class Reader:
     ) -> dict:
         """Just call process_archive of process_fasta, based on file suffix."""
         file_path = Path(file_path).resolve()
-        LOG.debug(f"processing file: {file_path}")
+        LOG.debug(
+            f"processing file: {file_path} with {self._num_workers} workers and {self._sequences_threads} threads/file"
+        )
         suffix = file_path.suffix
         if suffix == ".xz":
             return self.process_archive(
