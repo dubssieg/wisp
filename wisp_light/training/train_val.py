@@ -2,21 +2,18 @@ import argparse
 import os
 import sys
 import time
-
 import yaml
 import logging
-from datetime import datetime
-
 import mlflow
+from datetime import datetime
 
 from utils import setup_logger
 from create_database import check_parameters, build_database, load_phylo_tree
 from training_functions import train_model_targets, validate
-from wisp.wisp_light.dataset.RefSeqDataset import RefSeqDataset
 
 sys.path.append('../../..')
-from wisp.wisp_light.dataset.bactero_set import BacteriaDataset
-
+from wisp.wisp_light.dataset.RefSeqDataset import RefSeqDataset
+# from wisp.wisp_light.dataset.bactero_set import BacteriaDataset
 
 parser = argparse.ArgumentParser(description="Script d'entraînement pour le modèle bactérien.")
 parser.add_argument("--exp_name", type=str, default="model_base", help="Nom de l'expérience.")
