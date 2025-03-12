@@ -35,6 +35,17 @@ class Database:
         self._full = full
         self.clean()
 
+    def get_info(self) -> dict:
+        """Get DB infos: tax_ids, number of counters, etc."""
+        # TODO: get more data
+        counters_dir = self.get_db_path() / "counters"
+        tax_ids = [
+            int(dir.name)
+            for dir in counters_dir.iterdir()
+            if dir.is_dir() and dir.name.isdigit()
+        ]
+        return {"tax_ids": tax_ids}
+
     def clean(self):
         """undo unfinished transactions"""
         md_db = self._get_db(db_type="md")
