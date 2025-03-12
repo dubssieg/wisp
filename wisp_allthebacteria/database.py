@@ -40,7 +40,7 @@ class Database:
         md_db = self._get_db(db_type="md")
         if CURRENT_TRANSACTION in md_db:
             LOG.warning(
-                f"cleaning database {self.get_db_path()} (last transaction failed)"
+                f"Cleaning database {self.get_db_path()} (last transaction failed)"
             )
             data = md_db[CURRENT_TRANSACTION]
             merged_data = data["merged_data"]
@@ -59,7 +59,7 @@ class Database:
                         del source_db[current_id]
                         deleting = True
             del md_db[CURRENT_TRANSACTION]
-            LOG.warning("database cleaned")
+            LOG.warning("Database cleaned")
 
     def push_file(self, file_path: str | Path):
         """Add content."""
@@ -80,17 +80,17 @@ class Database:
             step=self._step,
             full=self._full,
         )
-        LOG.debug(f"file processed: {file_path}, start transaction")
+        LOG.debug(f"File processed: {file_path}, start transaction")
         # from utils import deserialize
         # data = deserialize("wisp_allthebacteria/out/data.pkl")
 
         # mark transaction
         md_db[CURRENT_TRANSACTION] = data
-        last_valid_ids = dict()
+        last_valid_ids = {}
 
         merged_data = data["merged_data"]
         # warning, tax_id is a str
-        LOG.debug(f"add data to: {self.get_db_path()}")
+        LOG.debug(f"Add data to: {self.get_db_path()}")
         for tax_id, tdata in tqdm(merged_data.items(), desc=f"Pushing {archive}"):
             tax_id = self._parse_tax_id(tax_id)
             last_valid_id = self._get_last_valid_id(tax_id)
@@ -109,14 +109,14 @@ class Database:
                 source_db[current_id] = source
                 last_valid_ids[tax_id] = current_id
 
-        LOG.debug(f"data added: {self.get_db_path()}, ending transaction")
+        LOG.debug(f"Data added: {self.get_db_path()}, ending transaction")
         # end transaction
         del md_db[CURRENT_TRANSACTION]
         for tax_id, last_valid_id in last_valid_ids.items():
             self._set_last_valid_id(tax_id=tax_id, last_valid_id=last_valid_id)
         archives.append(archive)
         md_db[ARCHIVES] = archives
-        LOG.debug("transaction ended successfully")
+        LOG.debug("Transaction ended successfully")
 
     def _get_last_valid_id(self, tax_id: int) -> int:
         """Get last inserted id"""
