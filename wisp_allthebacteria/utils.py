@@ -41,7 +41,22 @@ def get_current_datetime_string() -> str:
 
 
 def system_stats(as_str: bool = False) -> dict:
-    mem_info = psutil.virtual_memory()
+    current_process = psutil.Process(os.getpid())
+
+    # Current process and children RAM
+    mem_info = current_process.memory_info()
+    script_memory_usage = sum(
+        (child.memory_info().rss for child in current_process.children(recursive=True)),
+        start=mem_info.rss,
+    )
+
+    # System total RAM
+    total_system_memory = psutil.virtual_memory().total
+
+    # % Script RAM
+    script_memory_percent = (script_memory_usage / total_system_memory) * 100
+
+    # CPUs
     load_avg = psutil.getloadavg()
     num_cpus = psutil.cpu_count()
 
@@ -50,18 +65,17 @@ def system_stats(as_str: bool = False) -> dict:
         "load_avg_5min": load_avg[1],
         "load_avg_15min": load_avg[2],
         "num_cpus": num_cpus,
-        "ram_usage_percent": mem_info.percent,
-        "total_ram": mem_info.total,
-        "used_ram": mem_info.used,
+        "script_memory_usage": script_memory_usage,
+        "script_memory_percent": script_memory_percent,
+        "total_system_memory": total_system_memory,
     }
 
     if as_str:
         return (
-            f"Load Avg (1/5/15 min): {load_avg[0]:.2f}/{load_avg[1]:.2f}/{load_avg[2]:.2f}, "
-            f"CPUs: {num_cpus}, "
-            f"RAM Usage: {mem_info.percent:.2f}%, "
-            f"Total RAM: {format_size(mem_info.total)}, "
-            f"Used RAM: {format_size(mem_info.used)}"
+            f"RAM (Script): {format_size(script_memory_usage)} ({script_memory_percent:.2f}%), "
+            f"CPU (1/5/15 min): {load_avg[0]:.2f}/{load_avg[1]:.2f}/{load_avg[2]:.2f}"
+            # f"CPUs: {num_cpus}, "
+            # f"Total RAM: {format_size(total_system_memory)}"
         )
 
     return stats

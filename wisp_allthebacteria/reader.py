@@ -168,6 +168,7 @@ class Reader:
 
                 except Exception as e:
                     LOG.exception(f"Error processing sequence in {file_path}: {e}")
+                    raise
 
         LOG.debug(f"FASTA file: {file_path} DONE - {system_stats(as_str=True)}")
         return tax_id_to_data
@@ -180,11 +181,8 @@ class Reader:
         step: int,
         full: bool,
         md: dict,
-        # log_config: dict,
     ):
         """need to be static for ProcessPoolExecutor"""
-        # config_logger(**log_config)  # for new processes
-        # md = self._md[sequence["id"]]
         match len(md):
             case 0:
                 tax_id = "no-tax-id"
