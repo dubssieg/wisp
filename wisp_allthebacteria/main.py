@@ -64,7 +64,7 @@ def create_db(conf: dict):
     reader = Reader(
         md,
         num_workers=cpu_count(conf["db"]["create_db_workers"]),
-        max_parallel_fasta=conf["db"]["create_db_max_parallel_fasta"],
+        sequences_threads=conf["db"]["sequences_threads"],
     )
 
     db = Database(

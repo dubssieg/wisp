@@ -15,7 +15,7 @@
         "window_size": 10000,
         "step": 8000,
         "create_db_workers": "max_minus_2",
-        "create_db_max_parallel_fasta": 10        
+        "sequences_threads": 8    
     },
     "model":{
         "gpu": false,
@@ -31,7 +31,7 @@
         "default_reports_dir": "/projects/microtaxo/exp_allthebacteria/reports"
     },
     "log":{
-        "log_path": "/projects/microtaxo/exp_allthebacteria/logs",
+        "log_path": "/projects/microtaxo/exp_allthebacteria/logs/log.txt",
         "terminal_level": "warning",
         "file_level": "debug",
         "file_size": 10000000,

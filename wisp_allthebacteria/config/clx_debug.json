@@ -15,7 +15,7 @@
         "window_size": 10000,
         "step": 5000,
         "create_db_workers": "max_minus_2",
-        "create_db_max_parallel_fasta": 4
+        "sequences_threads": 4
     },
     "model":{
         "gpu": false,

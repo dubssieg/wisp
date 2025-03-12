@@ -1,5 +1,5 @@
 from collections import Counter
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from itertools import product
 import logging
 from pathlib import Path
@@ -9,7 +9,6 @@ import traceback
 from Bio import SeqIO
 from tqdm.auto import tqdm
 from metadata import Metadata
-from utils import config_logger
 
 LOG = logging.getLogger(__name__)
 
@@ -19,13 +18,11 @@ class Reader:
         self,
         metadata: Metadata,
         num_workers: int = 20,
-        max_parallel_fasta: int = 4,
-        log_config: dict = None,  # needed for new processes
+        sequences_threads: int = 4,
     ):
         self._md = metadata
         self._num_workers = num_workers
-        self._max_parallel_fasta = max_parallel_fasta
-        self._log_config = log_config
+        self._sequences_threads = sequences_threads
 
     def process_file(
         self,
@@ -67,27 +64,20 @@ class Reader:
     ):
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()
-        LOG.debug(f"processing archive file: {archive_path}")
+        LOG.debug(f"Processing archive file: {archive_path}")
+
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir).resolve()
             with tarfile.open(archive_path, "r:xz") as tar:
                 tar.extractall(path=temp_dir)
-                LOG.debug(f"archive extracted: {temp_dir}")
 
             extracted_files = list(temp_dir.rglob("*.fa"))
-            LOG.debug(f"archive extracted, {len(extracted_files)} files found")
+            LOG.debug(f"Archive extracted, {len(extracted_files)} FASTA files found")
 
             merged_data = {}
 
-            fasta_workers = min(self._max_parallel_fasta, len(extracted_files))
-            LOG.debug(f"fasta workers: {fasta_workers}")
-
-            # remaining workers to distribute for process_sequence
-            sequence_workers = max(
-                1, (self._num_workers - fasta_workers) // fasta_workers
-            )
-            LOG.debug(f"sequence workers: {sequence_workers}")
-            LOG.debug(f"starting process pool with {fasta_workers} workers")
+            fasta_workers = min(self._num_workers, len(extracted_files))
+            LOG.debug(f"Processing {fasta_workers} FASTA files in parallel")
 
             with ProcessPoolExecutor(max_workers=fasta_workers) as executor:
                 future_to_file = {
@@ -98,7 +88,6 @@ class Reader:
                         window_size=window_size,
                         step=step,
                         full=full,
-                        sequence_workers=sequence_workers,
                     ): file_path
                     for file_path in extracted_files
                 }
@@ -110,19 +99,19 @@ class Reader:
                     position=1,
                     total=len(extracted_files),
                 ):
-                    file_data = future.result()
+                    try:
+                        file_data = future.result()
+                        for tax_id, data in file_data.items():
+                            if tax_id not in merged_data:
+                                merged_data[tax_id] = {"counters": [], "sources": []}
 
-                    for tax_id, data in file_data.items():
-                        if tax_id not in merged_data:
-                            merged_data[tax_id] = {
-                                "counters": [],
-                                "sources": [],
-                            }
+                            merged_data[tax_id]["counters"].extend(data["counters"])
+                            merged_data[tax_id]["sources"].extend(data["sources"])
 
-                        merged_data[tax_id]["counters"].extend(data["counters"])
-                        merged_data[tax_id]["sources"].extend(data["sources"])
+                    except Exception as e:
+                        LOG.exception(f"Error processing {future_to_file[future]}: {e}")
 
-        LOG.debug(f"processed archive file: {archive_path}")
+        LOG.debug(f"Archive file: {archive_path} DONE")
         return {"archive": archive_path, "merged_data": merged_data}
 
     def process_fasta(
@@ -132,16 +121,20 @@ class Reader:
         window_size: int,
         step: int,
         full: bool = False,
-        sequence_workers: int = 1,
     ) -> dict:
-        """Count and get metadata"""
+        """Process a FASTA file using multithreading."""
         file_path = Path(file_path).resolve()
-        LOG.debug(f"processing fasta file: {file_path}")
+        LOG.debug(f"Processing FASTA file: {file_path}")
+
         sequences = self._read_fasta(file_path)
         tax_id_to_data = {}
 
-        LOG.debug(f"starting fasta process pool with {sequence_workers} workers")
-        with ProcessPoolExecutor(max_workers=sequence_workers) as executor:
+        sequence_workers = min(self._sequences_threads, len(sequences))
+        LOG.debug(
+            f"Processing {len(sequences)} sequences with {sequence_workers} threads"
+        )
+
+        with ThreadPoolExecutor(max_workers=sequence_workers) as executor:
             future_to_sequence = {
                 executor.submit(
                     self.process_sequence,
@@ -151,7 +144,6 @@ class Reader:
                     step=step,
                     full=full,
                     md=self._md[seq["id"]],
-                    # log_config=self._log_config,
                 ): seq
                 for seq in sequences
             }
@@ -163,18 +155,19 @@ class Reader:
                 position=2,
                 total=len(sequences),
             ):
-                tax_id, kmer_count, source = future.result()
+                try:
+                    tax_id, kmer_count, source = future.result()
 
-                if tax_id not in tax_id_to_data:
-                    tax_id_to_data[tax_id] = {
-                        "counters": [],
-                        "sources": [],
-                    }
+                    if tax_id not in tax_id_to_data:
+                        tax_id_to_data[tax_id] = {"counters": [], "sources": []}
 
-                tax_id_to_data[tax_id]["counters"].extend(kmer_count)
-                tax_id_to_data[tax_id]["sources"].extend([source] * len(kmer_count))
+                    tax_id_to_data[tax_id]["counters"].extend(kmer_count)
+                    tax_id_to_data[tax_id]["sources"].extend([source] * len(kmer_count))
 
-        LOG.debug(f"processed fasta file: {file_path}")
+                except Exception as e:
+                    LOG.exception(f"Error processing sequence in {file_path}: {e}")
+
+        LOG.debug(f"FASTA file: {file_path} DONE")
         return tax_id_to_data
 
     @staticmethod
