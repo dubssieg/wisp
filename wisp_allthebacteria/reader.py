@@ -14,6 +14,13 @@ from utils import format_size, system_stats, slurm_tqdm
 
 LOG = logging.getLogger(__name__)
 
+# processing archives containing 4000 FASTA files can be overwhelming for ProcessPoolExecutor (processes)
+# to manage this, we limit the number of FASTA files processed concurrently
+FASTA_FILES_BATCH_SIZE = 100
+
+# similarly, to avoid potential overload, we limit the number of sequences processed concurrently (threads)
+SEQUENCES_BATCH_SIZE = 100
+
 
 class Reader:
     def __init__(
@@ -82,16 +89,12 @@ class Reader:
 
             merged_data = {}
 
-            fasta_workers = min(self._num_workers, len(extracted_files))
-            LOG.debug(f"Processing {fasta_workers} FASTA files in parallel")
+            LOG.debug(f"Processing {self._num_workers} (max) FASTA files in parallel")
             remaining = len(extracted_files)
 
-            # archives containing 4000 fasta files is a bit too much for ProcessPoolExecutor
-            batch_size = 100
-
-            for i in range(0, len(extracted_files), batch_size):
-                batch = extracted_files[i : i + batch_size]
-
+            for i in range(0, len(extracted_files), FASTA_FILES_BATCH_SIZE):
+                batch = extracted_files[i : i + FASTA_FILES_BATCH_SIZE]
+                fasta_workers = min(self._num_workers, len(extracted_files))
                 with ProcessPoolExecutor(max_workers=fasta_workers) as executor:
                     future_to_file = {
                         executor.submit(
@@ -162,44 +165,48 @@ class Reader:
             LOG.exception(f"Error while reading fasta file: {file_path}: {e}")
         tax_id_to_data = {}
 
-        sequence_workers = min(self._sequences_threads, len(sequences))
         LOG.debug(
-            f"Processing {len(sequences)} sequences with {sequence_workers} threads"
+            f"Processing {len(sequences)} sequences with {self._sequences_threads} threads (max)"
         )
-        with ThreadPoolExecutor(max_workers=sequence_workers) as executor:
-            future_to_sequence = {
-                executor.submit(
-                    self.process_sequence,
-                    sequence=seq,
-                    kmer_size=kmer_size,
-                    window_size=window_size,
-                    step=step,
-                    full=full,
-                    md=self._md[seq["id"]],
-                ): seq
-                for seq in sequences
-            }
+        for i in range(0, len(sequences), SEQUENCES_BATCH_SIZE):
+            batch = sequences[i : i + SEQUENCES_BATCH_SIZE]
+            sequence_workers = min(self._sequences_threads, len(sequences))
+            with ThreadPoolExecutor(max_workers=sequence_workers) as executor:
+                future_to_sequence = {
+                    executor.submit(
+                        self.process_sequence,
+                        sequence=seq,
+                        kmer_size=kmer_size,
+                        window_size=window_size,
+                        step=step,
+                        full=full,
+                        md=self._md[seq["id"]],
+                    ): seq
+                    for seq in batch
+                }
 
-            for future in slurm_tqdm(
-                as_completed(future_to_sequence),
-                desc=f"Counting {file_path.name}",
-                leave=False,
-                position=2,
-                total=len(sequences),
-                disable=True,
-            ):
-                try:
-                    tax_id, kmer_count, source = future.result()
+                for future in slurm_tqdm(
+                    as_completed(future_to_sequence),
+                    desc=f"Counting {file_path.name}",
+                    leave=False,
+                    position=2,
+                    total=len(sequences),
+                    disable=True,
+                ):
+                    try:
+                        tax_id, kmer_count, source = future.result()
 
-                    if tax_id not in tax_id_to_data:
-                        tax_id_to_data[tax_id] = {"counters": [], "sources": []}
+                        if tax_id not in tax_id_to_data:
+                            tax_id_to_data[tax_id] = {"counters": [], "sources": []}
 
-                    tax_id_to_data[tax_id]["counters"].extend(kmer_count)
-                    tax_id_to_data[tax_id]["sources"].extend([source] * len(kmer_count))
+                        tax_id_to_data[tax_id]["counters"].extend(kmer_count)
+                        tax_id_to_data[tax_id]["sources"].extend(
+                            [source] * len(kmer_count)
+                        )
 
-                except Exception as e:
-                    LOG.exception(f"Error processing sequence in {file_path}: {e}")
-                    raise
+                    except Exception as e:
+                        LOG.exception(f"Error processing sequence in {file_path}: {e}")
+                        raise
 
         LOG.debug(f"FASTA file: {file_path.name} DONE - {system_stats(as_str=True)}")
         return tax_id_to_data
