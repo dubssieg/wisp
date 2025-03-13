@@ -157,12 +157,15 @@ class Database:
 
         db_thread = threading.Thread(target=self._add_data_to_db, kwargs={"data": data})
         db_thread.start()
+        db_thread.join()
+        LOG.debug("Database thread finished")
 
     def _archive_stem(self, path: str | Path) -> str:
         return Path(path).stem.split(".")[0]
 
     def _add_data_to_db(self, data):
         with self._db_lock:
+            LOG.debug("Locking database transaction")
             md_db = self._get_db(db_type="md")
             md_db[CURRENT_TRANSACTION] = data
             archives = md_db.get(ARCHIVES, [])
@@ -203,7 +206,9 @@ class Database:
                     batch_counters[current_id] = counter
                     batch_sources[current_id] = source
 
-                LOG.debug(f"Pushing {len(batch_counters)} counters to DB")
+                LOG.debug(
+                    f"Starting counters DB transaction with {len(batch_counters)} counters"
+                )
                 with counter_db.transact():
                     for current_id, counter in slurm_tqdm(
                         batch_counters.items(),
@@ -213,7 +218,10 @@ class Database:
                         disable=True,
                     ):
                         counter_db[current_id] = counter
-                LOG.debug(f"Pushing {len(batch_sources)} sources to DB")
+                LOG.debug("Ending counters transaction")
+                LOG.debug(
+                    f"Starting sources DB transaction with {len(batch_sources)} sources"
+                )
                 with source_db.transact():
                     for current_id, source in slurm_tqdm(
                         batch_sources.items(),
@@ -223,7 +231,7 @@ class Database:
                         disable=True,
                     ):
                         source_db[current_id] = source
-                LOG.debug("Counters and sources successfully added")
+                LOG.debug("Ending sources transaction")
 
             LOG.debug(f"Data added: {self.get_db_path()}, ending transaction")
             # end transaction
@@ -233,6 +241,7 @@ class Database:
             archives.append(archive)
             md_db[ARCHIVES] = archives
             LOG.debug("Transaction ended successfully")
+        LOG.debug("Releasing database transaction")
 
     def _get_last_valid_id(self, tax_id: int) -> int:
         """Get last inserted id"""
