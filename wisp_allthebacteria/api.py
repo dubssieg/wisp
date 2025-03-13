@@ -1,3 +1,4 @@
+import logging
 import pickle
 import traceback
 import pandas as pd
@@ -6,6 +7,8 @@ from Bio import Entrez
 from diskcache import Cache
 from urllib.error import HTTPError
 from pathlib import Path
+
+LOG = logging.getLogger(__name__)
 
 
 class API:
@@ -126,5 +129,5 @@ class API:
             self._api_cache[tax_id] = records
             return records
         except HTTPError:
-            traceback.print_exc()
+            LOG.exception("Could not get API data")
             return None
