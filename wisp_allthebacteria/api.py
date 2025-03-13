@@ -1,6 +1,5 @@
 import logging
 import pickle
-import traceback
 import pandas as pd
 from tqdm.auto import tqdm
 from Bio import Entrez

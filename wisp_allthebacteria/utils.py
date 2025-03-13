@@ -135,7 +135,7 @@ def config_logger(
     logger = logging.getLogger("")
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
-        "%(asctime)s :: %(levelname)s :: %(name)s ::  %(process)d :: %(message)s"
+        "%(asctime)s :: %(levelname)s :: %(name)s :: %(funcName)s[%(lineno)s] :: %(process)d :: %(message)s"
     )
 
     # terminal config

@@ -2,7 +2,6 @@ import json
 import logging
 import sys
 import time
-import traceback
 from pathlib import Path
 import argparse
 from tqdm.auto import tqdm
@@ -101,7 +100,7 @@ def create_db(conf: dict):
                 LOG.info(f"Retrying {archive_path.name}...")
 
             if db.has_archive(archive_path):
-                LOG.info(f"Archive already in DB: {archive_path}")
+                LOG.warning(f"{archive_path.name} already in DB, skip {archive_path}")
             else:
                 db.push_file(archive_path)
 
@@ -115,14 +114,26 @@ def create_db(conf: dict):
             with open(json_create_db_path, "w", encoding="utf-8") as json_file:
                 json.dump(json_create_db, json_file, indent=4)
 
+        except RuntimeError:
+            LOG.critical("Broken process pool: exit")
+            raise
         except Exception as e:
             LOG.error(f"Error processing {archive_path.name}: {e}")
             if str(archive_path) not in json_create_db["incomplete"]:
                 json_create_db["incomplete"].append(str(archive_path))
+                raise
 
         finally:
             with open(json_create_db_path, "w", encoding="utf-8") as json_file:
                 json.dump(json_create_db, json_file, indent=4)
+
+    try:
+        LOG.info("Waiting for last DB insertions")
+        db.wait_for_completion()
+        LOG.info("DB queue is empty")
+    except Exception as e:
+        LOG.error(f"Error when waiting for DB insertion completion: {e}")
+        raise
 
 
 def load_config(json_file: Path | str):

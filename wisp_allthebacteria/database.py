@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import sys
 import threading
+import queue
 from typing import Literal
 
 from diskcache import Cache
@@ -35,8 +36,142 @@ class Database:
         self._window_size = window_size
         self._step = step
         self._full = full
-        self._db_lock = threading.Lock()
         self.clean()
+        self._db_lock = threading.Lock()
+        self._task_queue = queue.Queue()
+        self._worker_thread = threading.Thread(target=self._db_worker, daemon=True)
+        self._worker_thread.start()
+
+    def push_file(self, file_path: str | Path):
+        """Add content."""
+        file_path = Path(file_path).resolve()
+        file_name = file_path.name
+        LOG.info(f"pushing file: {file_path}")
+        md_db = self._get_db(db_type="md")
+        archive = self._archive_stem(file_path)
+        archives = md_db.get(ARCHIVES, [])
+
+        if archive in archives:
+            LOG.info(f"[{archive}] Already in DB: skip")
+            return
+
+        data = self._reader.process_file(
+            file_path=file_path,
+            kmer_size=self._kmer_size,
+            window_size=self._window_size,
+            step=self._step,
+            full=self._full,
+        )
+        LOG.info(f"[{file_name}] File processed: data queuing for DB insertion")
+        self._task_queue.put(data)
+        LOG.debug(f"[{file_name}] Data queued for DB insertion")
+
+    def _db_worker(self):
+        """Thread worker managing queue"""
+        while True:
+            data = self._task_queue.get()  # block if empty
+            if data is None:
+                break
+            try:
+                self._add_data_to_db(data)
+            except Exception as e:
+                LOG.exception(f"Database worker error: {e}")
+                raise
+            finally:
+                self._task_queue.task_done()
+
+    def _add_data_to_db(self, data):
+        LOG.debug("Waiting lock for DB insertion")
+        with self._db_lock:
+            LOG.debug("Acquiring lock for DB insertion")
+            md_db = self._get_db(db_type="md")
+            md_db[CURRENT_TRANSACTION] = data
+            archives = md_db.get(ARCHIVES, [])
+            archive = self._archive_stem(data["archive"])
+
+            last_valid_ids = {}
+
+            merged_data = data["merged_data"]
+            # warning, tax_id is a str
+            LOG.debug(f"Adding data to DB: {self.get_db_path()}")
+            for tax_id, tdata in slurm_tqdm(
+                merged_data.items(),
+                desc=f"Pushing {archive}",
+                position=1,
+                leave=False,
+                disable=True,
+            ):
+                tax_id = self._parse_tax_id(tax_id)
+                last_valid_id = self._get_last_valid_id(tax_id)
+                counters = tdata["counters"]
+                sources = tdata["sources"]
+                counter_db = self._get_db(db_type="counter", tax_id=tax_id)
+                source_db = self._get_db(db_type="source", tax_id=tax_id)
+
+                # populate and add batch of counters/sources
+                batch_counters = {}
+                batch_sources = {}
+
+                for i, (source, counter) in slurm_tqdm(
+                    enumerate(zip(sources, counters)),
+                    desc="Adding counters and sources",
+                    total=len(counters),
+                    position=2,
+                    leave=False,
+                    disable=True,
+                ):
+                    current_id = last_valid_id + i + 1
+                    batch_counters[current_id] = counter
+                    batch_sources[current_id] = source
+
+                LOG.debug(
+                    f"Starting counters DB transaction with {len(batch_counters)} counters"
+                )
+                with counter_db.transact():
+                    for current_id, counter in slurm_tqdm(
+                        batch_counters.items(),
+                        desc="Counters",
+                        position=3,
+                        leave=False,
+                        disable=True,
+                    ):
+                        counter_db[current_id] = counter
+                LOG.debug("Ending counters transaction")
+                LOG.debug(
+                    f"Starting sources DB transaction with {len(batch_sources)} sources"
+                )
+                with source_db.transact():
+                    for current_id, source in slurm_tqdm(
+                        batch_sources.items(),
+                        desc="Sources",
+                        position=3,
+                        leave=False,
+                        disable=True,
+                    ):
+                        source_db[current_id] = source
+                LOG.debug("Ending sources transaction")
+
+            LOG.debug("Counters and sources added - ending transaction")
+            # end transaction
+            del md_db[CURRENT_TRANSACTION]
+            for tax_id, last_valid_id in last_valid_ids.items():
+                self._set_last_valid_id(tax_id=tax_id, last_valid_id=last_valid_id)
+            archives.append(archive)
+            md_db[ARCHIVES] = archives
+            LOG.debug("Transaction ended successfully, releasing DB lock")
+        LOG.debug("DB lock released")
+
+    def wait_for_completion(self):
+        """Should be added at the end."""
+        LOG.debug("Waiting for DB insertions to complete...")
+        self._task_queue.join()
+        self.stop_worker()
+        LOG.debug("All DB insertions completed")
+
+    def stop_worker(self):
+        """Stop worker thread."""
+        self._task_queue.put(None)
+        self._worker_thread.join()
 
     def get_counter(self, tax_id: int, num: int) -> dict | None:
         counter_db = self._get_db(db_type="counter", tax_id=tax_id)
@@ -142,114 +277,8 @@ class Database:
             del md_db[CURRENT_TRANSACTION]
             LOG.warning("Database cleaned")
 
-    def push_file(self, file_path: str | Path):
-        """Add content."""
-        file_path = Path(file_path).resolve()
-        LOG.debug(f"push file: {file_path}")
-        md_db = self._get_db(db_type="md")
-        archive = self._archive_stem(file_path)
-        archives = md_db.get(ARCHIVES, [])
-
-        if archive in archives:
-            LOG.info(f"{archive} already in DB: skip")
-            return
-
-        data = self._reader.process_file(
-            file_path=file_path,
-            kmer_size=self._kmer_size,
-            window_size=self._window_size,
-            step=self._step,
-            full=self._full,
-        )
-        LOG.debug(f"File processed: {file_path}, start transaction")
-
-        db_thread = threading.Thread(target=self._add_data_to_db, kwargs={"data": data})
-        db_thread.start()
-        db_thread.join()
-        LOG.debug("Database thread finished")
-
     def _archive_stem(self, path: str | Path) -> str:
         return Path(path).stem.split(".")[0]
-
-    def _add_data_to_db(self, data):
-        with self._db_lock:
-            LOG.debug("Locking database transaction")
-            md_db = self._get_db(db_type="md")
-            md_db[CURRENT_TRANSACTION] = data
-            archives = md_db.get(ARCHIVES, [])
-            archive = self._archive_stem(data["archive"])
-
-            last_valid_ids = {}
-
-            merged_data = data["merged_data"]
-            # warning, tax_id is a str
-            LOG.debug(f"Add data to: {self.get_db_path()}")
-            for tax_id, tdata in slurm_tqdm(
-                merged_data.items(),
-                desc=f"Pushing {archive}",
-                position=1,
-                leave=False,
-                disable=True,
-            ):
-                tax_id = self._parse_tax_id(tax_id)
-                last_valid_id = self._get_last_valid_id(tax_id)
-                counters = tdata["counters"]
-                sources = tdata["sources"]
-                counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-                source_db = self._get_db(db_type="source", tax_id=tax_id)
-
-                # populate and add batch of counters/sources
-                batch_counters = {}
-                batch_sources = {}
-
-                for i, (source, counter) in slurm_tqdm(
-                    enumerate(zip(sources, counters)),
-                    desc="Adding counters and sources",
-                    total=len(counters),
-                    position=2,
-                    leave=False,
-                    disable=True,
-                ):
-                    current_id = last_valid_id + i + 1
-                    batch_counters[current_id] = counter
-                    batch_sources[current_id] = source
-
-                LOG.debug(
-                    f"Starting counters DB transaction with {len(batch_counters)} counters"
-                )
-                with counter_db.transact():
-                    for current_id, counter in slurm_tqdm(
-                        batch_counters.items(),
-                        desc="Counters",
-                        position=3,
-                        leave=False,
-                        disable=True,
-                    ):
-                        counter_db[current_id] = counter
-                LOG.debug("Ending counters transaction")
-                LOG.debug(
-                    f"Starting sources DB transaction with {len(batch_sources)} sources"
-                )
-                with source_db.transact():
-                    for current_id, source in slurm_tqdm(
-                        batch_sources.items(),
-                        desc="Sources",
-                        position=3,
-                        leave=False,
-                        disable=True,
-                    ):
-                        source_db[current_id] = source
-                LOG.debug("Ending sources transaction")
-
-            LOG.debug(f"Data added: {self.get_db_path()}, ending transaction")
-            # end transaction
-            del md_db[CURRENT_TRANSACTION]
-            for tax_id, last_valid_id in last_valid_ids.items():
-                self._set_last_valid_id(tax_id=tax_id, last_valid_id=last_valid_id)
-            archives.append(archive)
-            md_db[ARCHIVES] = archives
-            LOG.debug("Transaction ended successfully")
-        LOG.debug("Releasing database transaction")
 
     def _get_last_valid_id(self, tax_id: int) -> int:
         """Get last inserted id"""

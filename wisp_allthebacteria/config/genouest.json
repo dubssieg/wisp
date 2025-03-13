@@ -14,7 +14,7 @@
         "full": false,
         "window_size": 10000,
         "step": 8000,
-        "create_db_workers": "half",
+        "create_db_workers": "max_minus_2",
         "sequences_threads": 4,
         "sequences_batch_size": 64,
         "fasta_files_batch_size":64        
