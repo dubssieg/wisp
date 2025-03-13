@@ -28,11 +28,14 @@ class Reader:
         metadata: Metadata,
         num_workers: int = 20,
         sequences_threads: int = 4,
+        fasta_files_batch_size: int = SEQUENCES_BATCH_SIZE,
+        sequences_batch_size: int = SEQUENCES_BATCH_SIZE,
     ):
         self._md = metadata
         self._num_workers = num_workers
         self._sequences_threads = sequences_threads
-        # multiprocessing.set_start_method("spawn", force=True)
+        self._fasta_files_batch_size = fasta_files_batch_size
+        self._sequences_batch_size = sequences_batch_size
 
     def process_file(
         self,
@@ -92,8 +95,8 @@ class Reader:
             LOG.debug(f"Processing {self._num_workers} (max) FASTA files in parallel")
             remaining = len(extracted_files)
 
-            for i in range(0, len(extracted_files), FASTA_FILES_BATCH_SIZE):
-                batch = extracted_files[i : i + FASTA_FILES_BATCH_SIZE]
+            for i in range(0, len(extracted_files), self._fasta_files_batch_size):
+                batch = extracted_files[i : i + self._fasta_files_batch_size]
                 fasta_workers = min(self._num_workers, len(extracted_files))
                 with ProcessPoolExecutor(max_workers=fasta_workers) as executor:
                     future_to_file = {
@@ -168,8 +171,8 @@ class Reader:
         LOG.debug(
             f"Processing {len(sequences)} sequences with {self._sequences_threads} threads (max)"
         )
-        for i in range(0, len(sequences), SEQUENCES_BATCH_SIZE):
-            batch = sequences[i : i + SEQUENCES_BATCH_SIZE]
+        for i in range(0, len(sequences), self._sequences_batch_size):
+            batch = sequences[i : i + self._sequences_batch_size]
             sequence_workers = min(self._sequences_threads, len(sequences))
             with ThreadPoolExecutor(max_workers=sequence_workers) as executor:
                 future_to_sequence = {

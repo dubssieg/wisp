@@ -68,6 +68,8 @@ def create_db(conf: dict):
         md,
         num_workers=num_workers,
         sequences_threads=conf["db"]["sequences_threads"],
+        fasta_files_batch_size=conf["db"]["fasta_files_batch_size"],
+        sequences_batch_size=conf["db"]["sequences_batch_size"],
     )
 
     db = Database(
