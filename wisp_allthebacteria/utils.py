@@ -169,6 +169,10 @@ def slurm_tqdm(iterable, *args, **kwargs):
     return tqdm(iterable, *args, **kwargs)
 
 
+def space_format(number: int):
+    return f"{number:_}".replace("_", " ")
+
+
 if __name__ == "__main__":
     print(system_stats())
     print(system_stats(as_str=True))

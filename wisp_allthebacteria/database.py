@@ -8,7 +8,7 @@ from diskcache import Cache
 from functools import lru_cache
 
 from reader import Reader
-from utils import slurm_tqdm
+from utils import slurm_tqdm, space_format
 
 LOG = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class Database:
         self._db_lock = threading.Lock()
         self.clean()
 
-    def get_info(self) -> dict:
+    def get_info(self, as_str=False) -> dict:
         """Get DB infos: tax_ids, number of counters, etc."""
         # tax_ids
         counters_dir = self.get_db_path() / "counter"
@@ -57,7 +57,49 @@ class Database:
             counter_db = self._get_db(db_type="counter", tax_id=tax_id)
             counters[tax_id] = len(counter_db)
 
-        return {"tax_ids": tax_ids, "archives": archives, "counters": counters}
+        # path
+        info = {"tax_ids": tax_ids, "archives": archives, "counters": counters}
+
+        if as_str:
+            info_lines = []
+            info_lines.append("\n=== Paths/Config ===")
+            info_lines.append(f"Current base path: {self.get_db_path()}")
+            info_lines.append("Available sub DBs:")
+            all_dbs = self.list_dbs(self._dbs_path)
+            for kmer, win_step in all_dbs:
+                win, step = win_step.split("_")
+                info_lines.append(
+                    f"  - k-mer size: {kmer}, window size: {win}, step: {step}"
+                )
+
+            info_lines.append("\n=== Sequences ===")
+            info_lines.append(f"{len(tax_ids)} counters -> [tax_id] sample_count:")
+            items_per_line = 5
+            counters_str = {
+                tax_id: space_format(num) for tax_id, num in sorted(counters.items())
+            }
+            sorted_items = sorted(counters_str.items())
+            max_tax_id_len = max(len(str(tax_id)) for tax_id, _ in sorted_items)
+            max_counter_len = max(len(str(counter)) for _, counter in sorted_items)
+            for i in range(0, len(sorted_items), items_per_line):
+                line_items = sorted_items[i : i + items_per_line]
+                line = "  - " + " | ".join(
+                    [
+                        f"[{tax_id:<{max_tax_id_len}}] {counter:<{max_counter_len}}"
+                        for tax_id, counter in line_items
+                    ]
+                )
+                info_lines.append(line)
+
+            info_lines.append("")
+            info_lines.append(f"Total: {space_format(sum(counters.values()))} samples")
+
+            info_lines.append("\n==== Archives pushed ====")
+            info_lines.append(", ".join(sorted(archives)))
+
+            return "\n".join(info_lines)
+
+        return info
 
     def has_archive(self, path: str | Path) -> bool:
         """Check if archive already was pushed in base."""
@@ -230,3 +272,15 @@ class Database:
         else:
             path /= f"{self._window_size}_{self._step}"
         return path
+
+    @staticmethod
+    def list_dbs(base_path: str | Path) -> list:
+        """Get list of available DB (different configs)"""
+        base = Path(base_path)
+        return [
+            [parent.name, child.name]
+            for parent in base.iterdir()
+            if parent.is_dir()
+            for child in parent.iterdir()
+            if child.is_dir()
+        ]

@@ -241,6 +241,35 @@ def import_apt_cache(conf: dict):
     ).import_db()
 
 
+def db_info(conf: dict):
+    LOG.info("DB info")
+
+    metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
+    api = API(
+        api_cache_dir=conf["api"]["cache_dir"],
+        email=conf["api"]["email"],
+        can_download=conf["api"]["can_download"],
+    )
+    md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
+    num_workers = cpu_count(conf["db"]["create_db_workers"])
+    reader = Reader(
+        md,
+        num_workers=num_workers,
+        sequences_threads=conf["db"]["sequences_threads"],
+    )
+
+    db = Database(
+        kmer_size=conf["db"]["kmer_size"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=conf["db"]["path"],
+        reader=reader,
+    )
+
+    print(db.get_info(as_str=True))
+
+
 def debug():
     """debugging, ignore it"""
     LOG.info("debug")
@@ -381,6 +410,11 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--db-info",
+        action="store_true",
+        help="Show database informations",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Dev only, do not use",
@@ -407,6 +441,9 @@ if __name__ == "__main__":
 
     if args.create_db:
         create_db(conf)
+
+    if args.db_info:
+        db_info(conf)
 
     if args.train_model:
         train_model(conf=conf, rank=args.rank, save_path=args.save_path, kfold=None)

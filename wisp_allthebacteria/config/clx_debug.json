@@ -10,10 +10,10 @@
     },
     "db":{
         "kmer_size": 4,
-        "path": "/data/microtaxo/dbs_tmp",
+        "path": "/data/microtaxo/dbs_genouest",
         "full": false,
         "window_size": 10000,
-        "step": 5000,
+        "step": 8000,
         "create_db_workers": "half",
         "sequences_threads": 8
     },
