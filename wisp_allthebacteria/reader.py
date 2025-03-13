@@ -1,6 +1,13 @@
 from collections import Counter
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import (
+    FIRST_COMPLETED,
+    ProcessPoolExecutor,
+    ThreadPoolExecutor,
+    as_completed,
+    wait,
+)
 from concurrent.futures.process import BrokenProcessPool
+import queue
 from itertools import product
 import logging
 from pathlib import Path
@@ -90,67 +97,64 @@ class Reader:
                 tar.extractall(path=temp_dir)
 
             extracted_files = list(temp_dir.rglob("*.fa"))
-            LOG.debug(f"[{archive_path}] Extracted: {len(extracted_files)} FASTA files")
+            LOG.debug(f"[{archive_name}] Extracted: {len(extracted_files)} FASTA files")
 
-            # all fasta files merged
             merged_data = {}
 
             LOG.debug(
-                f"[{archive_path}] Processing {self._num_workers} FASTA files in parallel"
+                f"[{archive_name}] Processing {self._num_workers} FASTA files in parallel"
             )
             fasta_count = 0
 
-            for i in range(0, len(extracted_files), self._fasta_files_batch_size):
-                batch_from, batch_to = i, i + self._fasta_files_batch_size
+            MAX_RUNNING_TASKS = 128  # TODO: conf
 
-                batch = extracted_files[batch_from:batch_to]
-                batch_name = f"BATCH: [{batch_from}, {batch_to}"
-                fasta_workers = min(self._num_workers, len(batch))
-                LOG.debug(
-                    f"[{archive_name}] {batch_name} - Starting ProcessPoolExecutor ({fasta_workers} workers)"
-                )
-                LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
-                with ProcessPoolExecutor(max_workers=fasta_workers) as executor:
-                    future_to_file = {
-                        executor.submit(
+            # all files in queue
+            task_queue = queue.Queue()
+            for file_path in extracted_files:
+                task_queue.put(file_path)
+
+            # LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
+            with ProcessPoolExecutor(max_workers=self._num_workers) as executor:
+                running_futures = {}
+
+                while not task_queue.empty() or running_futures:
+                    while (
+                        not task_queue.empty()
+                        and len(running_futures) < MAX_RUNNING_TASKS
+                    ):
+                        file_path = task_queue.get()
+                        future = executor.submit(
                             self.process_fasta,
                             file_path=file_path,
                             kmer_size=kmer_size,
                             window_size=window_size,
                             step=step,
                             full=full,
-                        ): file_path
-                        for file_path in batch
-                    }
+                        )
+                        running_futures[future] = file_path
 
-                    for future in slurm_tqdm(
-                        as_completed(future_to_file),
-                        desc=f"Processing Batch {Path(archive_path).name}",
-                        leave=False,
-                        position=1,
-                        total=len(batch),
-                        disable=False,
-                    ):
+                    done, _ = wait(running_futures.keys(), return_when=FIRST_COMPLETED)
+
+                    for future in done:
                         try:
                             file_data = future.result()
-                            file_name = future_to_file[future].name
-                            LOG.debug(
-                                f"[{file_name}] (process_archive) Fasta processed"
-                            )
+                            file_name = running_futures.pop(future).name
+                            LOG.debug(f"[{file_name}] Fasta processed")
+
+                            # merge
                             for tax_id, data in file_data.items():
                                 if tax_id not in merged_data:
                                     merged_data[tax_id] = {
                                         "counters": [],
                                         "sources": [],
                                     }
-
                                 merged_data[tax_id]["counters"].extend(data["counters"])
                                 merged_data[tax_id]["sources"].extend(data["sources"])
+
                             fasta_count += 1
                             LOG.debug(
-                                f"[{file_name}]  Data merged - {fasta_count} / {len(extracted_files)}"
+                                f"[{file_name}] Data merged - {fasta_count} / {len(extracted_files)}"
                             )
-
                         except BrokenProcessPool:
                             LOG.critical(
                                 f"BrokenProcessPool error processing FASTA {file_name}"
@@ -161,12 +165,8 @@ class Reader:
                         except Exception as e:
                             LOG.exception(f"Error processing FASTA {file_name}: {e}")
                             raise
-                    LOG.debug(
-                        f"[{archive_name}] Fasta {batch_name} - Closing ProcessPoolExecutor"
-                    )
-                LOG.debug(f"[{archive_name}] Fasta {batch_name} - DONE")
-
-            LOG.debug(f"[{archive_path}] DONE")
+                LOG.debug(f"[{archive_name}] Closing ProcessPoolExecutor")
+            LOG.debug(f"[{archive_name}] ProcessPoolExecutor closed")
         LOG.debug(f"[{archive_path}] Extracted files deleted")
 
         return {"archive": archive_path, "merged_data": merged_data}
@@ -179,7 +179,7 @@ class Reader:
         step: int,
         full: bool = False,
     ) -> dict:
-        """Process a FASTA file using multithreading."""
+        """Process a FASTA file using controlled multithreading."""
         file_path = Path(file_path).resolve()
         file_name = file_path.name
         file_size = format_size(file_path.stat().st_size)
@@ -192,22 +192,28 @@ class Reader:
         except Exception as e:
             LOG.exception(f"Error while reading fasta file: {file_path}: {e}")
             raise
+
         tax_id_to_data = {}
 
         LOG.debug(f"[{file_name}] Counting - {self._sequences_threads} threads")
 
-        for i in range(0, len(sequences), self._sequences_batch_size):
-            batch_from, batch_to = i, i + self._sequences_batch_size
-            batch = sequences[batch_from:batch_to]
-            sequence_workers = min(self._sequences_threads, len(batch))
-            LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
-            batch_name = f"BATCH: [{batch_from}, {batch_to}"
-            LOG.debug(
-                f"[{file_name}] {batch_name} - Starting ThreadPoolExecutor ({sequence_workers} workers)"
-            )
-            with ThreadPoolExecutor(max_workers=sequence_workers) as executor:
-                future_to_sequence = {
-                    executor.submit(
+        MAX_RUNNING_TASKS = 256  # TODO: conf
+
+        # Queue all sequences
+        task_queue = queue.Queue()
+
+        for seq in sequences:
+            task_queue.put(seq)
+
+        with ThreadPoolExecutor(max_workers=self._sequences_threads) as executor:
+            running_futures = set()
+
+            while not task_queue.empty() or running_futures:
+                while (
+                    not task_queue.empty() and len(running_futures) < MAX_RUNNING_TASKS
+                ):
+                    seq = task_queue.get()
+                    future = executor.submit(
                         self.process_sequence,
                         sequence=seq,
                         kmer_size=kmer_size,
@@ -215,18 +221,15 @@ class Reader:
                         step=step,
                         full=full,
                         md=self._md[seq["id"]],  # TODO: le passer autrement (avant ?)
-                    ): seq
-                    for seq in batch
-                }
+                    )
+                    running_futures.add(future)
 
-                for future in slurm_tqdm(
-                    as_completed(future_to_sequence),
-                    desc=f"Counting {file_path.name} (BATCH)",
-                    leave=False,
-                    position=2,
-                    total=len(batch),
-                    disable=True,
-                ):
+                # wait for a least one task to end before adding more
+                done, running_futures = wait(
+                    running_futures, return_when=FIRST_COMPLETED
+                )
+
+                for future in done:
                     try:
                         tax_id, kmer_count, source = future.result()
                         if tax_id not in tax_id_to_data:
@@ -240,12 +243,9 @@ class Reader:
                     except Exception as e:
                         LOG.exception(f"{e}")
                         raise
-                LOG.debug(
-                    f"[{file_name}] Sequence {batch_name} - Closing ThreadPoolExecutor"
-                )
-            LOG.debug(f"[{file_name}] Sequence {batch_name} - DONE")
+            LOG.debug(f"[{file_name}] Sequence - Closing ThreadPoolExecutor")
+        LOG.debug(f"[{file_name}] Sequence - ThreadPoolExecutor closed")
 
-        LOG.debug(f"[{file_name}] Fasta processed")
         return tax_id_to_data
 
     @staticmethod
