@@ -16,6 +16,7 @@ DB_TYPE = Literal["counter", "source", "index", "md"]
 LAST_VALID_ID = "_last_valid_id_"
 CURRENT_TRANSACTION = "_current_transaction_"
 ARCHIVES = "_archives_"
+COMMON = "_common_"
 
 
 class Database:
@@ -37,6 +38,14 @@ class Database:
         self._db_lock = threading.Lock()
         self.clean()
 
+    def get_counter(self, tax_id: int, num: int) -> dict | None:
+        counter_db = self._get_db(db_type="counter", tax_id=tax_id)
+        return counter_db.get(num, None)
+
+    def get_source(self, tax_id: int, num: int) -> dict | None:
+        source_db = self._get_db(db_type="source", tax_id=tax_id)
+        return source_db.get(num, None)
+
     def get_info(self, as_str=False) -> dict:
         """Get DB infos: tax_ids, number of counters, etc."""
         # tax_ids
@@ -54,8 +63,7 @@ class Database:
         # counters for each tax_id
         counters = {}
         for tax_id in tax_ids:
-            counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-            counters[tax_id] = len(counter_db)
+            counters[tax_id] = self._get_last_valid_id(tax_id) + 1
 
         # path
         info = {"tax_ids": tax_ids, "archives": archives, "counters": counters}
@@ -265,10 +273,17 @@ class Database:
     @lru_cache(maxsize=100)
     def _get_db(self, db_type: DB_TYPE, tax_id: int | None = None) -> Cache:
         """Get sub DB"""
+        # <base_dbs>/md/common
+        # <base_dbs>/md/<tax_id>
+        # <base_dbs>/md/counters/<tax_id>
+        # <base_dbs>/md/sources/<tax_id>
+
         path = self.get_db_path()
         path /= db_type
         if tax_id:
             path /= str(tax_id)
+        else:
+            path /= COMMON
 
         path.mkdir(parents=True, exist_ok=True)
 
