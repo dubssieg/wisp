@@ -11,6 +11,10 @@
 #SBATCH --mail-user=cyrille.leroux@irisa.fr
 #SBATCH --mail-type=END,FAIL
 
+source ~/.bashrc
+conda activate wisp
+
+
 echo "=== System Information ==="
 uname -a
 
@@ -40,15 +44,8 @@ ps aux --sort=-%mem | head -n 30
 echo "=== Slurm Configuration ==="
 scontrol show config
 
-echo "=== Logs ==="
-if [ -f "slurm.log" ]; then
-    tail -n 20 slurm.log
-else
-    echo "No slurm.log found"
-fi
 
-source ~/.bashrc
-conda activate wisp
+
 
 python main.py --create-db
 
