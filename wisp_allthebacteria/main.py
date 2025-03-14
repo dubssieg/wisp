@@ -118,10 +118,12 @@ def create_db(conf: dict):
             db.wait_for_completion()
             with open(json_create_db_path, "w", encoding="utf-8") as json_file:
                 json.dump(json_create_db, json_file, indent=4)
+            db.stop_worker
 
     try:
         LOG.info("Waiting for last DB insertions")
         db.wait_for_completion()
+        db.stop_worker
         LOG.info("DB queue is empty")
     except Exception:
         LOG.exception("Error when waiting for DB insertion completion")
