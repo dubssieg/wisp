@@ -5,7 +5,8 @@ from concurrent.futures import (
     ThreadPoolExecutor,
     wait,
 )
-from concurrent.futures.process import BrokenProcessPool
+
+# from concurrent.futures.process import BrokenProcessPool
 import queue
 from itertools import product
 import logging
@@ -18,6 +19,9 @@ from metadata import Metadata
 from utils import format_size, system_stats
 
 LOG = logging.getLogger(__name__)
+
+MAX_RUNNING_TASKS_FASTA = 64
+MAX_RUNNING_TASKS_SEQUENCE = 64
 
 
 class Reader:
@@ -94,8 +98,6 @@ class Reader:
             )
             fasta_count = 0
 
-            MAX_RUNNING_TASKS = 128  # TODO: conf
-
             # all files in queue
             task_queue = queue.Queue()
             for file_path in extracted_files:
@@ -108,7 +110,7 @@ class Reader:
                 while not task_queue.empty() or running_futures:
                     while (
                         not task_queue.empty()
-                        and len(running_futures) < MAX_RUNNING_TASKS
+                        and len(running_futures) < MAX_RUNNING_TASKS_FASTA
                     ):
                         file_path = task_queue.get()
                         future = executor.submit(
@@ -153,7 +155,13 @@ class Reader:
                                 f"Error processing FASTA [{archive_name}] {file_name}"
                             )
                             raise
-                LOG.debug(f"[{archive_name}] Closing ProcessPoolExecutor")
+                        LOG.debug(
+                            f"[{archive_name}] One future processed (data merged)"
+                        )
+                    LOG.debug(f"[{archive_name}] All done futures processed")
+                LOG.debug(
+                    f"[{archive_name}] Queue empty - all future processed - closing ProcessPoolExecutor"
+                )
             LOG.debug(f"[{archive_name}] ProcessPoolExecutor closed")
         LOG.debug(f"[{archive_path}] Extracted files deleted")
 
@@ -177,15 +185,13 @@ class Reader:
         try:
             sequences = self._read_fasta(file_path)
             LOG.debug(f"[{file_name}] (Worker) {len(sequences)} sequences read")
-        except Exception as e:
-            LOG.exception(f"Error while reading fasta file: {file_path}: {e}")
+        except Exception:
+            LOG.exception(f"Error while reading fasta file: {file_path}")
             raise
 
         tax_id_to_data = {}
 
         LOG.debug(f"[{file_name}] Counting - {self._sequences_threads} threads")
-
-        MAX_RUNNING_TASKS = 256  # TODO: conf
 
         # Queue all sequences
         task_queue = queue.Queue()
@@ -198,7 +204,8 @@ class Reader:
 
             while not task_queue.empty() or running_futures:
                 while (
-                    not task_queue.empty() and len(running_futures) < MAX_RUNNING_TASKS
+                    not task_queue.empty()
+                    and len(running_futures) < MAX_RUNNING_TASKS_SEQUENCE
                 ):
                     seq = task_queue.get()
                     future = executor.submit(
@@ -208,11 +215,11 @@ class Reader:
                         window_size=window_size,
                         step=step,
                         full=full,
-                        md=self._md[seq["id"]],  # TODO: le passer autrement (avant ?)
+                        md=self._md[seq["id"]],
                     )
                     running_futures.add(future)
 
-                # wait for a least one task to end before adding more
+                # wait for at least one task to end before adding more
                 done, running_futures = wait(
                     running_futures, return_when=FIRST_COMPLETED
                 )
@@ -228,8 +235,8 @@ class Reader:
                             [source] * len(kmer_count)
                         )
 
-                    except Exception as e:
-                        LOG.exception(f"{e}")
+                    except Exception:
+                        LOG.exception(file_name)
                         raise
             LOG.debug(f"[{file_name}] Sequence - Closing ThreadPoolExecutor")
         LOG.debug(f"[{file_name}] Sequence - ThreadPoolExecutor closed")
@@ -365,8 +372,8 @@ class Reader:
 
         try:
             result = "".join(compl[s] for s in reversed(string))
-        except KeyError as e:
-            LOG.exception(f"revcom key error: {e}")
+        except KeyError:
+            LOG.exception(f"revcom key error: {string}")
             raise
         return result
 

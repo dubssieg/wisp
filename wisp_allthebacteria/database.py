@@ -74,8 +74,8 @@ class Database:
                 break
             try:
                 self._add_data_to_db(data)
-            except Exception as e:
-                LOG.exception(f"Database worker error: {e}")
+            except Exception:
+                LOG.exception("Database worker error (add_data_to_db)")
                 raise
             finally:
                 self._task_queue.task_done()
