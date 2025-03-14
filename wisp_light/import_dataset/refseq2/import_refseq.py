@@ -116,7 +116,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_workers", type=int, default=5, help="Nombre de travailleurs pour le téléchargement et la décompression (par défaut 5)")
 
     args = parser.parse_args()
-    args.output_dir = '/wisp/wisp_light/import_dataset/refseq/out_refseq'
+    # args.output_dir = '/wisp/wisp_light/import_dataset/refseq/out_refseq'
     # completed_csv_out = "assembly_summary_Complete_Genome.csv"
     completed_df = pd.read_csv(args.csv_file, sep="\t")
 
