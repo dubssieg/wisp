@@ -1,7 +1,7 @@
 import json
 import logging
+import sys
 import time
-import traceback
 from pathlib import Path
 import argparse
 from tqdm.auto import tqdm
@@ -59,12 +59,13 @@ def create_db(conf: dict):
         api_cache_dir=api_cache_path,
         email=conf["api"]["email"],
         can_download=conf["api"]["can_download"],
+        preload=True,  # because multiproc/multithreads (avoid: sqlite3.OperationalError: database is locked)
     )
     md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
+    num_workers = cpu_count(conf["db"]["create_db_workers"])
+    LOG.info(f"Max CPUs: {cpu_count('max')}, using {num_workers} workers")
     reader = Reader(
-        md,
-        num_workers=cpu_count(conf["db"]["create_db_workers"]),
-        sequences_threads=conf["db"]["sequences_threads"],
+        md, num_workers=num_workers, sequences_threads=conf["db"]["sequences_threads"]
     )
 
     db = Database(
@@ -93,9 +94,12 @@ def create_db(conf: dict):
 
         try:
             if str(archive_path) in json_create_db["incomplete"]:
-                print(f"Retrying {archive_path.name}...")
+                LOG.info(f"Retrying {archive_path.name}...")
 
-            db.push_file(archive_path)
+            if db.has_archive(archive_path):
+                LOG.warning(f"{archive_path.name} already in DB, skip {archive_path}")
+            else:
+                db.push_file(archive_path)
 
             json_create_db["complete"].append(str(archive_path))
             if str(archive_path) in json_create_db["incomplete"]:
@@ -104,34 +108,32 @@ def create_db(conf: dict):
             duration = time.time() - start_time
             json_create_db["duration"][archive_path.name] = format_duration(duration)
 
-        except Exception as e:
-            print(f"Error processing {archive_path.name}: {e}")
-            traceback.print_exc()
+            with open(json_create_db_path, "w", encoding="utf-8") as json_file:
+                json.dump(json_create_db, json_file, indent=4)
+
+        except Exception:
+            LOG.exception("Error processing {archive_path.name}")
             if str(archive_path) not in json_create_db["incomplete"]:
                 json_create_db["incomplete"].append(str(archive_path))
+                raise
 
         finally:
-            with open(json_create_db_path, "w", encoding="utf-8") as error_log_file:
-                json.dump(json_create_db, error_log_file, indent=4)
+            with open(json_create_db_path, "w", encoding="utf-8") as json_file:
+                json.dump(json_create_db, json_file, indent=4)
+
+    try:
+        LOG.info("Waiting for last DB insertions")
+        db.wait_for_completion()
+        LOG.info("DB queue is empty")
+    except Exception:
+        LOG.exception("Error when waiting for DB insertion completion")
+        raise
 
 
 def load_config(json_file: Path | str):
     with open(json_file, "r") as file:
         conf = json.load(file)
     return conf
-    # matgen = db.make_dmatrix(rank="phylum", normalize="min_max", batch_size=100)
-    # tax_id_classes = db.get_tax_id_classes("phylum")
-    # model = XGBoostModel(api=api, use_gpu=False)
-    # res = model.train(matgen, kfold=None, tax_id_classes=tax_id_classes)
-
-    # report_header = {
-    #     "header": {
-    #         "Rang": "phylum",
-    #     }
-    # }
-    # model.save_report(
-    #     dir_path="wisp_allthebacteria/out/report1", additional_data=report_header
-    # )
 
 
 def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int | None):
@@ -246,24 +248,54 @@ def import_apt_cache(conf: dict):
     ).import_db()
 
 
+def db_info(conf: dict):
+    LOG.info("DB info")
+
+    metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
+    api = API(
+        api_cache_dir=conf["api"]["cache_dir"],
+        email=conf["api"]["email"],
+        can_download=conf["api"]["can_download"],
+    )
+    md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
+    num_workers = cpu_count(conf["db"]["create_db_workers"])
+    reader = Reader(
+        md,
+        num_workers=num_workers,
+        sequences_threads=conf["db"]["sequences_threads"],
+    )
+
+    db = Database(
+        kmer_size=conf["db"]["kmer_size"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=conf["db"]["path"],
+        reader=reader,
+    )
+
+    print(db.get_info(as_str=True))
+
+
 def debug():
     """debugging, ignore it"""
     LOG.info("debug")
-    api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
+    api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", can_download=True)
     md = Metadata(
         csv_path="/data/microtaxo/allthebacteria_sample/metadata/ena_metadata.tsv",
         api=api,
-        start_loaded=True,
+        start_loaded=False,
     )
     reader = Reader(md, num_workers=8)
     db = Database(
         kmer_size=4,
         window_size=10000,
-        step=3000,
+        step=5000,
         full=False,
         dbs_path="/data/microtaxo/dbs",
         reader=reader,
     )
+    db.get_info()
     db.push_file(
         "/data/microtaxo/allthebacteria_sample/assembly/actinobacillus_lignieresii__01.asm.tar.xz"
     )
@@ -305,7 +337,6 @@ def debug():
 
 
 if __name__ == "__main__":
-    # debug()
 
     parser = argparse.ArgumentParser(
         description="AllTheBacteria Database Scripts",
@@ -385,11 +416,26 @@ if __name__ == "__main__":
         help="Path to a FASTA file for evaluation (check config for report location)",
     )
 
+    parser.add_argument(
+        "--db-info",
+        action="store_true",
+        help="Show database informations",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Dev only, do not use",
+    )
+
     args = parser.parse_args()
 
     conf = load_config(Path(args.json))
 
     config_logger(**conf["log"])
+
+    if args.debug:
+        debug()
+        sys.exit("debug")
 
     if args.populate_api_cache:
         populate_api_cache(conf)
@@ -402,6 +448,9 @@ if __name__ == "__main__":
 
     if args.create_db:
         create_db(conf)
+
+    if args.db_info:
+        db_info(conf)
 
     if args.train_model:
         train_model(conf=conf, rank=args.rank, save_path=args.save_path, kfold=None)

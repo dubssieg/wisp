@@ -5,8 +5,9 @@ import os
 from pathlib import Path
 import pickle
 from typing import Any
-
+import concurrent.futures
 import psutil
+from tqdm.auto import tqdm
 
 
 def format_duration(seconds: float) -> str:
@@ -112,6 +113,15 @@ def cpu_count(needed: str | int = 8) -> int:
         raise RuntimeError(f"Cannot get cpu count with: {needed}")
 
 
+class BrokenProcessPoolFilter(logging.Filter):
+    def filter(self, record):
+        if record.exc_info:
+            exc_type = record.exc_info[0]
+            if issubclass(exc_type, concurrent.futures.process.BrokenProcessPool):
+                record.exc_text = None
+        return True
+
+
 def config_logger(
     log_path: str | Path,
     terminal_level: str,
@@ -125,7 +135,7 @@ def config_logger(
     logger = logging.getLogger("")
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
-        "%(asctime)s :: %(levelname)s :: %(name)s ::  %(process)d :: %(message)s"
+        "%(asctime)s :: %(levelname)s :: %(name)s :: %(funcName)s[%(lineno)s] :: %(process)d :: %(message)s"
     )
 
     # terminal config
@@ -145,10 +155,22 @@ def config_logger(
     )
     file_handler.setFormatter(formatter)
     file_handler.setLevel(getattr(logging, file_level.upper()))
+    file_handler.addFilter(BrokenProcessPoolFilter())
     logger.addHandler(file_handler)
 
     for module in ignore_list:
         logging.getLogger(module).setLevel(logging.CRITICAL)
+
+
+def slurm_tqdm(iterable, *args, **kwargs):
+    # usage slurm_tqdm(..., disable=True)
+    if os.getenv("SLURM_JOB_ID") and kwargs.pop("disable", False):
+        return iterable
+    return tqdm(iterable, *args, **kwargs)
+
+
+def space_format(number: int):
+    return f"{number:_}".replace("_", " ")
 
 
 if __name__ == "__main__":

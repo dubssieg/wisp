@@ -1,8 +1,6 @@
-from collections import defaultdict
 import pandas as pd
 from api import API
 from pathlib import Path
-from tqdm.auto import tqdm
 
 
 class Metadata:
@@ -32,7 +30,7 @@ class Metadata:
             self._md[seq_id] = data
         return data
 
-    def _load(self):
+    def _load(self) -> dict:
         """Read DataFrame once then free memory (big file)."""
         columns = ["sample_accession", "tax_id"]
         dtype_specification = {col: str for col in columns}

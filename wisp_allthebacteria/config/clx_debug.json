@@ -13,9 +13,9 @@
         "path": "/data/microtaxo/dbs",
         "full": false,
         "window_size": 10000,
-        "step": 5000,
-        "create_db_workers": 8,
-        "sequences_threads": 2
+        "step": 8000,
+        "create_db_workers": "max_minus_2",
+        "sequences_threads": 8
     },
     "model":{
         "gpu": false,

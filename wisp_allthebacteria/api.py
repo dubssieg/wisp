@@ -1,11 +1,13 @@
+import logging
 import pickle
-import traceback
 import pandas as pd
 from tqdm.auto import tqdm
 from Bio import Entrez
 from diskcache import Cache
 from urllib.error import HTTPError
 from pathlib import Path
+
+LOG = logging.getLogger(__name__)
 
 
 class API:
@@ -14,23 +16,33 @@ class API:
         api_cache_dir: str | Path,
         email: str,
         can_download: bool = True,
+        preload: bool = False,
     ):
         self._can_download = can_download
-        self._api_cache_dir = Path(api_cache_dir)
-        self._api_cache = Cache(self._api_cache_dir)
+        self._preload = preload
+        self._cache_dir = Path(api_cache_dir).resolve()
+        self._cache = Cache(self._cache_dir)
         self._tax_id_errors_ = set()
         Entrez.email = email
+        if preload:
+            self._pr_cache = {k: self._cache[k] for k in self._cache}
 
-    def __getitem__(self, tax_id: int) -> dict:
-        if record := self._api_cache.get(tax_id, None):
+    def __getitem__(self, tax_id: int) -> dict | None:
+        # preloaded
+        if self._preload and tax_id in self._pr_cache:
+            return self._pr_cache[tax_id][0]
+        # in cache
+        if record := self._cache.get(tax_id, None):
             return record[0]
+        # not found, try do download
         if self._can_download:
             return self._get_api_data(tax_id)[0]
+        # None
         return record
 
     def tax_ids(self) -> list:
         """ "List of all available tax_ids"""
-        return list(self._api_cache)
+        return list(self._cache)
 
     def populate_api_cache(self, metadata_csv_path: str | Path):
         """Run once."""
@@ -48,8 +60,8 @@ class API:
 
         # extra tax_id
         for tax_id in tqdm(unique_tax_ids):
-            if tax_id in self._api_cache:
-                if tdata := self._api_cache[tax_id]:
+            if tax_id in self._cache:
+                if tdata := self._cache[tax_id]:
                     extra_tax_ids.update(
                         [int(lin["TaxId"]) for lin in tdata[0].get("LineageEx", {})]
                     )
@@ -78,13 +90,13 @@ class API:
         """Clean the cache by removing entries with non-integer keys or empty values."""
         keys_to_delete = []
 
-        for key in self._api_cache:
-            value = self._api_cache.get(key)
+        for key in self._cache:
+            value = self._cache.get(key)
             if not isinstance(key, int) or not value:
                 keys_to_delete.append(key)
 
         for key in keys_to_delete:
-            del self._api_cache[key]
+            del self._cache[key]
 
         return keys_to_delete
 
@@ -94,8 +106,8 @@ class API:
             pickle_path.parent.mkdir(parents=True, exist_ok=True)
         pickle_path = Path(pickle_path)
         exp_cache = dict()
-        for key in self._api_cache:
-            exp_cache[key] = self._api_cache[key]
+        for key in self._cache:
+            exp_cache[key] = self._cache[key]
 
         with open(pickle_path, "wb") as f:
             pickle.dump(exp_cache, f)
@@ -107,24 +119,24 @@ class API:
         with open(pickle_path, "rb") as f:
             exp_cache = pickle.load(f)
         for k, v in tqdm(exp_cache.items()):
-            self._api_cache[k] = v
+            self._cache[k] = v
 
-    def _get_api_data(self, tax_id):
+    def _get_api_data(self, tax_id: int | str) -> list | None:
         tax_id = self.clean_tax_id(tax_id)
         if not tax_id:
             return None
         tax_id = tax_id[0]
 
         # hit cache
-        if tax_id in self._api_cache:
-            return self._api_cache[tax_id]
+        if tax_id in self._cache:
+            return self._cache[tax_id]
 
         # API call + cache
         try:
             handle = Entrez.efetch(db="taxonomy", id=str(tax_id), retmode="xml")
             records = Entrez.read(handle)
-            self._api_cache[tax_id] = records
+            self._cache[tax_id] = records
             return records
         except HTTPError:
-            traceback.print_exc()
+            LOG.exception("Could not get API data")
             return None
