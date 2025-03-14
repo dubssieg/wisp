@@ -3,7 +3,6 @@ from concurrent.futures import (
     FIRST_COMPLETED,
     ProcessPoolExecutor,
     ThreadPoolExecutor,
-    as_completed,
     wait,
 )
 from concurrent.futures.process import BrokenProcessPool
@@ -16,16 +15,9 @@ import tempfile
 
 from Bio import SeqIO
 from metadata import Metadata
-from utils import format_size, system_stats, slurm_tqdm
+from utils import format_size, system_stats
 
 LOG = logging.getLogger(__name__)
-
-# processing archives containing 4000 FASTA files can be overwhelming for ProcessPoolExecutor (processes)
-# to manage this, we limit the number of FASTA files processed concurrently
-FASTA_FILES_BATCH_SIZE = 100
-
-# similarly, to avoid potential overload, we limit the number of sequences processed concurrently (threads)
-SEQUENCES_BATCH_SIZE = 100
 
 
 class Reader:
@@ -34,14 +26,10 @@ class Reader:
         metadata: Metadata,
         num_workers: int = 20,
         sequences_threads: int = 4,
-        fasta_files_batch_size: int = SEQUENCES_BATCH_SIZE,
-        sequences_batch_size: int = SEQUENCES_BATCH_SIZE,
     ):
         self._md = metadata
         self._num_workers = num_workers
         self._sequences_threads = sequences_threads
-        self._fasta_files_batch_size = fasta_files_batch_size
-        self._sequences_batch_size = sequences_batch_size
 
     def process_file(
         self,
@@ -157,13 +145,15 @@ class Reader:
                             )
                         except BrokenProcessPool:
                             LOG.critical(
-                                f"BrokenProcessPool error processing FASTA {file_name}"
+                                f"BrokenProcessPool error processing FASTA [{archive_name}] {file_name}"
                             )
                             raise RuntimeError(
-                                "Critical error: Process pool is broken, aborting."
+                                f"Critical error: Process pool is broken, aborting [{archive_name}] {file_name}"
                             )
                         except Exception as e:
-                            LOG.exception(f"Error processing FASTA {file_name}: {e}")
+                            LOG.exception(
+                                f"Error processing FASTA [{archive_name}] {file_name}: {e}"
+                            )
                             raise
                 LOG.debug(f"[{archive_name}] Closing ProcessPoolExecutor")
             LOG.debug(f"[{archive_name}] ProcessPoolExecutor closed")

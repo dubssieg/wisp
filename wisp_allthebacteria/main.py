@@ -64,11 +64,7 @@ def create_db(conf: dict):
     num_workers = cpu_count(conf["db"]["create_db_workers"])
     LOG.info(f"Max CPUs: {cpu_count('max')}, using {num_workers} workers")
     reader = Reader(
-        md,
-        num_workers=num_workers,
-        sequences_threads=conf["db"]["sequences_threads"],
-        fasta_files_batch_size=conf["db"]["fasta_files_batch_size"],
-        sequences_batch_size=conf["db"]["sequences_batch_size"],
+        md, num_workers=num_workers, sequences_threads=conf["db"]["sequences_threads"]
     )
 
     db = Database(
