@@ -7,6 +7,8 @@ from concurrent.futures import (
 )
 
 # from concurrent.futures.process import BrokenProcessPool
+import multiprocessing
+
 import queue
 from itertools import product
 import logging
@@ -92,19 +94,21 @@ class Reader:
             LOG.debug(f"[{archive_name}] Extracted: {len(extracted_files)} FASTA files")
 
             merged_data = {}
-
             LOG.debug(
                 f"[{archive_name}] Processing {self._num_workers} FASTA files in parallel"
             )
             fasta_count = 0
 
             # all files in queue
-            task_queue = queue.Queue()
+            task_queue = multiprocessing.SimpleQueue()
             for file_path in extracted_files:
                 task_queue.put(file_path)
 
             # LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
-            with ProcessPoolExecutor(max_workers=self._num_workers) as executor:
+            with ProcessPoolExecutor(
+                max_workers=self._num_workers,
+                # mp_context=multiprocessing.get_context("spawn"),
+            ) as executor:
                 running_futures = {}
 
                 while not task_queue.empty() or running_futures:
@@ -127,7 +131,13 @@ class Reader:
 
                     for future in done:
                         try:
-                            file_data = future.result()
+                            try:
+                                file_data = future.result(timeout=300)  # TODO: conf
+                            except TimeoutError:
+                                file_name = running_futures.pop(future).name
+                                LOG.error(f"Timeout on {file_name}, retrying later...")
+                                task_queue.put(file_name)
+                                continue
                             file_name = running_futures.pop(future).name
                             LOG.debug(f"[{file_name}] Fasta processed")
 
@@ -145,12 +155,8 @@ class Reader:
                             LOG.debug(
                                 f"[{file_name}] Data merged - {fasta_count} / {len(extracted_files)}"
                             )
-                        # except BrokenProcessPool:
-                        #     LOG.exception(
-                        #         f"BrokenProcessPool error processing FASTA [{archive_name}] {file_name}"
-                        #     )
-                        #     raise
                         except Exception:
+                            file_name = running_futures.pop(future).name
                             LOG.exception(
                                 f"Error processing FASTA [{archive_name}] {file_name}"
                             )
