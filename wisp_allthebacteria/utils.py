@@ -41,8 +41,11 @@ def get_current_datetime_string() -> str:
     return datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
 
-def system_stats(as_str: bool = False) -> dict:
-    current_process = psutil.Process(os.getpid())
+def system_stats(pid: int = None, as_str: bool = False) -> dict:
+
+    if pid is None:
+        pid = os.getpid()
+    current_process = psutil.Process(pid)
 
     # Current process and children RAM
     mem_info = current_process.memory_full_info()

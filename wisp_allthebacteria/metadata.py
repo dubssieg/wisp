@@ -1,10 +1,14 @@
+import logging
 import pandas as pd
 from api import API
 from pathlib import Path
 
+LOG = logging.getLogger(__name__)
+
 
 class Metadata:
     def __init__(self, csv_path: str | Path, api: API, start_loaded: bool = False):
+        LOG.debug(f"Metadata({locals()})")
         self._csv_path = Path(csv_path)
         self._md = None
         self._api = api

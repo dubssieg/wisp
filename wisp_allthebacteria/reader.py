@@ -9,6 +9,7 @@ from concurrent.futures import (
 # from concurrent.futures.process import BrokenProcessPool
 import multiprocessing
 
+import os
 import queue
 from itertools import product
 import logging
@@ -33,9 +34,11 @@ class Reader:
         num_workers: int = 20,
         sequences_threads: int = 4,
     ):
+        LOG.debug(f"Reader({locals()})")
         self._md = metadata
         self._num_workers = num_workers
         self._sequences_threads = sequences_threads
+        self._parent_process_pid = os.getpid()
 
     def process_file(
         self,
@@ -104,7 +107,6 @@ class Reader:
             for file_path in extracted_files:
                 task_queue.put(file_path)
 
-            # LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
             with ProcessPoolExecutor(
                 max_workers=self._num_workers,
                 # mp_context=multiprocessing.get_context("spawn"),
@@ -186,11 +188,11 @@ class Reader:
         file_name = file_path.name
         file_size = format_size(file_path.stat().st_size)
         LOG.debug(f"[{file_name}] Processing Fasta - SIZE: {file_size})")
-        LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
+        LOG.debug(f"SYSTEM: {system_stats(pid=self._parent_process_pid, as_str=True)}")
 
         try:
             sequences = self._read_fasta(file_path)
-            LOG.debug(f"[{file_name}] (Worker) {len(sequences)} sequences read")
+            LOG.debug(f"[{file_name}] {len(sequences)} sequences read")
         except Exception:
             LOG.exception(f"Error while reading fasta file: {file_path}")
             raise

@@ -30,6 +30,7 @@ class Database:
         dbs_path: str | Path,
         reader: Reader,
     ):
+        LOG.debug(f"Database({locals()})")
         self._dbs_path = Path(dbs_path).resolve()
         self._kmer_size = kmer_size
         self._reader = reader
