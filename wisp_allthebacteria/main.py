@@ -59,6 +59,7 @@ def create_db(conf: dict):
         api_cache_dir=api_cache_path,
         email=conf["api"]["email"],
         can_download=conf["api"]["can_download"],
+        preload=True,  # because multiproc/multithreads (avoid: sqlite3.OperationalError: database is locked)
     )
     md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
     num_workers = cpu_count(conf["db"]["create_db_workers"])

@@ -143,16 +143,14 @@ class Reader:
                             LOG.debug(
                                 f"[{file_name}] Data merged - {fasta_count} / {len(extracted_files)}"
                             )
-                        except BrokenProcessPool:
-                            LOG.critical(
-                                f"BrokenProcessPool error processing FASTA [{archive_name}] {file_name}"
-                            )
-                            raise RuntimeError(
-                                f"Critical error: Process pool is broken, aborting [{archive_name}] {file_name}"
-                            )
-                        except Exception as e:
+                        # except BrokenProcessPool:
+                        #     LOG.exception(
+                        #         f"BrokenProcessPool error processing FASTA [{archive_name}] {file_name}"
+                        #     )
+                        #     raise
+                        except Exception:
                             LOG.exception(
-                                f"Error processing FASTA [{archive_name}] {file_name}: {e}"
+                                f"Error processing FASTA [{archive_name}] {file_name}"
                             )
                             raise
                 LOG.debug(f"[{archive_name}] Closing ProcessPoolExecutor")
