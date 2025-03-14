@@ -9,7 +9,7 @@ from diskcache import Cache
 from functools import lru_cache
 
 from reader import Reader
-from utils import slurm_tqdm, space_format
+from utils import space_format
 
 LOG = logging.getLogger(__name__)
 
@@ -85,6 +85,7 @@ class Database:
         LOG.debug("Waiting lock for DB insertion")
         with self._db_lock:
             LOG.debug("Acquiring lock for DB insertion")
+            LOG.debug(f"Adding couter and sources : {len(data)} tax_ids")
             md_db = self._get_db(db_type="md")
             md_db[CURRENT_TRANSACTION] = data
             archives = md_db.get(ARCHIVES, [])
@@ -95,13 +96,8 @@ class Database:
             merged_data = data["merged_data"]
             # warning, tax_id is a str
             LOG.debug(f"Adding data to DB: {self.get_db_path()}")
-            for tax_id, tdata in slurm_tqdm(
-                merged_data.items(),
-                desc=f"Pushing {archive}",
-                position=1,
-                leave=False,
-                disable=True,
-            ):
+            for tax_id, tdata in merged_data.items():
+                LOG.debug(f"Adding couter and sources : {tax_id}")
                 tax_id = self._parse_tax_id(tax_id)
                 last_valid_id = self._get_last_valid_id(tax_id)
                 counters = tdata["counters"]
@@ -113,14 +109,7 @@ class Database:
                 batch_counters = {}
                 batch_sources = {}
 
-                for i, (source, counter) in slurm_tqdm(
-                    enumerate(zip(sources, counters)),
-                    desc="Adding counters and sources",
-                    total=len(counters),
-                    position=2,
-                    leave=False,
-                    disable=True,
-                ):
+                for i, (source, counter) in enumerate(zip(sources, counters)):
                     current_id = last_valid_id + i + 1
                     batch_counters[current_id] = counter
                     batch_sources[current_id] = source
@@ -129,26 +118,14 @@ class Database:
                     f"Starting counters DB transaction with {len(batch_counters)} counters"
                 )
                 with counter_db.transact():
-                    for current_id, counter in slurm_tqdm(
-                        batch_counters.items(),
-                        desc="Counters",
-                        position=3,
-                        leave=False,
-                        disable=True,
-                    ):
+                    for current_id, counter in batch_counters.items():
                         counter_db[current_id] = counter
                 LOG.debug("Ending counters transaction")
                 LOG.debug(
                     f"Starting sources DB transaction with {len(batch_sources)} sources"
                 )
                 with source_db.transact():
-                    for current_id, source in slurm_tqdm(
-                        batch_sources.items(),
-                        desc="Sources",
-                        position=3,
-                        leave=False,
-                        disable=True,
-                    ):
+                    for current_id, source in batch_sources.items():
                         source_db[current_id] = source
                 LOG.debug("Ending sources transaction")
 
@@ -259,9 +236,7 @@ class Database:
             )
             data = md_db[CURRENT_TRANSACTION]
             merged_data = data["merged_data"]
-            for tax_id in slurm_tqdm(
-                merged_data.keys(), desc="cleaning DB", disable=True
-            ):
+            for tax_id in merged_data.keys():
                 counter_db = self._get_db(db_type="counter", tax_id=tax_id)
                 source_db = self._get_db(db_type="source", tax_id=tax_id)
                 current_id = self._get_last_valid_id(tax_id)

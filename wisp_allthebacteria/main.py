@@ -85,7 +85,7 @@ def create_db(conf: dict):
         json_create_db = {"complete": [], "incomplete": [], "duration": {}}
 
     for archive_path in tqdm(
-        archives, desc=f"Processing {str(input_path)} -> {str(output_path)}", position=0
+        archives, desc=f"Processing {str(input_path)} -> {str(output_path)}"
     ):
         if str(archive_path) in json_create_db["complete"]:
             continue
