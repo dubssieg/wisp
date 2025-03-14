@@ -36,9 +36,11 @@ class RefSeqDataset:
         """Retourne les indices du DataFrame index_with_label."""
         return self.index_with_label.index
 
-    def split(self, test_size=0.2, random_state=None):
+    def split(self, test_size=0.2, random_state=None, family_strat=False):
         """Effectue un split aléatoire et retourne deux instances de RefSeqDataset."""
-        train_df, test_df = train_test_split(self.index_with_label, test_size=test_size, random_state=random_state)
+        strat = None if not family_strat  else self.index_with_label['family']
+        train_df, test_df = train_test_split(self.index_with_label, test_size=test_size,
+                                             random_state=random_state, stratify=strat)
         train_df = train_df.reset_index(drop=True)
         test_df = test_df.reset_index(drop=True)
         # Créer deux nouvelles instances de RefSeqDataset pour les ensembles d'entraînement et de test
@@ -66,14 +68,14 @@ class RefSeqDataset:
 
 if __name__ == '__main__':
     index_csv = 'complete_refseq_referent_genome_with_taxo.tsv'
-    datadir = '/projects/microtaxo/data/refseq2'
+    datadir = '/projects/microtaxo/data/refseq3'
     # datadir = '/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1'
     ds = RefSeqDataset(index_csv,datadir)
 
     # print(ds.index_with_label['file'])
     x, y = ds[0]
 
-    train_dataset, test_dataset = ds.split(test_size=0.2, random_state=42)
+    train_dataset, test_dataset = ds.split(test_size=0.1, random_state=42, family_strat=True)
     print("lenght train_dataset", len(train_dataset))
     print("index", train_dataset.index_with_label.index)
 

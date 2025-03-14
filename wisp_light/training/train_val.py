@@ -16,7 +16,7 @@ from wisp.wisp_light.dataset.RefSeqDataset import RefSeqDataset
 # from wisp.wisp_light.dataset.bactero_set import BacteriaDataset
 
 parser = argparse.ArgumentParser(description="Script d'entraînement pour le modèle bactérien.")
-parser.add_argument("--exp_name", type=str, default="model_base", help="Nom de l'expérience.")
+parser.add_argument("--exp_name", type=str, default="model_ref", help="Nom de l'expérience.")
 parser.add_argument("--datadir", type=str, default="/projects/microtaxo/data/refseq_with_taxo_merged", help="Répertoire des données.")
 parser.add_argument("--params_file", type=str, default="params.yaml", help="Chemin du fichier de paramètres.")
 parser.add_argument("--exp_rootdir", type=str, default=os.path.abspath('../../exp/'), help="Répertoire racine des expériences.")
@@ -66,9 +66,8 @@ with mlflow.start_run():
     #                                      max_family_repr=params['max_family_repr'])
     dataset = RefSeqDataset(args.index_csv, args.datadir)
 
-    train_dataset, val_dataset = dataset.split(test_size=0.2, random_state=42)
-    # train_files_list, val_files_list = dataset.train_test_split(test_size=params['test_size'],
-    #                                                             random_state=params['random_state'])
+    train_dataset, val_dataset = dataset.split(test_size=params['test_size'], random_state=params['random_state'],
+                                               family_strat=params['family_strat'])
 
     if  args.db_json:
 
