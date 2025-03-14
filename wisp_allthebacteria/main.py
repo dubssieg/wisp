@@ -108,9 +108,6 @@ def create_db(conf: dict):
             duration = time.time() - start_time
             json_create_db["duration"][archive_path.name] = format_duration(duration)
 
-            with open(json_create_db_path, "w", encoding="utf-8") as json_file:
-                json.dump(json_create_db, json_file, indent=4)
-
         except Exception:
             LOG.exception("Error processing {archive_path.name}")
             if str(archive_path) not in json_create_db["incomplete"]:
@@ -118,6 +115,7 @@ def create_db(conf: dict):
                 raise
 
         finally:
+            db.wait_for_completion()
             with open(json_create_db_path, "w", encoding="utf-8") as json_file:
                 json.dump(json_create_db, json_file, indent=4)
 

@@ -45,10 +45,13 @@ def system_stats(as_str: bool = False) -> dict:
     current_process = psutil.Process(os.getpid())
 
     # Current process and children RAM
-    mem_info = current_process.memory_info()
+    mem_info = current_process.memory_full_info()
     script_memory_usage = sum(
-        (child.memory_info().rss for child in current_process.children(recursive=True)),
-        start=mem_info.rss,
+        (
+            child.memory_full_info().uss
+            for child in current_process.children(recursive=True)
+        ),
+        start=mem_info.uss,
     )
 
     # System total RAM
