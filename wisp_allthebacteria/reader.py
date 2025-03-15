@@ -18,6 +18,7 @@ import tarfile
 import tempfile
 
 from Bio import SeqIO
+import psutil
 from metadata import Metadata
 from utils import format_size, system_stats
 
@@ -169,11 +170,33 @@ class Reader:
                             )
                         LOG.debug(f"[{archive_name}] All done futures processed")
                     LOG.debug(
-                        f"[{archive_name}] Queue empty - all future processed - closing ProcessPoolExecutor"
+                        f"[{archive_name}] Queue empty - all futures processed - closing ProcessPoolExecutor"
                     )
                 finally:
                     LOG.debug(f"[{archive_name}] Forcing ProcessPoolExecutor shutdown")
+
+                    for future in running_futures.keys():
+                        try:
+                            if not future.done():
+                                future.cancel()
+                        except Exception:
+                            pass  # Future already terminated
                     executor.shutdown(wait=True, cancel_futures=True)
+
+                    # check zombies
+                    current_process = psutil.Process(os.getpid())
+                    for child in current_process.children(recursive=True):
+                        LOG.warning(
+                            f"Killing leftover process: {child.pid} - {child.cmdline()}"
+                        )
+                        child.terminate()
+
+                    # Wait 5s and force killing if needed
+                    _, alive = psutil.wait_procs(current_process.children(), timeout=5)
+                    for child in alive:
+                        LOG.error(f"Force killing process: {child.pid}")
+                        child.kill()
+
                     LOG.debug(f"[{archive_name}] ProcessPoolExecutor closed")
             LOG.debug(f"[{archive_name}] ProcessPoolExecutor closed")
         LOG.debug(f"{len(sequences_data)} sequences counted - merging by tax_id")

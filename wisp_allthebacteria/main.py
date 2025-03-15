@@ -139,6 +139,8 @@ def create_db(conf: dict):
         db.stop_worker()
         LOG.info("DB queue is empty")
 
+    LOG.info("create_db -> DONE")
+
 
 def load_config(json_file: Path | str):
     with open(json_file, "r") as file:
