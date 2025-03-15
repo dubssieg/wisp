@@ -101,8 +101,6 @@ class Reader:
                 f"[{archive_name}] Processing {self._num_workers} FASTA files in parallel"
             )
             fasta_count = 0
-            # not very clean but better for multiprocessing ~80Mo, not sustainable
-            # md_dict = self._md.md
 
             # all files in queue
             task_queue = queue.Queue()
@@ -114,60 +112,69 @@ class Reader:
                 # mp_context=multiprocessing.get_context("spawn"),
             ) as executor:
                 running_futures = {}
+                try:
 
-                while not task_queue.empty() or running_futures:
-                    while (
-                        not task_queue.empty()
-                        and len(running_futures) < MAX_RUNNING_TASKS_FASTA
-                    ):
-                        file_path = task_queue.get()
-                        future = executor.submit(
-                            Reader.process_fasta,
-                            file_path=file_path,
-                            kmer_size=kmer_size,
-                            window_size=window_size,
-                            step=step,
-                            num_workers=self._sequences_threads,
-                            parent_pid=self._parent_pid,
-                            # md=md_dict,
-                            full=full,
+                    while not task_queue.empty() or running_futures:
+                        while (
+                            not task_queue.empty()
+                            and len(running_futures) < MAX_RUNNING_TASKS_FASTA
+                        ):
+                            file_path = task_queue.get()
+                            future = executor.submit(
+                                Reader.process_fasta,
+                                file_path=file_path,
+                                kmer_size=kmer_size,
+                                window_size=window_size,
+                                step=step,
+                                num_workers=self._sequences_threads,
+                                parent_pid=self._parent_pid,
+                                # md=md_dict,
+                                full=full,
+                            )
+                            running_futures[future] = file_path
+
+                        done, _ = wait(
+                            running_futures.keys(), return_when=FIRST_COMPLETED
                         )
-                        running_futures[future] = file_path
 
-                    done, _ = wait(running_futures.keys(), return_when=FIRST_COMPLETED)
-
-                    for future in done:
-                        try:
+                        for future in done:
                             try:
-                                file_sequences_data = future.result(
-                                    timeout=300
-                                )  # TODO: conf
-                            except TimeoutError:
+                                try:
+                                    file_sequences_data = future.result(
+                                        timeout=300
+                                    )  # TODO: conf
+                                except TimeoutError:
+                                    file_name = running_futures.pop(future).name
+                                    LOG.error(
+                                        f"Timeout on {file_name}, retrying later..."
+                                    )
+                                    task_queue.put(file_name)
+                                    continue
                                 file_name = running_futures.pop(future).name
-                                LOG.error(f"Timeout on {file_name}, retrying later...")
-                                task_queue.put(file_name)
-                                continue
-                            file_name = running_futures.pop(future).name
-                            sequences_data.append(file_sequences_data)
-                            LOG.debug(f"[{file_name}] Fasta processed")
+                                sequences_data.append(file_sequences_data)
+                                LOG.debug(f"[{file_name}] Fasta processed")
 
-                            fasta_count += 1
+                                fasta_count += 1
+                                LOG.debug(
+                                    f"[{file_name}] Sequences counted - {fasta_count} / {len(extracted_files)}"
+                                )
+                            except Exception:
+                                file_name = running_futures.pop(future).name
+                                LOG.exception(
+                                    f"Error processing FASTA [{archive_name}] {file_name}"
+                                )
+                                raise
                             LOG.debug(
-                                f"[{file_name}] Sequences counted - {fasta_count} / {len(extracted_files)}"
+                                f"[{archive_name}] One future processed (sequence counted)"
                             )
-                        except Exception:
-                            file_name = running_futures.pop(future).name
-                            LOG.exception(
-                                f"Error processing FASTA [{archive_name}] {file_name}"
-                            )
-                            raise
-                        LOG.debug(
-                            f"[{archive_name}] One future processed (sequence counted)"
-                        )
-                    LOG.debug(f"[{archive_name}] All done futures processed")
-                LOG.debug(
-                    f"[{archive_name}] Queue empty - all future processed - closing ProcessPoolExecutor"
-                )
+                        LOG.debug(f"[{archive_name}] All done futures processed")
+                    LOG.debug(
+                        f"[{archive_name}] Queue empty - all future processed - closing ProcessPoolExecutor"
+                    )
+                finally:
+                    LOG.debug(f"[{archive_name}] Forcing ProcessPoolExecutor shutdown")
+                    executor.shutdown(wait=True, cancel_futures=True)
+                    LOG.debug(f"[{archive_name}] ProcessPoolExecutor closed")
             LOG.debug(f"[{archive_name}] ProcessPoolExecutor closed")
         LOG.debug(f"{len(sequences_data)} sequences counted - merging by tax_id")
 
