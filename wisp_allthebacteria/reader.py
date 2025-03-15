@@ -7,7 +7,7 @@ from concurrent.futures import (
 )
 
 # from concurrent.futures.process import BrokenProcessPool
-import multiprocessing
+# import multiprocessing
 
 import os
 import queue
@@ -38,7 +38,7 @@ class Reader:
         self._md = metadata
         self._num_workers = num_workers
         self._sequences_threads = sequences_threads
-        self._parent_process_pid = os.getpid()
+        self._parent_pid = os.getpid()
 
     def process_file(
         self,
@@ -96,14 +96,16 @@ class Reader:
             extracted_files = list(temp_dir.rglob("*.fa"))
             LOG.debug(f"[{archive_name}] Extracted: {len(extracted_files)} FASTA files")
 
-            merged_data = {}
+            sequences_data = []
             LOG.debug(
                 f"[{archive_name}] Processing {self._num_workers} FASTA files in parallel"
             )
             fasta_count = 0
+            # not very clean but better for multiprocessing ~80Mo, not sustainable
+            # md_dict = self._md.md
 
             # all files in queue
-            task_queue = multiprocessing.SimpleQueue()
+            task_queue = queue.Queue()
             for file_path in extracted_files:
                 task_queue.put(file_path)
 
@@ -120,11 +122,14 @@ class Reader:
                     ):
                         file_path = task_queue.get()
                         future = executor.submit(
-                            self.process_fasta,
+                            Reader.process_fasta,
                             file_path=file_path,
                             kmer_size=kmer_size,
                             window_size=window_size,
                             step=step,
+                            num_workers=self._sequences_threads,
+                            parent_pid=self._parent_pid,
+                            # md=md_dict,
                             full=full,
                         )
                         running_futures[future] = file_path
@@ -134,28 +139,21 @@ class Reader:
                     for future in done:
                         try:
                             try:
-                                file_data = future.result(timeout=300)  # TODO: conf
+                                file_sequences_data = future.result(
+                                    timeout=300
+                                )  # TODO: conf
                             except TimeoutError:
                                 file_name = running_futures.pop(future).name
                                 LOG.error(f"Timeout on {file_name}, retrying later...")
                                 task_queue.put(file_name)
                                 continue
                             file_name = running_futures.pop(future).name
+                            sequences_data.append(file_sequences_data)
                             LOG.debug(f"[{file_name}] Fasta processed")
-
-                            # merge
-                            for tax_id, data in file_data.items():
-                                if tax_id not in merged_data:
-                                    merged_data[tax_id] = {
-                                        "counters": [],
-                                        "sources": [],
-                                    }
-                                merged_data[tax_id]["counters"].extend(data["counters"])
-                                merged_data[tax_id]["sources"].extend(data["sources"])
 
                             fasta_count += 1
                             LOG.debug(
-                                f"[{file_name}] Data merged - {fasta_count} / {len(extracted_files)}"
+                                f"[{file_name}] Sequences counted - {fasta_count} / {len(extracted_files)}"
                             )
                         except Exception:
                             file_name = running_futures.pop(future).name
@@ -164,23 +162,50 @@ class Reader:
                             )
                             raise
                         LOG.debug(
-                            f"[{archive_name}] One future processed (data merged)"
+                            f"[{archive_name}] One future processed (sequence counted)"
                         )
                     LOG.debug(f"[{archive_name}] All done futures processed")
                 LOG.debug(
                     f"[{archive_name}] Queue empty - all future processed - closing ProcessPoolExecutor"
                 )
             LOG.debug(f"[{archive_name}] ProcessPoolExecutor closed")
-        LOG.debug(f"[{archive_path}] Extracted files deleted")
+        LOG.debug(f"{len(sequences_data)} sequences counted - merging by tax_id")
+
+        merged_data = {}
+
+        for sequence_data in sequences_data:
+            for file_id, data in sequence_data.items():
+                file_md = self._md[file_id]
+
+                match len(file_md):
+                    case 0:
+                        tax_id = "no-tax-id"
+                    case 1:
+                        tax_id = file_md[0]["TaxId"]
+                    case _:
+                        tax_id = f"multiple-{'|'.join(m['TaxId'] if m else 'no-tax-id' for m in file_md)}"
+                if tax_id not in merged_data:
+                    merged_data[tax_id] = {
+                        "counters": [],
+                        "sources": [],
+                    }
+                merged_data[tax_id]["counters"].extend(data["counters"])
+                merged_data[tax_id]["sources"].extend(data["sources"])
+        LOG.debug(f"Sequences counters merged: {len(merged_data)} tax_id(s)")
+
+        LOG.debug(f"[{archive_path}] Extracted files deleted)")
 
         return {"archive": archive_path, "merged_data": merged_data}
 
+    @staticmethod
     def process_fasta(
-        self,
         file_path: str | Path,
         kmer_size: int,
         window_size: int,
         step: int,
+        num_workers: int,
+        parent_pid: int,
+        # md: dict,
         full: bool = False,
     ) -> dict:
         """Process a FASTA file using controlled multithreading."""
@@ -188,26 +213,24 @@ class Reader:
         file_name = file_path.name
         file_size = format_size(file_path.stat().st_size)
         LOG.debug(f"[{file_name}] Processing Fasta - SIZE: {file_size})")
-        LOG.debug(f"SYSTEM: {system_stats(pid=self._parent_process_pid, as_str=True)}")
+        LOG.debug(f"SYSTEM: {system_stats(pid=parent_pid, as_str=True)}")
 
         try:
-            sequences = self._read_fasta(file_path)
+            sequences = Reader._read_fasta(file_path)
             LOG.debug(f"[{file_name}] {len(sequences)} sequences read")
         except Exception:
             LOG.exception(f"Error while reading fasta file: {file_path}")
             raise
 
-        tax_id_to_data = {}
+        source_id_to_data = {}
 
-        LOG.debug(f"[{file_name}] Counting - {self._sequences_threads} threads")
+        LOG.debug(f"[{file_name}] Counting - {num_workers} threads")
 
-        # Queue all sequences
         task_queue = queue.Queue()
-
         for seq in sequences:
             task_queue.put(seq)
 
-        with ThreadPoolExecutor(max_workers=self._sequences_threads) as executor:
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
             running_futures = set()
 
             while not task_queue.empty() or running_futures:
@@ -217,13 +240,13 @@ class Reader:
                 ):
                     seq = task_queue.get()
                     future = executor.submit(
-                        self.process_sequence,
+                        Reader.process_sequence,
                         sequence=seq,
                         kmer_size=kmer_size,
                         window_size=window_size,
                         step=step,
                         full=full,
-                        md=self._md[seq["id"]],
+                        # md=md[seq["id"]],
                     )
                     running_futures.add(future)
 
@@ -234,12 +257,16 @@ class Reader:
 
                 for future in done:
                     try:
-                        tax_id, kmer_count, source = future.result()
-                        if tax_id not in tax_id_to_data:
-                            tax_id_to_data[tax_id] = {"counters": [], "sources": []}
+                        kmer_count, source = future.result()
+                        source_id = source["id"]
+                        if source_id not in source_id_to_data:
+                            source_id_to_data[source_id] = {
+                                "counters": [],
+                                "sources": [],
+                            }
 
-                        tax_id_to_data[tax_id]["counters"].extend(kmer_count)
-                        tax_id_to_data[tax_id]["sources"].extend(
+                        source_id_to_data[source_id]["counters"].extend(kmer_count)
+                        source_id_to_data[source_id]["sources"].extend(
                             [source] * len(kmer_count)
                         )
 
@@ -249,7 +276,7 @@ class Reader:
             LOG.debug(f"[{file_name}] Sequence - Closing ThreadPoolExecutor")
         LOG.debug(f"[{file_name}] Sequence - ThreadPoolExecutor closed")
 
-        return tax_id_to_data
+        return source_id_to_data
 
     @staticmethod
     def process_sequence(
@@ -258,18 +285,9 @@ class Reader:
         window_size: int,
         step: int,
         full: bool,
-        md: dict,
-    ):
+        # md: dict,
+    ) -> tuple[dict, dict]:
         """need to be static for ProcessPoolExecutor"""
-        match len(md):
-            case 0:
-                tax_id = "no-tax-id"
-            case 1:
-                tax_id = md[0]["TaxId"]
-            case _:
-                tax_id = (
-                    f"multiple-{'|'.join(m['TaxId'] if m else 'no-tax-id' for m in md)}"
-                )
 
         kmer_count = Reader._counter(
             entry=sequence["sequence"],
@@ -280,7 +298,7 @@ class Reader:
         )
 
         source = {k: v for k, v in sequence.items() if k != "sequence"}
-        return tax_id, kmer_count, source
+        return kmer_count, source
 
     @staticmethod
     def _counter(

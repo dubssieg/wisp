@@ -16,7 +16,7 @@ class Metadata:
             self.md
 
     @property
-    def md(self):
+    def md(self) -> dict:
         if self._md is None:
             self._md = self._load()
         return self._md
