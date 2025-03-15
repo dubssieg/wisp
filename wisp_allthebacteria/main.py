@@ -79,66 +79,65 @@ def create_db(conf: dict):
 
     json_create_db_path = db.get_db_path() / "create_db.json"
 
-    if json_create_db_path.exists():
+    try:
         json_create_db = json.loads(json_create_db_path.read_text(encoding="utf-8"))
-    else:
+    except (FileNotFoundError, json.JSONDecodeError):
         json_create_db = {"complete": [], "incomplete": [], "duration": {}}
 
     complete = set(json_create_db["complete"])
     incomplete = set(json_create_db["incomplete"])
     duration = json_create_db["duration"]
 
-    for archive_path in tqdm(
-        archives, desc=f"Processing {input_path} -> {output_path}"
-    ):
-        archive_str = str(archive_path)
-
-        # if archive_str in complete:
-        #     continue
-
-        start_time = time.time()
-
-        try:
-            if archive_str in incomplete:
-                LOG.info(f"Retrying {archive_path.name}...")
-
-            if db.has_archive(archive_path):
-                LOG.warning(f"{archive_path.name} already in DB, skipping.")
-            else:
-                db.push_file(archive_path)
-
-            complete.add(archive_str)
-            incomplete.discard(archive_str)
-
-            duration[archive_path.name] = format_duration(time.time() - start_time)
-
-        except Exception:
-            LOG.exception(f"Error processing {archive_path.name}")
-            incomplete.add(archive_str)
-            raise
-
-        finally:
-            db.wait_for_completion()
-            with json_create_db_path.open("w", encoding="utf-8") as json_file:
-                json.dump(
-                    {
-                        "complete": list(complete),
-                        "incomplete": list(incomplete),
-                        "duration": duration,
-                    },
-                    json_file,
-                    indent=4,
-                )
-            db.stop_worker()
-
     try:
+        for archive_path in tqdm(
+            archives, desc=f"Processing {input_path} -> {output_path}"
+        ):
+            archive_str = str(archive_path)
+
+            # if archive_str in complete:
+            #     continue
+
+            start_time = time.time()
+
+            try:
+                if archive_str in incomplete:
+                    LOG.info(f"Retrying {archive_path.name}...")
+
+                if db.has_archive(archive_path):
+                    LOG.warning(f"{archive_path.name} already in DB, skipping.")
+                else:
+                    db.push_file(archive_path)
+
+                complete.add(archive_str)
+                incomplete.discard(archive_str)
+
+                duration[archive_path.name] = format_duration(time.time() - start_time)
+
+            except Exception:
+                LOG.exception(f"Error processing {archive_path.name}")
+                incomplete.add(archive_str)
+                raise
+
+            finally:
+                with json_create_db_path.open("w", encoding="utf-8") as json_file:
+                    json.dump(
+                        {
+                            "complete": list(complete),
+                            "incomplete": list(incomplete),
+                            "duration": duration,
+                        },
+                        json_file,
+                        indent=4,
+                    )
+    except Exception:
+        LOG.exception(f"Error processing {archive_path.name}")
+        raise
+
+    finally:
         LOG.info("Waiting for last DB insertions")
         db.wait_for_completion()
         db.stop_worker()
         LOG.info("DB queue is empty")
-    except Exception:
-        LOG.exception("Error when waiting for DB insertion completion")
-        raise
 
 
 def load_config(json_file: Path | str):
