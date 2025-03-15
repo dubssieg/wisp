@@ -92,7 +92,7 @@ class Database:
         with self._db_lock:
             try:
                 LOG.debug("Acquiring lock for DB insertion")
-                LOG.debug(f"Adding couter and sources : {len(data)} tax_ids")
+                LOG.debug("Adding counter & sources - get DB metadata")
                 md_db = self._get_db(db_type="md")
                 md_db[CURRENT_TRANSACTION] = data
                 archives = md_db.get(ARCHIVES, [])
@@ -102,9 +102,11 @@ class Database:
 
                 merged_data = data["merged_data"]
                 # warning, tax_id is a str
-                LOG.debug(f"Adding data to DB: {self.get_db_path()}")
+                LOG.debug(
+                    f"Adding counters & sources to DB for {len(merged_data)} tax_id(s): {self.get_db_path()}"
+                )
                 for tax_id, tdata in merged_data.items():
-                    LOG.debug(f"Adding couter and sources : {tax_id}")
+                    LOG.debug(f"Adding couter & sources tax_id: {tax_id}")
                     tax_id = self._parse_tax_id(tax_id)
                     last_valid_id = self._get_last_valid_id(tax_id)
                     counters = tdata["counters"]
@@ -122,21 +124,17 @@ class Database:
                         batch_sources[current_id] = source
 
                     LOG.debug(
-                        f"Starting counters DB transaction with {len(batch_counters)} counters"
+                        f"Starting 2 DB transactions with {len(batch_counters)} counters & sources for tax_id {tax_id}"
                     )
                     with counter_db.transact():
                         for current_id, counter in batch_counters.items():
                             counter_db[current_id] = counter
-                    LOG.debug("Ending counters transaction")
-                    LOG.debug(
-                        f"Starting sources DB transaction with {len(batch_sources)} sources"
-                    )
                     with source_db.transact():
                         for current_id, source in batch_sources.items():
                             source_db[current_id] = source
                     LOG.debug("Ending sources transaction")
 
-                LOG.debug("Counters and sources added - ending transaction")
+                LOG.debug("Counters & sources added - ending transaction")
                 # end transaction
                 del md_db[CURRENT_TRANSACTION]
                 for tax_id, last_valid_id in last_valid_ids.items():
