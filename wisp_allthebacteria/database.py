@@ -70,79 +70,90 @@ class Database:
     def _db_worker(self):
         """Thread worker managing queue"""
         while True:
+            LOG.debug("DB worker: waiting for data in queue")
             data = self._task_queue.get()  # block if empty
+            LOG.debug("DB worker: data found in queue")
             if data is None:
+                LOG.debug("Breaking DB worker loop")
                 break
             try:
                 self._add_data_to_db(data)
             except Exception:
-                LOG.exception("Database worker error (add_data_to_db)")
+                LOG.exception("DB worker: add_data_to_db failed")
                 raise
             finally:
+                LOG.debug("DB worker: terminating queue")
                 self._task_queue.task_done()
+                LOG.debug("DB worker: queue terminated")
 
     def _add_data_to_db(self, data):
         LOG.debug("Waiting lock for DB insertion")
+        LOG.debug(f"Lock status before acquiring: {self._db_lock.locked()}")
         with self._db_lock:
-            LOG.debug("Acquiring lock for DB insertion")
-            LOG.debug(f"Adding couter and sources : {len(data)} tax_ids")
-            md_db = self._get_db(db_type="md")
-            md_db[CURRENT_TRANSACTION] = data
-            archives = md_db.get(ARCHIVES, [])
-            archive = self._archive_stem(data["archive"])
+            try:
+                LOG.debug("Acquiring lock for DB insertion")
+                LOG.debug(f"Adding couter and sources : {len(data)} tax_ids")
+                md_db = self._get_db(db_type="md")
+                md_db[CURRENT_TRANSACTION] = data
+                archives = md_db.get(ARCHIVES, [])
+                archive = self._archive_stem(data["archive"])
 
-            last_valid_ids = {}
+                last_valid_ids = {}
 
-            merged_data = data["merged_data"]
-            # warning, tax_id is a str
-            LOG.debug(f"Adding data to DB: {self.get_db_path()}")
-            for tax_id, tdata in merged_data.items():
-                LOG.debug(f"Adding couter and sources : {tax_id}")
-                tax_id = self._parse_tax_id(tax_id)
-                last_valid_id = self._get_last_valid_id(tax_id)
-                counters = tdata["counters"]
-                sources = tdata["sources"]
-                counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-                source_db = self._get_db(db_type="source", tax_id=tax_id)
+                merged_data = data["merged_data"]
+                # warning, tax_id is a str
+                LOG.debug(f"Adding data to DB: {self.get_db_path()}")
+                for tax_id, tdata in merged_data.items():
+                    LOG.debug(f"Adding couter and sources : {tax_id}")
+                    tax_id = self._parse_tax_id(tax_id)
+                    last_valid_id = self._get_last_valid_id(tax_id)
+                    counters = tdata["counters"]
+                    sources = tdata["sources"]
+                    counter_db = self._get_db(db_type="counter", tax_id=tax_id)
+                    source_db = self._get_db(db_type="source", tax_id=tax_id)
 
-                # populate and add batch of counters/sources
-                batch_counters = {}
-                batch_sources = {}
+                    # populate and add batch of counters/sources
+                    batch_counters = {}
+                    batch_sources = {}
 
-                for i, (source, counter) in enumerate(zip(sources, counters)):
-                    current_id = last_valid_id + i + 1
-                    batch_counters[current_id] = counter
-                    batch_sources[current_id] = source
+                    for i, (source, counter) in enumerate(zip(sources, counters)):
+                        current_id = last_valid_id + i + 1
+                        batch_counters[current_id] = counter
+                        batch_sources[current_id] = source
 
-                LOG.debug(
-                    f"Starting counters DB transaction with {len(batch_counters)} counters"
-                )
-                with counter_db.transact():
-                    for current_id, counter in batch_counters.items():
-                        counter_db[current_id] = counter
-                LOG.debug("Ending counters transaction")
-                LOG.debug(
-                    f"Starting sources DB transaction with {len(batch_sources)} sources"
-                )
-                with source_db.transact():
-                    for current_id, source in batch_sources.items():
-                        source_db[current_id] = source
-                LOG.debug("Ending sources transaction")
+                    LOG.debug(
+                        f"Starting counters DB transaction with {len(batch_counters)} counters"
+                    )
+                    with counter_db.transact():
+                        for current_id, counter in batch_counters.items():
+                            counter_db[current_id] = counter
+                    LOG.debug("Ending counters transaction")
+                    LOG.debug(
+                        f"Starting sources DB transaction with {len(batch_sources)} sources"
+                    )
+                    with source_db.transact():
+                        for current_id, source in batch_sources.items():
+                            source_db[current_id] = source
+                    LOG.debug("Ending sources transaction")
 
-            LOG.debug("Counters and sources added - ending transaction")
-            # end transaction
-            del md_db[CURRENT_TRANSACTION]
-            for tax_id, last_valid_id in last_valid_ids.items():
-                self._set_last_valid_id(tax_id=tax_id, last_valid_id=last_valid_id)
-            archives.append(archive)
-            md_db[ARCHIVES] = archives
-            LOG.debug("Transaction ended successfully, releasing DB lock")
+                LOG.debug("Counters and sources added - ending transaction")
+                # end transaction
+                del md_db[CURRENT_TRANSACTION]
+                for tax_id, last_valid_id in last_valid_ids.items():
+                    self._set_last_valid_id(tax_id=tax_id, last_valid_id=last_valid_id)
+                archives.append(archive)
+                md_db[ARCHIVES] = archives
+            except Exception:
+                LOG.exception("possible deadlock!")
+                raise
+            finally:
+                LOG.debug("Transaction ended successfully, releasing DB lock")
         LOG.debug("DB lock released")
 
     def wait_for_completion(self):
         """Should be added at the end."""
         LOG.debug("Waiting for DB insertions to complete...")
-        self._task_queue.join()
+        self._task_queue.join()  # waiting for self._task_queue.task_done()
         self.stop_worker()
         LOG.debug("All DB insertions completed")
 
