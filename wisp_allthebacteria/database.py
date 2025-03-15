@@ -148,8 +148,12 @@ class Database:
 
     def stop_worker(self):
         """Stop worker thread."""
-        self._task_queue.put(None)
+        LOG.debug("Stopping DB worker")
+        if self._task_queue.empty():
+            self._task_queue.put(None)
+
         self._worker_thread.join()
+        LOG.debug("DB worker stopped")
 
     def get_counter(self, tax_id: int, num: int) -> dict | None:
         counter_db = self._get_db(db_type="counter", tax_id=tax_id)
