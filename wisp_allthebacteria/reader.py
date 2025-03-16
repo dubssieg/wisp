@@ -70,6 +70,7 @@ class Reader:
         )
         LOG.info(f"[{archive_name}] Extracting archive: {archive_path}")
         LOG.info(f"[{archive_name}] SIZE: {archive_size}")
+        fasta_count = 0
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir).resolve()
@@ -96,6 +97,10 @@ class Reader:
                 for future in futures:
                     try:
                         results.append(future.result())
+                        fasta_count += 1
+                        LOG.debug(
+                            f"[{archive_name}] DONE {fasta_count} / {len(extracted_files)}"
+                        )
                     except Exception:
                         LOG.exception(f"[{archive_name}] {futures[future]}")
                         raise
