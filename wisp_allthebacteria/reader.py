@@ -17,6 +17,7 @@ import logging
 from pathlib import Path
 import tarfile
 import tempfile
+from pympler import asizeof
 
 from Bio import SeqIO
 import psutil
@@ -138,7 +139,11 @@ class Reader:
                         done, _ = wait(
                             running_futures.keys(), return_when=FIRST_COMPLETED
                         )
+                        # clean
+                        for future in done:
+                            file_name = running_futures.pop(future).name
 
+                        # get results
                         for future in done:
                             try:
                                 try:
@@ -155,6 +160,9 @@ class Reader:
                                 file_name = running_futures.pop(future).name
                                 sequences_data.append(file_sequences_data)
                                 LOG.debug(f"[{file_name}] Fasta processed")
+                                LOG.debug(
+                                    f"Sequences memory size: {format_size(asizeof.asizeof(file_sequences_data))}"
+                                )
 
                                 fasta_count += 1
                                 LOG.debug(
@@ -236,7 +244,6 @@ class Reader:
         step: int,
         num_workers: int,
         parent_pid: int,
-        # md: dict,
         full: bool = False,
     ) -> dict:
         """Process a FASTA file using controlled multithreading."""
@@ -277,7 +284,6 @@ class Reader:
                         window_size=window_size,
                         step=step,
                         full=full,
-                        # md=md[seq["id"]],
                     )
                     running_futures.add(future)
 
@@ -307,7 +313,8 @@ class Reader:
             LOG.debug(f"[{file_name}] Fasta - Closing ThreadPoolExecutor")
         LOG.debug(f"[{file_name}] Fasta - ThreadPoolExecutor closed")
 
-        LOG.debug(f"[{file_name}] Fasta - Manually cleaning (Prevent memory leak?)")
+        # Prevent memory leaks ?
+        LOG.debug(f"[{file_name}] Fasta - Cleaning task queue and sequences")
         while not task_queue.empty():
             task_queue.get()
             task_queue.task_done()
@@ -323,7 +330,6 @@ class Reader:
         window_size: int,
         step: int,
         full: bool,
-        # md: dict,
     ) -> tuple[dict, dict]:
         """need to be static for ProcessPoolExecutor"""
 
