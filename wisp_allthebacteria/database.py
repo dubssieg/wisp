@@ -9,7 +9,7 @@ from diskcache import Cache
 from functools import lru_cache
 
 from reader import Reader
-from utils import space_format
+from utils import space_format, system_stats
 
 LOG = logging.getLogger(__name__)
 
@@ -56,6 +56,7 @@ class Database:
             LOG.info(f"[{archive}] Already in DB: skip")
             return
 
+        LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
         data = self._reader.process_file(
             file_path=file_path,
             kmer_size=self._kmer_size,
@@ -63,6 +64,7 @@ class Database:
             step=self._step,
             full=self._full,
         )
+        LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
         LOG.info(f"[{file_name}] File processed: data queuing for DB insertion")
         self._task_queue.put(data)
         LOG.debug(f"[{file_name}] Data queued for DB insertion")

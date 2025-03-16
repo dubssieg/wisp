@@ -85,8 +85,9 @@ class Reader:
     ):
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()
-        archive_name = archive_path.name
-        archive_size = format_size(archive_path.stat().st_size)
+        archive_name, archive_size = archive_path.name, format_size(
+            archive_path.stat().st_size
+        )
         LOG.info(f"[{archive_path}] Processing archive: {archive_path}")
         LOG.info(f"[{archive_path}] SIZE: {archive_size}")
         LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
@@ -94,29 +95,19 @@ class Reader:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir).resolve()
             with tarfile.open(archive_path, "r:xz") as tar:
-                tar.extractall(path=temp_dir)
+                tar.extractall(temp_dir)
 
             extracted_files = list(temp_dir.rglob("*.fa"))
             LOG.debug(f"[{archive_name}] Extracted: {len(extracted_files)} FASTA files")
 
-            sequences_data = []
-            LOG.debug(
-                f"[{archive_name}] Processing {self._num_workers} FASTA files in parallel"
-            )
-            fasta_count = 0
-
-            # all files in queue
-            task_queue = queue.Queue()
+            sequences_data, task_queue = [], queue.Queue()
             for file_path in extracted_files:
                 task_queue.put(file_path)
 
-            with ProcessPoolExecutor(
-                max_workers=self._num_workers,
-                # mp_context=multiprocessing.get_context("spawn"),
-            ) as executor:
-                running_futures = {}
-                try:
+            with ProcessPoolExecutor(max_workers=self._num_workers) as executor:
+                running_futures, fasta_count = {}, 0
 
+                try:
                     while not task_queue.empty() or running_futures:
                         while (
                             not task_queue.empty()
@@ -130,8 +121,7 @@ class Reader:
                                 window_size=window_size,
                                 step=step,
                                 num_workers=self._sequences_threads,
-                                parent_pid=self._parent_pid,
-                                # md=md_dict,
+                                # parent_pid=self._parent_pid,
                                 full=full,
                             )
                             running_futures[future] = file_path
@@ -139,51 +129,34 @@ class Reader:
                         done, _ = wait(
                             running_futures.keys(), return_when=FIRST_COMPLETED
                         )
-                        # clean
-                        for future in done:
-                            file_name = running_futures.pop(future).name
 
-                        # get results
+                        LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
                         for future in done:
+                            file_path = running_futures.pop(future)
                             try:
-                                try:
-                                    file_sequences_data = future.result(
-                                        timeout=300
-                                    )  # TODO: conf
-                                except TimeoutError:
-                                    file_name = running_futures.pop(future).name
-                                    LOG.error(
-                                        f"Timeout on {file_name}, retrying later..."
-                                    )
-                                    task_queue.put(file_name)
-                                    continue
-                                file_name = running_futures.pop(future).name
-                                sequences_data.append(file_sequences_data)
-                                LOG.debug(f"[{file_name}] Fasta processed")
-                                LOG.debug(
-                                    f"Sequences memory size: {format_size(asizeof.asizeof(file_sequences_data))}"
+                                sequences_data.append(future.result(timeout=300))
+                                del future
+                                gc.collect()
+                                LOG.debug(f"[{file_path.name}] Fasta processed")
+                            except TimeoutError:
+                                LOG.error(
+                                    f"Timeout on {file_path.name}, retrying later..."
                                 )
-
-                                fasta_count += 1
-                                LOG.debug(
-                                    f"[{file_name}] All fasta sequences counted - {fasta_count} / {len(extracted_files)}"
-                                )
+                                task_queue.put(file_path)
+                                fasta_count -= 1
                             except Exception:
-                                file_name = running_futures.pop(future).name
                                 LOG.exception(
-                                    f"Error processing FASTA [{archive_name}] {file_name}"
+                                    f"Error processing FASTA [{archive_name}] {file_path.name}"
                                 )
                                 raise
+
+                            fasta_count += 1
                             LOG.debug(
-                                f"[{archive_name}] One future processed (sequence counted)"
+                                f"[{file_path.name}] All fasta sequences counted - {fasta_count}/{len(extracted_files)}"
                             )
-                        LOG.debug(f"[{archive_name}] All done futures processed")
-                    LOG.debug(
-                        f"[{archive_name}] Queue empty - all futures processed - closing ProcessPoolExecutor"
-                    )
+
                 finally:
                     LOG.debug(f"[{archive_name}] Forcing ProcessPoolExecutor shutdown")
-
                     for future in running_futures.keys():
                         try:
                             if not future.done():
@@ -191,8 +164,9 @@ class Reader:
                         except Exception:
                             pass  # Future already terminated
                     executor.shutdown(wait=True, cancel_futures=True)
+                    gc.collect()
 
-                    # check zombies
+                    # Cleanup potential zombie processes
                     current_process = psutil.Process(os.getpid())
                     for child in current_process.children(recursive=True):
                         LOG.warning(
@@ -205,119 +179,106 @@ class Reader:
                     for child in alive:
                         LOG.error(f"Force killing process: {child.pid}")
                         child.kill()
+                LOG.debug(f"[{archive_name}] Closing ProcessPoolExecutor")
+            LOG.debug(f"{len(sequences_data)} sequences counted - merging by tax_id")
 
-                    LOG.debug(f"[{archive_name}] ProcessPoolExecutor closed")
-            LOG.debug(f"[{archive_name}] ProcessPoolExecutor closed")
-        LOG.debug(f"{len(sequences_data)} sequences counted - merging by tax_id")
+            merged_data = {}
+            for sequence_data in sequences_data:
+                for file_id, data in sequence_data.items():
+                    file_md = self._md[file_id]
+                    match len(file_md):
+                        case 0:
+                            tax_id = "no-tax-id"
+                        case 1:
+                            tax_id = file_md[0]["TaxId"]
+                        case _:
+                            tax_id = f"multiple-{'|'.join(m['TaxId'] if m else 'no-tax-id' for m in file_md)}"
+                    merged_data.setdefault(tax_id, {"counters": [], "sources": []})
+                    merged_data[tax_id]["counters"].extend(data["counters"])
+                    merged_data[tax_id]["sources"].extend(data["sources"])
 
-        merged_data = {}
+            LOG.debug(f"Sequences counters merged: {len(merged_data)} tax_id(s)")
+            LOG.debug(f"[{archive_path}] Extracted files deleted)")
 
-        for sequence_data in sequences_data:
-            for file_id, data in sequence_data.items():
-                file_md = self._md[file_id]
-
-                match len(file_md):
-                    case 0:
-                        tax_id = "no-tax-id"
-                    case 1:
-                        tax_id = file_md[0]["TaxId"]
-                    case _:
-                        tax_id = f"multiple-{'|'.join(m['TaxId'] if m else 'no-tax-id' for m in file_md)}"
-                if tax_id not in merged_data:
-                    merged_data[tax_id] = {
-                        "counters": [],
-                        "sources": [],
-                    }
-                merged_data[tax_id]["counters"].extend(data["counters"])
-                merged_data[tax_id]["sources"].extend(data["sources"])
-        LOG.debug(f"Sequences counters merged: {len(merged_data)} tax_id(s)")
-
-        LOG.debug(f"[{archive_path}] Extracted files deleted)")
-
-        return {"archive": archive_path, "merged_data": merged_data}
+            return {"archive": archive_path, "merged_data": merged_data}
 
     @staticmethod
     def process_fasta(
-        file_path: str | Path,
+        file_path: Path | str,
         kmer_size: int,
         window_size: int,
         step: int,
         num_workers: int,
-        parent_pid: int,
         full: bool = False,
     ) -> dict:
         """Process a FASTA file using controlled multithreading."""
         file_path = Path(file_path).resolve()
-        file_name = file_path.name
-        file_size = format_size(file_path.stat().st_size)
+        file_name, file_size = file_path.name, format_size(file_path.stat().st_size)
         LOG.debug(f"[{file_name}] Processing Fasta - SIZE: {file_size})")
-        LOG.debug(f"SYSTEM: {system_stats(pid=parent_pid, as_str=True)}")
 
         try:
             sequences = Reader._read_fasta(file_path)
-            LOG.debug(f"[{file_name}] {len(sequences)} sequences read")
+            LOG.debug(f"[{file_name}] {len(sequences)} sequences to count")
         except Exception:
             LOG.exception(f"Error while reading fasta file: {file_path}")
             raise
 
-        source_id_to_data = {}
-
-        LOG.debug(f"[{file_name}] Counting - {num_workers} threads")
-
-        task_queue = queue.Queue()
+        source_id_to_data, task_queue = {}, queue.Queue()
         for seq in sequences:
             task_queue.put(seq)
 
+        # LOG.debug(f"SYSTEM: {system_stats(pid=parent_pid, as_str=True)}")
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
             running_futures = set()
 
-            while not task_queue.empty() or running_futures:
-                while (
-                    not task_queue.empty()
-                    and len(running_futures) < MAX_RUNNING_TASKS_SEQUENCE
-                ):
-                    seq = task_queue.get()
-                    future = executor.submit(
-                        Reader.process_sequence,
-                        sequence=seq,
-                        kmer_size=kmer_size,
-                        window_size=window_size,
-                        step=step,
-                        full=full,
+            try:
+                while not task_queue.empty() or running_futures:
+                    while (
+                        not task_queue.empty()
+                        and len(running_futures) < MAX_RUNNING_TASKS_SEQUENCE
+                    ):
+                        sequence = task_queue.get()
+                        running_futures.add(
+                            executor.submit(
+                                Reader.process_sequence,
+                                sequence=sequence,
+                                kmer_size=kmer_size,
+                                window_size=window_size,
+                                step=step,
+                                full=full,
+                            )
+                        )
+
+                    done, running_futures = wait(
+                        running_futures, return_when=FIRST_COMPLETED
                     )
-                    running_futures.add(future)
 
-                # wait for at least one task to end before adding more
-                done, running_futures = wait(
-                    running_futures, return_when=FIRST_COMPLETED
-                )
+                    for future in list(done):
+                        try:
+                            if future in running_futures:
+                                running_futures.discard(future)
+                            kmer_count, source = future.result()
+                            source_id = source["id"]
+                            source_id_to_data.setdefault(
+                                source_id, {"counters": [], "sources": []}
+                            )
+                            source_id_to_data[source_id]["counters"].extend(kmer_count)
+                            source_id_to_data[source_id]["sources"].append(source)
+                        except Exception:
+                            LOG.exception(file_name)
+                            raise
+                        finally:
+                            running_futures.discard(future)
 
-                for future in list(done):  # list: enable discarding futures
-                    try:
-                        kmer_count, source = future.result()
-                        source_id = source["id"]
-                        if source_id not in source_id_to_data:
-                            source_id_to_data[source_id] = {
-                                "counters": [],
-                                "sources": [],
-                            }
-                        source_id_to_data[source_id]["counters"].extend(kmer_count)
-                        source_id_to_data[source_id]["sources"].append(source)
-                    except Exception:
-                        LOG.exception(file_name)
-                        raise
-                    finally:
-                        # Prevent memory leak?
-                        running_futures.discard(future)
+            finally:
+                LOG.debug(f"[{file_name}] Fasta - Closing ThreadPoolExecutor")
+                executor.shutdown(wait=True, cancel_futures=True)
 
-            LOG.debug(f"[{file_name}] Fasta - Closing ThreadPoolExecutor")
-        LOG.debug(f"[{file_name}] Fasta - ThreadPoolExecutor closed")
-
-        # Prevent memory leaks ?
         LOG.debug(f"[{file_name}] Fasta - Cleaning task queue and sequences")
         while not task_queue.empty():
             task_queue.get()
             task_queue.task_done()
+
         del sequences
         gc.collect()
 
