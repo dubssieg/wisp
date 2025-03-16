@@ -286,7 +286,7 @@ class Reader:
                     running_futures, return_when=FIRST_COMPLETED
                 )
 
-                for future in done:
+                for future in list(done):  # list: enable discarding futures
                     try:
                         kmer_count, source = future.result()
                         source_id = source["id"]
@@ -295,18 +295,14 @@ class Reader:
                                 "counters": [],
                                 "sources": [],
                             }
-
                         source_id_to_data[source_id]["counters"].extend(kmer_count)
-                        source_id_to_data[source_id]["sources"].extend(
-                            [source] * len(kmer_count)
-                        )
-
+                        source_id_to_data[source_id]["sources"].append(source)
                     except Exception:
                         LOG.exception(file_name)
                         raise
                     finally:
                         # Prevent memory leak?
-                        done.remove(future)
+                        running_futures.discard(future)
 
             LOG.debug(f"[{file_name}] Fasta - Closing ThreadPoolExecutor")
         LOG.debug(f"[{file_name}] Fasta - ThreadPoolExecutor closed")
