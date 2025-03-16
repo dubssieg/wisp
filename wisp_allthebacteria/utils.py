@@ -142,33 +142,34 @@ def config_logger(
     """Terminal + files configuration."""
     # common config
     logger = logging.getLogger("")
-    logger.setLevel(logging.DEBUG)
-    formatter = logging.Formatter(
-        "%(asctime)s :: %(levelname)s :: %(name)s.%(funcName)s[%(lineno)s] :: %(process)d :: %(message)s"
-    )
+    if not logger.hasHandlers():
+        logger.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(
+            "%(asctime)s :: %(levelname)s :: %(name)s.%(funcName)s[%(lineno)s] :: %(process)d :: %(message)s"
+        )
 
-    # terminal config
-    terminal_handler = logging.StreamHandler()
-    terminal_handler.setFormatter(formatter)
-    terminal_handler.setLevel(getattr(logging, terminal_level.upper()))
-    logger.addHandler(terminal_handler)
+        # terminal config
+        terminal_handler = logging.StreamHandler()
+        terminal_handler.setFormatter(formatter)
+        terminal_handler.setLevel(getattr(logging, terminal_level.upper()))
+        logger.addHandler(terminal_handler)
 
-    # files config
-    path = Path(log_path).resolve()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    file_handler = RotatingFileHandler(
-        path,
-        mode="a",
-        maxBytes=file_size,
-        backupCount=file_count,
-    )
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(getattr(logging, file_level.upper()))
-    file_handler.addFilter(BrokenProcessPoolFilter())
-    logger.addHandler(file_handler)
+        # files config
+        path = Path(log_path).resolve()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = RotatingFileHandler(
+            path,
+            mode="a",
+            maxBytes=file_size,
+            backupCount=file_count,
+        )
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(getattr(logging, file_level.upper()))
+        file_handler.addFilter(BrokenProcessPoolFilter())
+        logger.addHandler(file_handler)
 
-    for module in ignore_list:
-        logging.getLogger(module).setLevel(logging.CRITICAL)
+        for module in ignore_list:
+            logging.getLogger(module).setLevel(logging.CRITICAL)
 
 
 def slurm_tqdm(iterable, *args, **kwargs):

@@ -9,7 +9,7 @@ from pathlib import Path
 from Bio import SeqIO
 from loky import get_reusable_executor
 from metadata import Metadata
-from utils import format_size
+from utils import format_size, config_logger
 
 LOG = logging.getLogger(__name__)
 
@@ -18,16 +18,13 @@ MAX_RUNNING_TASKS_FASTA = 64
 
 class Reader:
     def __init__(
-        self,
-        metadata: Metadata,
-        num_workers: int,
-        # sequences_threads: int = 4,
+        self, metadata: Metadata, num_workers: int, logger_config: dict | None = None
     ):
         LOG.debug(f"Reader({locals()})")
         self._md = metadata
         self._num_workers = num_workers
-        # self._sequences_threads = sequences_threads
-        self._parent_pid = os.getpid()
+        # self._parent_pid = os.getpid()
+        self._logger_config = logger_config
 
     def process_file(
         self,
@@ -39,7 +36,6 @@ class Reader:
     ) -> dict:
         """Just call process_archive of process_fasta, based on file suffix."""
         file_path = Path(file_path).resolve()
-        LOG.debug(f"processing file: {file_path} with {self._num_workers} workers")
         suffix = file_path.suffix
         if suffix == ".xz":
             return self.process_archive(
@@ -93,6 +89,7 @@ class Reader:
                         window_size=window_size,
                         step=step,
                         full=full,
+                        logger_config=self._logger_config,
                     ): file_path
                     for file_path in extracted_files
                 }
@@ -129,8 +126,11 @@ class Reader:
         window_size: int,
         step: int,
         full: bool = False,
+        logger_config: dict = None,
     ) -> dict:
         """Simpler Fasta counting method, hopefully less bugged"""
+        if logger_config:
+            config_logger(**logger_config)
         file_path = Path(file_path).resolve()
         file_name, file_size = file_path.name, format_size(file_path.stat().st_size)
         LOG.debug(f"[{file_name}] Processing Fasta - SIZE: {file_size})")
@@ -156,7 +156,7 @@ class Reader:
             source_id_to_data[source_id]["counters"].extend(kmer_count)
             source_id_to_data[source_id]["sources"].append(source)
 
-        LOG.debug(f"[{file_name}] Return all counters & sources")
+        LOG.debug(f"[{file_name}] Return {len(sequences)} counters & sources")
         return source_id_to_data
 
     @staticmethod

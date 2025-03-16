@@ -72,7 +72,7 @@ def create_db(conf: dict):
         md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
         num_workers = cpu_count(conf["db"]["create_db_workers"])
         LOG.info(f"Max CPUs: {cpu_count('max')}, using {num_workers} workers")
-        reader = Reader(md, num_workers=num_workers)
+        reader = Reader(md, num_workers=num_workers, logger_config=conf["log"])
 
         db = Database(
             kmer_size=conf["db"]["kmer_size"],
