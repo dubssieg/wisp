@@ -9,6 +9,7 @@ from concurrent.futures import (
 # from concurrent.futures.process import BrokenProcessPool
 # import multiprocessing
 
+import gc
 import os
 import queue
 from itertools import product
@@ -157,7 +158,7 @@ class Reader:
 
                                 fasta_count += 1
                                 LOG.debug(
-                                    f"[{file_name}] Sequences counted - {fasta_count} / {len(extracted_files)}"
+                                    f"[{file_name}] All fasta sequences counted - {fasta_count} / {len(extracted_files)}"
                                 )
                             except Exception:
                                 file_name = running_futures.pop(future).name
@@ -303,8 +304,19 @@ class Reader:
                     except Exception:
                         LOG.exception(file_name)
                         raise
-            LOG.debug(f"[{file_name}] Sequence - Closing ThreadPoolExecutor")
-        LOG.debug(f"[{file_name}] Sequence - ThreadPoolExecutor closed")
+                    finally:
+                        # Prevent memory leak?
+                        done.remove(future)
+
+            LOG.debug(f"[{file_name}] Fasta - Closing ThreadPoolExecutor")
+        LOG.debug(f"[{file_name}] Fasta - ThreadPoolExecutor closed")
+
+        LOG.debug(f"[{file_name}] Fasta - Manually cleaning (Prevent memory leak?)")
+        while not task_queue.empty():
+            task_queue.get()
+            task_queue.task_done()
+        del sequences
+        gc.collect()
 
         return source_id_to_data
 

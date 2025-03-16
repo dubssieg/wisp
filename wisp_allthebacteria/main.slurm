@@ -4,10 +4,10 @@
 #SBATCH --output=slurm/%j.txt
 #SBATCH --error=slurm/%j.err
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=40
+#SBATCH --cpus-per-task=20
 #SBATCH --time=7-00:00:00 
 # #SBATCH --mem-per-cpu=2G
-#SBATCH --mem=60G
+#SBATCH --mem=80G
 #SBATCH --mail-user=cyrille.leroux@irisa.fr
 #SBATCH --mail-type=END,FAIL
 
