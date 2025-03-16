@@ -1,8 +1,8 @@
 from collections import Counter
 from concurrent.futures import (
     FIRST_COMPLETED,
-    ProcessPoolExecutor,
-    ThreadPoolExecutor,
+    # ProcessPoolExecutor,
+    ThreadPoolExecutor,  # deprecated
     wait,
 )
 
@@ -17,7 +17,9 @@ import logging
 from pathlib import Path
 import tarfile
 import tempfile
-from pympler import asizeof
+
+# from pympler import asizeof
+from loky import get_reusable_executor
 
 from Bio import SeqIO
 import psutil
@@ -27,20 +29,20 @@ from utils import format_size, system_stats
 LOG = logging.getLogger(__name__)
 
 MAX_RUNNING_TASKS_FASTA = 64
-MAX_RUNNING_TASKS_SEQUENCE = 64
+MAX_RUNNING_TASKS_SEQUENCE = 64  # deprecated
 
 
 class Reader:
     def __init__(
         self,
         metadata: Metadata,
-        num_workers: int = 20,
-        sequences_threads: int = 4,
+        num_workers: int,
+        # sequences_threads: int = 4,
     ):
         LOG.debug(f"Reader({locals()})")
         self._md = metadata
         self._num_workers = num_workers
-        self._sequences_threads = sequences_threads
+        # self._sequences_threads = sequences_threads
         self._parent_pid = os.getpid()
 
     def process_file(
@@ -53,9 +55,7 @@ class Reader:
     ) -> dict:
         """Just call process_archive of process_fasta, based on file suffix."""
         file_path = Path(file_path).resolve()
-        LOG.debug(
-            f"processing file: {file_path} with {self._num_workers} workers and {self._sequences_threads} threads per file"
-        )
+        LOG.debug(f"processing file: {file_path} with {self._num_workers} workers")
         suffix = file_path.suffix
         if suffix == ".xz":
             return self.process_archive(
@@ -88,6 +88,61 @@ class Reader:
         archive_name, archive_size = archive_path.name, format_size(
             archive_path.stat().st_size
         )
+        LOG.info(f"[{archive_name}] Processing archive: {archive_path}")
+        LOG.info(f"[{archive_name}] SIZE: {archive_size}")
+        LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir = Path(temp_dir).resolve()
+            with tarfile.open(archive_path, "r:xz") as tar:
+                tar.extractall(temp_dir)
+
+            extracted_files = list(temp_dir.rglob("*.fa"))
+            LOG.debug(f"[{archive_name}] {len(extracted_files)} FASTA files extracted")
+
+            with get_reusable_executor(max_workers=self._num_workers) as executor:
+                results = executor.map(
+                    Reader.process_fasta,
+                    extracted_files,
+                    [kmer_size] * len(extracted_files),
+                    [window_size] * len(extracted_files),
+                    [step] * len(extracted_files),
+                    [full] * len(extracted_files),
+                )
+
+            sequences_data = list(results)
+
+        merged_data = {}
+        for sequence_data in sequences_data:
+            for file_id, data in sequence_data.items():
+                file_md = self._md[file_id]
+                match len(file_md):
+                    case 0:
+                        tax_id = "no-tax-id"
+                    case 1:
+                        tax_id = file_md[0]["TaxId"]
+                    case _:
+                        tax_id = f"multiple-{'|'.join(m['TaxId'] if m else 'no-tax-id' for m in file_md)}"
+                merged_data.setdefault(tax_id, {"counters": [], "sources": []})
+                merged_data[tax_id]["counters"].extend(data["counters"])
+                merged_data[tax_id]["sources"].extend(data["sources"])
+
+        LOG.debug(f"[{archive_path}] Processed {len(merged_data)} tax_id(s)")
+        return {"archive": archive_path, "merged_data": merged_data}
+
+    def process_archive_old_version(
+        self,
+        archive_path: Path | str,
+        kmer_size: int,
+        window_size: int,
+        step: int,
+        full: bool = False,
+    ):
+        """Extract and process an archive."""
+        archive_path = Path(archive_path).resolve()
+        archive_name, archive_size = archive_path.name, format_size(
+            archive_path.stat().st_size
+        )
         LOG.info(f"[{archive_path}] Processing archive: {archive_path}")
         LOG.info(f"[{archive_path}] SIZE: {archive_size}")
         LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
@@ -104,7 +159,8 @@ class Reader:
             for file_path in extracted_files:
                 task_queue.put(file_path)
 
-            with ProcessPoolExecutor(max_workers=self._num_workers) as executor:
+            # with ProcessPoolExecutor(max_workers=self._num_workers) as executor:
+            with get_reusable_executor(max_workers=self._num_workers) as executor:
                 running_futures, fasta_count = {}, 0
 
                 try:
@@ -120,7 +176,7 @@ class Reader:
                                 kmer_size=kmer_size,
                                 window_size=window_size,
                                 step=step,
-                                num_workers=self._sequences_threads,
+                                # num_workers=self._sequences_threads,
                                 # parent_pid=self._parent_pid,
                                 full=full,
                             )
@@ -168,7 +224,9 @@ class Reader:
                             )
 
                 finally:
-                    LOG.debug(f"[{archive_name}] Forcing ProcessPoolExecutor shutdown")
+                    LOG.debug(
+                        f"[{archive_name}] Forcing ProcessPoolExecutor shutdown + Process cleanup"
+                    )
                     for future in running_futures.keys():
                         try:
                             if not future.done():
@@ -216,6 +274,43 @@ class Reader:
 
     @staticmethod
     def process_fasta(
+        file_path: Path | str,
+        kmer_size: int,
+        window_size: int,
+        step: int,
+        full: bool = False,
+    ) -> dict:
+        """Simpler Fasta counting method, hopefully less bugged"""
+        file_path = Path(file_path).resolve()
+        file_name, file_size = file_path.name, format_size(file_path.stat().st_size)
+        LOG.debug(f"[{file_name}] Processing Fasta - SIZE: {file_size})")
+
+        try:
+            sequences = Reader._read_fasta(file_path)
+            LOG.debug(f"[{file_name}] {len(sequences)} sequences to count")
+        except Exception:
+            LOG.exception(f"Error while reading fasta file: {file_path}")
+            raise
+
+        source_id_to_data = {}
+        for sequence in sequences:
+            kmer_count, source = Reader.process_sequence(
+                sequence=sequence,
+                kmer_size=kmer_size,
+                window_size=window_size,
+                step=step,
+                full=full,
+            )
+            source_id = source["id"]
+            source_id_to_data.setdefault(source_id, {"counters": [], "sources": []})
+            source_id_to_data[source_id]["counters"].extend(kmer_count)
+            source_id_to_data[source_id]["sources"].append(source)
+
+        LOG.debug(f"[{file_name}] Return all counters & sources")
+        return source_id_to_data
+
+    @staticmethod
+    def process_fasta_mt(
         file_path: Path | str,
         kmer_size: int,
         window_size: int,
@@ -294,6 +389,7 @@ class Reader:
         del sequences
         gc.collect()
 
+        LOG.debug(f"[{file_name}] Return all counters & sources")
         return source_id_to_data
 
     @staticmethod

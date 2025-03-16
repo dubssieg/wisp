@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=20
 #SBATCH --time=7-00:00:00 
-#SBATCH --mem=40G
+#SBATCH --mem=80G
 #SBATCH --mail-user=cyrille.leroux@irisa.fr
 #SBATCH --mail-type=END,FAIL
 
@@ -59,10 +59,10 @@ export MALLOC_TRIM_THRESHOLD_=0
 export MALLOC_MMAP_THRESHOLD_=131072
 export MALLOC_ARENA_MAX=2 
 
-ulimit -Sv 40000000  # Soft limit 40 Go
-ulimit -Hv 42000000  # Hard limit 
+# ulimit -Sv 40000000  # Soft limit 40 Go
+# ulimit -Hv 42000000  # Hard limit 
 
-export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libc.so.6
+# export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libc.so.6
 
 python main.py --create-db
 
