@@ -4,10 +4,13 @@ from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
 import pickle
+import threading
 from typing import Any
 import concurrent.futures
 import psutil
 from tqdm.auto import tqdm
+
+LOG = logging.getLogger(__name__)
 
 
 def format_duration(seconds: float) -> str:
@@ -177,6 +180,28 @@ def slurm_tqdm(iterable, *args, **kwargs):
 
 def space_format(number: int):
     return f"{number:_}".replace("_", " ")
+
+
+class SystemStatsLogger:
+    def __init__(self, interval: float = 10.0, pid: int | None = None):
+        """Log CPU/RAM usage for current script"""
+        self._interval = interval
+        self._pid = pid
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._log_system_stats, daemon=True)
+
+    def _log_system_stats(self):
+        while not self._stop_event.is_set():
+            LOG.debug(f"SYSTEM: {system_stats(pid=self._pid, as_str=True)}")
+            self._stop_event.wait(self._interval)
+
+    def __enter__(self):
+        self._thread.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._stop_event.set()
+        self._thread.join()
 
 
 if __name__ == "__main__":

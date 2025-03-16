@@ -9,7 +9,7 @@ from pathlib import Path
 from Bio import SeqIO
 from loky import get_reusable_executor
 from metadata import Metadata
-from utils import format_size, system_stats
+from utils import format_size
 
 LOG = logging.getLogger(__name__)
 
@@ -74,7 +74,6 @@ class Reader:
         )
         LOG.info(f"[{archive_name}] Extracting archive: {archive_path}")
         LOG.info(f"[{archive_name}] SIZE: {archive_size}")
-        LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir).resolve()
@@ -99,7 +98,6 @@ class Reader:
                 }
                 for future in futures:
                     try:
-                        # LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
                         results.append(future.result())
                     except Exception:
                         LOG.exception(f"[{archive_name}] {futures[future]}")

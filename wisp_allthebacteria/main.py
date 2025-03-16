@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -10,7 +11,13 @@ from reader import Reader
 from api import API
 from model import XGBoostModel
 from database import Database
-from utils import format_duration, get_current_datetime_string, cpu_count, config_logger
+from utils import (
+    SystemStatsLogger,
+    format_duration,
+    get_current_datetime_string,
+    cpu_count,
+    config_logger,
+)
 
 LOG = logging.getLogger(__name__)
 
@@ -47,95 +54,98 @@ RANKS = [
 
 def create_db(conf: dict):
     LOG.info("create_db")
-    input_path = Path(conf["allthebacteria"]["assembly_dir"])
-    output_path = Path(conf["db"]["path"])
-    metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
-    api_cache_path = Path(conf["api"]["cache_dir"])
-    output_path.mkdir(parents=True, exist_ok=True)
+    with SystemStatsLogger(interval=30, pid=os.getpid()):  # TODO: conf + level
+        input_path = Path(conf["allthebacteria"]["assembly_dir"])
+        output_path = Path(conf["db"]["path"])
+        metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
+        api_cache_path = Path(conf["api"]["cache_dir"])
+        output_path.mkdir(parents=True, exist_ok=True)
 
-    archives = list(input_path.glob("*.xz"))
+        archives = list(input_path.glob("*.xz"))
 
-    api = API(
-        api_cache_dir=api_cache_path,
-        email=conf["api"]["email"],
-        can_download=conf["api"]["can_download"],
-        preload=True,  # because multiproc/multithreads (avoid: sqlite3.OperationalError: database is locked)
-    )
-    md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
-    num_workers = cpu_count(conf["db"]["create_db_workers"])
-    LOG.info(f"Max CPUs: {cpu_count('max')}, using {num_workers} workers")
-    reader = Reader(md, num_workers=num_workers)
+        api = API(
+            api_cache_dir=api_cache_path,
+            email=conf["api"]["email"],
+            can_download=conf["api"]["can_download"],
+            preload=True,  # because multiproc/multithreads (avoid: sqlite3.OperationalError: database is locked)
+        )
+        md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
+        num_workers = cpu_count(conf["db"]["create_db_workers"])
+        LOG.info(f"Max CPUs: {cpu_count('max')}, using {num_workers} workers")
+        reader = Reader(md, num_workers=num_workers)
 
-    db = Database(
-        kmer_size=conf["db"]["kmer_size"],
-        window_size=conf["db"]["window_size"],
-        step=conf["db"]["step"],
-        full=conf["db"]["full"],
-        dbs_path=output_path,
-        reader=reader,
-    )
+        db = Database(
+            kmer_size=conf["db"]["kmer_size"],
+            window_size=conf["db"]["window_size"],
+            step=conf["db"]["step"],
+            full=conf["db"]["full"],
+            dbs_path=output_path,
+            reader=reader,
+        )
 
-    json_create_db_path = db.get_db_path() / "create_db.json"
+        json_create_db_path = db.get_db_path() / "create_db.json"
 
-    try:
-        json_create_db = json.loads(json_create_db_path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        json_create_db = {"complete": [], "incomplete": [], "duration": {}}
+        try:
+            json_create_db = json.loads(json_create_db_path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError):
+            json_create_db = {"complete": [], "incomplete": [], "duration": {}}
 
-    complete = set(json_create_db["complete"])
-    incomplete = set(json_create_db["incomplete"])
-    duration = json_create_db["duration"]
+        complete = set(json_create_db["complete"])
+        incomplete = set(json_create_db["incomplete"])
+        duration = json_create_db["duration"]
 
-    try:
-        for archive_path in tqdm(
-            archives, desc=f"Processing {input_path} -> {output_path}"
-        ):
-            archive_str = str(archive_path)
+        try:
+            for archive_path in tqdm(
+                archives, desc=f"Processing {input_path} -> {output_path}"
+            ):
+                archive_str = str(archive_path)
 
-            # if archive_str in complete:
-            #     continue
+                # if archive_str in complete:
+                #     continue
 
-            start_time = time.time()
+                start_time = time.time()
 
-            try:
-                if archive_str in incomplete:
-                    LOG.info(f"Retrying {archive_path.name}...")
+                try:
+                    if archive_str in incomplete:
+                        LOG.info(f"Retrying {archive_path.name}...")
 
-                if db.has_archive(archive_path):
-                    LOG.warning(f"{archive_path.name} already in DB, skipping.")
-                else:
-                    db.push_file(archive_path)
+                    if db.has_archive(archive_path):
+                        LOG.warning(f"{archive_path.name} already in DB, skipping.")
+                    else:
+                        db.push_file(archive_path)
 
-                complete.add(archive_str)
-                incomplete.discard(archive_str)
+                    complete.add(archive_str)
+                    incomplete.discard(archive_str)
 
-                duration[archive_path.name] = format_duration(time.time() - start_time)
-
-            except Exception:
-                LOG.exception(f"Error processing {archive_path.name}")
-                incomplete.add(archive_str)
-                raise
-
-            finally:
-                with json_create_db_path.open("w", encoding="utf-8") as json_file:
-                    json.dump(
-                        {
-                            "complete": list(complete),
-                            "incomplete": list(incomplete),
-                            "duration": duration,
-                        },
-                        json_file,
-                        indent=4,
+                    duration[archive_path.name] = format_duration(
+                        time.time() - start_time
                     )
-    except Exception:
-        LOG.exception(f"Error processing {archive_path.name}")
-        raise
 
-    finally:
-        LOG.info("Waiting for last DB insertions")
-        db.wait_for_completion()
-        db.stop_worker()
-        LOG.info("DB queue is empty")
+                except Exception:
+                    LOG.exception(f"Error processing {archive_path.name}")
+                    incomplete.add(archive_str)
+                    raise
+
+                finally:
+                    with json_create_db_path.open("w", encoding="utf-8") as json_file:
+                        json.dump(
+                            {
+                                "complete": list(complete),
+                                "incomplete": list(incomplete),
+                                "duration": duration,
+                            },
+                            json_file,
+                            indent=4,
+                        )
+        except Exception:
+            LOG.exception(f"Error processing {archive_path.name}")
+            raise
+
+        finally:
+            LOG.info("Waiting for last DB insertions")
+            db.wait_for_completion()
+            db.stop_worker()
+            LOG.info("DB queue is empty")
 
     LOG.info("create_db -> DONE")
 
