@@ -6,8 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=20
 #SBATCH --time=7-00:00:00 
-# #SBATCH --mem-per-cpu=2G
-#SBATCH --mem=80G
+#SBATCH --mem=40G
 #SBATCH --mail-user=cyrille.leroux@irisa.fr
 #SBATCH --mail-type=END,FAIL
 
@@ -44,8 +43,26 @@ ps aux --sort=-%mem | head -n 30
 echo "=== Slurm Configuration ==="
 scontrol show config
 
+echo "=== Overcommit ==="
+cat /proc/sys/vm/overcommit_memory
+# echo 0 | sudo tee /proc/sys/vm/overcommit_memory
 
+echo "=== Malloc ==="
+ldd $(which python)
+# LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libc.so.6 python main.py
 
+echo "=== Swapiness ==="
+cat /proc/sys/vm/swappiness
+# echo 30 | sudo tee /proc/sys/vm/swappiness
+
+export MALLOC_TRIM_THRESHOLD_=0
+export MALLOC_MMAP_THRESHOLD_=131072
+export MALLOC_ARENA_MAX=2 
+
+ulimit -Sv 40000000  # Soft limit 40 Go
+ulimit -Hv 42000000  # Hard limit 
+
+export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libc.so.6
 
 python main.py --create-db
 
