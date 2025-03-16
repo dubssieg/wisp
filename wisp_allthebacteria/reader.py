@@ -135,8 +135,20 @@ class Reader:
                             file_path = running_futures.pop(future)
                             try:
                                 sequences_data.append(future.result(timeout=300))
+
+                                # prevent zombies and memory leaks
                                 del future
                                 gc.collect()
+                                done_pids = [
+                                    p.pid
+                                    for p in psutil.Process().children(recursive=True)
+                                    if p.status() == psutil.STATUS_ZOMBIE
+                                ]
+                                for pid in done_pids:
+                                    try:
+                                        os.waitpid(pid, 0)
+                                    except ChildProcessError:
+                                        pass
                                 LOG.debug(f"[{file_path.name}] Fasta processed")
                             except TimeoutError:
                                 LOG.error(
