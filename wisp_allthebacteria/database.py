@@ -9,7 +9,7 @@ from diskcache import Cache
 from functools import lru_cache
 
 from reader import Reader
-from utils import space_format, system_stats
+from utils import space_format
 
 LOG = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class Database:
         """Add content."""
         file_path = Path(file_path).resolve()
         file_name = file_path.name
-        LOG.info(f"pushing file: {file_path}")
+        LOG.info(f"Pushing file: {file_path}")
         md_db = self._get_db(db_type="md")
         archive = self._archive_stem(file_path)
         archives = md_db.get(ARCHIVES, [])
@@ -56,7 +56,6 @@ class Database:
             LOG.info(f"[{archive}] Already in DB: skip")
             return
 
-        LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
         data = self._reader.process_file(
             file_path=file_path,
             kmer_size=self._kmer_size,
@@ -64,7 +63,6 @@ class Database:
             step=self._step,
             full=self._full,
         )
-        LOG.debug(f"SYSTEM: {system_stats(as_str=True)}")
         LOG.info(f"[{file_name}] File processed: data queuing for DB insertion")
         self._task_queue.put(data)
         LOG.debug(f"[{file_name}] Data queued for DB insertion")
@@ -134,20 +132,21 @@ class Database:
                     with source_db.transact():
                         for current_id, source in batch_sources.items():
                             source_db[current_id] = source
-                    LOG.debug("Ending sources transaction")
+                    LOG.debug(
+                        f"Ending sources transaction: tax_id {tax_id}: +{len(batch_counters)} counters & sources"
+                    )
 
-                LOG.debug("Counters & sources added - ending transaction")
+                LOG.debug("All counters & sources added - ending transaction")
                 # end transaction
                 del md_db[CURRENT_TRANSACTION]
                 for tax_id, last_valid_id in last_valid_ids.items():
                     self._set_last_valid_id(tax_id=tax_id, last_valid_id=last_valid_id)
                 archives.append(archive)
                 md_db[ARCHIVES] = archives
+                LOG.debug("Transaction ended successfully, releasing DB lock")
             except Exception:
                 LOG.exception("possible deadlock!")
                 raise
-            finally:
-                LOG.debug("Transaction ended successfully, releasing DB lock")
         LOG.debug("DB lock released")
 
     def wait_for_completion(self):

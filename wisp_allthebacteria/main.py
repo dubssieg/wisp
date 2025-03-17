@@ -54,7 +54,7 @@ RANKS = [
 
 def create_db(conf: dict):
     LOG.info("create_db")
-    with SystemStatsLogger(interval=30, pid=os.getpid()):  # TODO: conf + level
+    with SystemStatsLogger(interval=60, pid=os.getpid()):  # TODO: conf + level
         input_path = Path(conf["allthebacteria"]["assembly_dir"])
         output_path = Path(conf["db"]["path"])
         metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
