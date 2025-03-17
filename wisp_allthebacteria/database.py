@@ -166,7 +166,8 @@ class Database:
         ]
 
 
-class DataBaseBuilder(Database):
+# sync version
+class DatabaseBuilder(Database):
     def __init__(
         self,
         kmer_size: int,
@@ -186,6 +187,137 @@ class DataBaseBuilder(Database):
         )
         self._reader = reader
         self.clean()
+
+    def clean(self):
+        """Undo unfinished transactions"""
+        md_db = self._get_db(db_type="md")
+        if CURRENT_TRANSACTION in md_db:
+            LOG.warning(
+                f"Cleaning database {self.get_db_path()} (last transaction failed)"
+            )
+            data = md_db[CURRENT_TRANSACTION]
+            merged_data = data["merged_data"]
+            for tax_id in merged_data.keys():
+                counter_db = self._get_db(db_type="counter", tax_id=tax_id)
+                source_db = self._get_db(db_type="source", tax_id=tax_id)
+                current_id = self._get_last_valid_id(tax_id)
+                deleting = True
+                while deleting:
+                    current_id += 1
+                    deleting = False
+                    if current_id in counter_db:
+                        del counter_db[current_id]
+                        deleting = True
+                    if current_id in source_db:
+                        del source_db[current_id]
+                        deleting = True
+            del md_db[CURRENT_TRANSACTION]
+            LOG.warning("Database cleaned")
+
+    def push_file(self, file_path: str | Path):
+        """Add content."""
+        file_path = Path(file_path).resolve()
+        LOG.info(f"Pushing file: {file_path}")
+        md_db = self._get_db(db_type="md")
+        archive = self._archive_stem(file_path)
+        archives = md_db.get(ARCHIVES, [])
+
+        if archive in archives:
+            LOG.info(f"[{archive}] Already in DB: skip")
+            return
+
+        data = self._reader.process_file(
+            file_path=file_path,
+            kmer_size=self._kmer_size,
+            window_size=self._window_size,
+            step=self._step,
+            full=self._full,
+        )
+
+        self._add_data_to_db(data)
+
+    def _add_data_to_db(self, data):
+        LOG.debug("Adding counter & sources - get DB metadata")
+        md_db = self._get_db(db_type="md")
+        md_db[CURRENT_TRANSACTION] = data
+        archives = md_db.get(ARCHIVES, [])
+        archive = self._archive_stem(data["archive"])
+
+        last_valid_ids = {}
+
+        merged_data = data["merged_data"]
+        # warning, tax_id is a str
+        LOG.debug(
+            f"Adding counters & sources to DB for {len(merged_data)} tax_id(s): {self.get_db_path()}"
+        )
+        for tax_id, tdata in merged_data.items():
+            LOG.debug(f"Adding counters & sources tax_id: {tax_id}")
+            tax_id = self._parse_tax_id(tax_id)
+            last_valid_id = self._get_last_valid_id(tax_id)
+            counters = tdata["counters"]
+            sources = tdata["sources"]
+            counter_db = self._get_db(db_type="counter", tax_id=tax_id)
+            source_db = self._get_db(db_type="source", tax_id=tax_id)
+
+            # populate and add batch of counters/sources
+            batch_counters = {}
+            batch_sources = {}
+
+            for i, (source, counter) in enumerate(zip(sources, counters)):
+                current_id = last_valid_id + i + 1
+                batch_counters[current_id] = counter
+                batch_sources[current_id] = source
+                last_valid_ids[tax_id] = i
+
+            LOG.debug(
+                f"Starting 2 DB transactions with {len(batch_counters)} counters & sources for tax_id {tax_id}"
+            )
+            with counter_db.transact():
+                for current_id, counter in batch_counters.items():
+                    counter_db[current_id] = counter
+            with source_db.transact():
+                for current_id, source in batch_sources.items():
+                    source_db[current_id] = source
+            LOG.debug(
+                f"Ending sources transaction: tax_id {tax_id}: +{len(batch_counters)} counters & sources"
+            )
+
+        LOG.debug("All counters & sources added - ending transaction")
+        # end transaction
+        del md_db[CURRENT_TRANSACTION]
+        for tax_id, last_valid_id in last_valid_ids.items():
+            self._set_last_valid_id(tax_id=tax_id, last_valid_id=last_valid_id)
+        archives.append(archive)
+        md_db[ARCHIVES] = archives
+        LOG.debug("Transaction ended successfully")
+
+    def _set_last_valid_id(self, tax_id: int, last_valid_id: int) -> None:
+        """Get last inserted id"""
+        md_db = self._get_db(db_type="md", tax_id=tax_id)
+        md_db[LAST_VALID_ID] = last_valid_id
+
+
+# async version
+class DatabaseBuilderAsync(DatabaseBuilder):
+    def __init__(
+        self,
+        kmer_size: int,
+        window_size: int,
+        step: int,
+        full: bool,
+        dbs_path: str | Path,
+        reader: Reader,
+    ):
+        LOG.debug(f"DataBaseBuilderAsync({locals()})")
+        super().__init__(
+            kmer_size=kmer_size,
+            window_size=window_size,
+            step=step,
+            full=full,
+            dbs_path=dbs_path,
+            reader=reader,
+        )
+
         self._db_lock = threading.Lock()
         self._task_queue = queue.Queue()
         self._worker_thread = threading.Thread(target=self._db_worker, daemon=True)
@@ -215,6 +347,19 @@ class DataBaseBuilder(Database):
         self._task_queue.put(data)
         LOG.debug(f"[{file_name}] Data queued for DB insertion")
 
+    def _add_data_to_db(self, data):
+        LOG.debug("Waiting lock for DB insertion")
+        LOG.debug(f"Lock status before acquiring: {self._db_lock.locked()}")
+        with self._db_lock:
+            LOG.debug("Lock acquired for DB insertion")
+            try:
+                super()._add_data_to_db(data)
+            except Exception:
+                LOG.exception("possible deadlock!")
+                raise
+            LOG.debug("releasing DB lock")
+        LOG.debug("DB lock released")
+
     def _db_worker(self):
         """Thread worker managing queue"""
         while True:
@@ -234,70 +379,6 @@ class DataBaseBuilder(Database):
                 self._task_queue.task_done()
                 LOG.debug("DB worker: queue terminated")
 
-    def _add_data_to_db(self, data):
-        LOG.debug("Waiting lock for DB insertion")
-        LOG.debug(f"Lock status before acquiring: {self._db_lock.locked()}")
-        with self._db_lock:
-            try:
-                LOG.debug("Acquiring lock for DB insertion")
-                LOG.debug("Adding counter & sources - get DB metadata")
-                md_db = self._get_db(db_type="md")
-                md_db[CURRENT_TRANSACTION] = data
-                archives = md_db.get(ARCHIVES, [])
-                archive = self._archive_stem(data["archive"])
-
-                last_valid_ids = {}
-
-                merged_data = data["merged_data"]
-                # warning, tax_id is a str
-                LOG.debug(
-                    f"Adding counters & sources to DB for {len(merged_data)} tax_id(s): {self.get_db_path()}"
-                )
-                for tax_id, tdata in merged_data.items():
-                    LOG.debug(f"Adding counters & sources tax_id: {tax_id}")
-                    tax_id = self._parse_tax_id(tax_id)
-                    last_valid_id = self._get_last_valid_id(tax_id)
-                    counters = tdata["counters"]
-                    sources = tdata["sources"]
-                    counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-                    source_db = self._get_db(db_type="source", tax_id=tax_id)
-
-                    # populate and add batch of counters/sources
-                    batch_counters = {}
-                    batch_sources = {}
-
-                    for i, (source, counter) in enumerate(zip(sources, counters)):
-                        current_id = last_valid_id + i + 1
-                        batch_counters[current_id] = counter
-                        batch_sources[current_id] = source
-                        last_valid_ids[tax_id] = i
-
-                    LOG.debug(
-                        f"Starting 2 DB transactions with {len(batch_counters)} counters & sources for tax_id {tax_id}"
-                    )
-                    with counter_db.transact():
-                        for current_id, counter in batch_counters.items():
-                            counter_db[current_id] = counter
-                    with source_db.transact():
-                        for current_id, source in batch_sources.items():
-                            source_db[current_id] = source
-                    LOG.debug(
-                        f"Ending sources transaction: tax_id {tax_id}: +{len(batch_counters)} counters & sources"
-                    )
-
-                LOG.debug("All counters & sources added - ending transaction")
-                # end transaction
-                del md_db[CURRENT_TRANSACTION]
-                for tax_id, last_valid_id in last_valid_ids.items():
-                    self._set_last_valid_id(tax_id=tax_id, last_valid_id=last_valid_id)
-                archives.append(archive)
-                md_db[ARCHIVES] = archives
-                LOG.debug("Transaction ended successfully, releasing DB lock")
-            except Exception:
-                LOG.exception("possible deadlock!")
-                raise
-        LOG.debug("DB lock released")
-
     def wait_for_completion(self):
         """Should be added at the end."""
         LOG.debug("Waiting for DB insertions to complete...")
@@ -313,34 +394,3 @@ class DataBaseBuilder(Database):
 
         self._worker_thread.join()
         LOG.debug("DB worker stopped")
-
-    def clean(self):
-        """Undo unfinished transactions"""
-        md_db = self._get_db(db_type="md")
-        if CURRENT_TRANSACTION in md_db:
-            LOG.warning(
-                f"Cleaning database {self.get_db_path()} (last transaction failed)"
-            )
-            data = md_db[CURRENT_TRANSACTION]
-            merged_data = data["merged_data"]
-            for tax_id in merged_data.keys():
-                counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-                source_db = self._get_db(db_type="source", tax_id=tax_id)
-                current_id = self._get_last_valid_id(tax_id)
-                deleting = True
-                while deleting:
-                    current_id += 1
-                    deleting = False
-                    if current_id in counter_db:
-                        del counter_db[current_id]
-                        deleting = True
-                    if current_id in source_db:
-                        del source_db[current_id]
-                        deleting = True
-            del md_db[CURRENT_TRANSACTION]
-            LOG.warning("Database cleaned")
-
-    def _set_last_valid_id(self, tax_id: int, last_valid_id: int) -> None:
-        """Get last inserted id"""
-        md_db = self._get_db(db_type="md", tax_id=tax_id)
-        md_db[LAST_VALID_ID] = last_valid_id

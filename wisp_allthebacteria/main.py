@@ -10,7 +10,7 @@ from metadata import Metadata
 from reader import Reader
 from api import API
 from model import XGBoostModel
-from database import Database, DataBaseBuilder
+from database import Database, DatabaseBuilder, DatabaseBuilderAsync
 from utils import (
     SystemStatsLogger,
     format_duration,
@@ -74,7 +74,7 @@ def create_db(conf: dict):
         LOG.info(f"Max CPUs: {cpu_count('max')}, using {num_workers} workers")
         reader = Reader(md, num_workers=num_workers, logger_config=conf["log"])
 
-        db = DataBaseBuilder(
+        db_params = dict(
             kmer_size=conf["db"]["kmer_size"],
             window_size=conf["db"]["window_size"],
             step=conf["db"]["step"],
@@ -82,6 +82,11 @@ def create_db(conf: dict):
             dbs_path=output_path,
             reader=reader,
         )
+        if conf["db"]["async_insertion"]:
+            db = DatabaseBuilderAsync(**db_params)
+        else:
+
+            db = DatabaseBuilder(**db_params)
 
         json_create_db_path = db.get_db_path() / "create_db.json"
         json_create_db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -144,10 +149,11 @@ def create_db(conf: dict):
             raise
 
         finally:
-            LOG.info("Waiting for last DB insertions")
-            db.wait_for_completion()
-            db.stop_worker()
-            LOG.info("DB queue is empty")
+            if conf["db"]["async_insertion"]:
+                LOG.info("Waiting for last DB insertions")
+                db.wait_for_completion()
+                db.stop_worker()
+                LOG.info("DB queue is empty")
 
     LOG.info("create_db -> DONE")
 
