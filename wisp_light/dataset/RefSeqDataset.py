@@ -7,9 +7,10 @@ from tqdm import tqdm
 TAXO_LEVELS =  ['phylum', 'class', 'order', 'family']
 
 class RefSeqDataset:
-    def __init__(self, index_csv, datadir):
+    def __init__(self, index_csv, datadir, logger):
         self.index_with_label = pd.read_csv(index_csv, sep='\t')
         self.datadir = datadir
+        self.logger = logger
         self.pairing_label_to_file()
 
     def pairing_label_to_file(self):
@@ -46,6 +47,7 @@ class RefSeqDataset:
         # Créer deux nouvelles instances de RefSeqDataset pour les ensembles d'entraînement et de test
         train_dataset = RefSeqDataset.from_dataframe(train_df, self.datadir)
         test_dataset = RefSeqDataset.from_dataframe(test_df, self.datadir)
+        self.logger.info(f"Splitted dataset nb {len(self.index_with_label)} into train :{len(train_dataset)} val: {len(test_dataset)}")
 
         return train_dataset, test_dataset
 
@@ -76,8 +78,8 @@ if __name__ == '__main__':
     x, y = ds[0]
 
     train_dataset, test_dataset = ds.split(test_size=0.1, random_state=42, family_strat=True)
-    print("lenght train_dataset", len(train_dataset))
-    print("index", train_dataset.index_with_label.index)
+    # print("lenght train_dataset", len(train_dataset))
+    # print("index", train_dataset.index_with_label.index)
 
 
     for id_genome, sample in enumerate(train_dataset):
