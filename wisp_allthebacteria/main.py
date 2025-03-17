@@ -84,6 +84,7 @@ def create_db(conf: dict):
         )
 
         json_create_db_path = db.get_db_path() / "create_db.json"
+        json_create_db_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
             json_create_db = json.loads(json_create_db_path.read_text(encoding="utf-8"))

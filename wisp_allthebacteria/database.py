@@ -120,14 +120,6 @@ class Database:
         md_db = self._get_db(db_type="md", tax_id=tax_id)
         return md_db.get(LAST_VALID_ID, -1)
 
-    def _set_last_valid_id(self, tax_id: int, last_valid_id: int) -> int:
-        """Get last inserted id"""
-        md_db = self._get_db(db_type="md", tax_id=tax_id)
-        last_valid_id = md_db.get(LAST_VALID_ID)
-        if last_valid_id is None:
-            return -1
-        return last_valid_id
-
     def _parse_tax_id(self, tax_id: str | int) -> str | int:
         try:
             return int(tax_id)
@@ -278,6 +270,7 @@ class DataBaseBuilder(Database):
                         current_id = last_valid_id + i + 1
                         batch_counters[current_id] = counter
                         batch_sources[current_id] = source
+                        last_valid_ids[tax_id] = i
 
                     LOG.debug(
                         f"Starting 2 DB transactions with {len(batch_counters)} counters & sources for tax_id {tax_id}"
@@ -346,3 +339,8 @@ class DataBaseBuilder(Database):
                         deleting = True
             del md_db[CURRENT_TRANSACTION]
             LOG.warning("Database cleaned")
+
+    def _set_last_valid_id(self, tax_id: int, last_valid_id: int) -> None:
+        """Get last inserted id"""
+        md_db = self._get_db(db_type="md", tax_id=tax_id)
+        md_db[LAST_VALID_ID] = last_valid_id
