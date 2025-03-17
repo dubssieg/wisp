@@ -15,7 +15,7 @@ from utils import setup_logger
 from collections import defaultdict
 import sys
 sys.path.append('..')
-from wisp.wisp_light.dataset.RefSeqDataset import TAXO_LEVELS
+from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 
 # TAXO_LEVELS  = ['root', 'phylum', 'class', 'order', 'family']

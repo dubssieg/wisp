@@ -3,7 +3,7 @@ import logging
 from numpy import argmax, amax, mean, ndarray,array, vectorize
 import sys
 sys.path.append('..')
-from wisp.wisp_light.dataset.RefSeqDataset import TAXO_LEVELS
+from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 
 def softmax(predictions: ndarray, func: str, reads_threshold: float) -> list:

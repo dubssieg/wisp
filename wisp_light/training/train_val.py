@@ -12,7 +12,7 @@ from create_database import check_parameters, build_database, load_phylo_tree
 from training_functions import train_model_targets, validate
 
 sys.path.append('../../..')
-from wisp.wisp_light.dataset.RefSeqDataset import RefSeqDataset
+from wisp.wisp_light.dataset.refSeqDataset import RefSeqDataset
 # from wisp.wisp_light.dataset.bactero_set import BacteriaDataset
 
 parser = argparse.ArgumentParser(description="Script d'entraînement pour le modèle bactérien.")
@@ -22,12 +22,16 @@ parser.add_argument("--params_file", type=str, default="params.yaml", help="Chem
 parser.add_argument("--exp_rootdir", type=str, default=os.path.abspath('../../exp/'), help="Répertoire racine des expériences.")
 parser.add_argument("--db_json", type=str, default=None, help="Fichier JSON de la base de données existante.")
 
-args = parser.parse_args()
-print("current working directory: ", os.getcwd())
-args.index_csv = "../dataset/complete_refseq_referent_genome_with_taxo.tsv"
-args.datadir = '/projects/microtaxo/data/refseq3' #'/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1' #  #  #  #
 
-# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/refseq_with_taxo_merged"
+args = parser.parse_args()
+
+args.index_csv = "../dataset/complete_refseq_referent_genome_with_taxo.tsv"
+
+# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1"
+# args.exp_rootdir = '/home/hcourtei/Projects/MicroTaxo/codes/exp_refseq' #
+args.datadir = '/projects/microtaxo/data/refseq3' #'/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1' #  #  #  #
+args.exp_rootdir = '/projects/microtaxo/exp_refseq'
+
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
 if args.db_json:
     exp_dir = os.path.dirname(args.db_json)
@@ -40,13 +44,13 @@ else:
     log_file = f"{exp_dir}/init_train.log"
 
 
-
 logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=log_file)
 
 mlflow.set_tracking_uri(f"file://{os.path.dirname(exp_dir)}/mlruns") # "file://chemin_ml_runs"
-tracking_uri = mlflow.get_tracking_uri()
-logger.info(f"Current tracking uri: {tracking_uri}")
+logger.info(f"Current tracking uri: { mlflow.get_tracking_uri()}")
 mlflow.set_experiment(args.exp_name)
+
+logger.info(f"current working directory: {os.getcwd()}")
 
 with open(args.params_file, 'r') as file:
     params = yaml.safe_load(file)
@@ -84,6 +88,7 @@ with mlflow.start_run():
         phylo_tree = build_database(train_dataset, params, database_json, logger)
         database_time = round((time.time() - start_database))
         logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
+        mlflow.log_metric("database_time", database_time)
 
     train_model_targets(phylo_tree,  exp_dir, params, logger, num_processes=params['num_processes'])
     #
