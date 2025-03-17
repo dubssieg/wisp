@@ -10,7 +10,7 @@ from metadata import Metadata
 from reader import Reader
 from api import API
 from model import XGBoostModel
-from database import Database
+from database import Database, DataBaseBuilder
 from utils import (
     SystemStatsLogger,
     format_duration,
@@ -67,14 +67,14 @@ def create_db(conf: dict):
             api_cache_dir=api_cache_path,
             email=conf["api"]["email"],
             can_download=conf["api"]["can_download"],
-            preload=True,  # because multiproc/multithreads (avoid: sqlite3.OperationalError: database is locked)
+            preload=False,
         )
         md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
         num_workers = cpu_count(conf["db"]["create_db_workers"])
         LOG.info(f"Max CPUs: {cpu_count('max')}, using {num_workers} workers")
         reader = Reader(md, num_workers=num_workers, logger_config=conf["log"])
 
-        db = Database(
+        db = DataBaseBuilder(
             kmer_size=conf["db"]["kmer_size"],
             window_size=conf["db"]["window_size"],
             step=conf["db"]["step"],
@@ -149,6 +149,20 @@ def create_db(conf: dict):
             LOG.info("DB queue is empty")
 
     LOG.info("create_db -> DONE")
+
+
+def db_info(conf: dict):
+    LOG.info("DB info")
+
+    db = Database(
+        kmer_size=conf["db"]["kmer_size"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=conf["db"]["path"],
+    )
+
+    print(db.get_info(as_str=True))
 
 
 def load_config(json_file: Path | str):
@@ -267,35 +281,6 @@ def import_apt_cache(conf: dict):
         email="",
         can_download=False,
     ).import_db()
-
-
-def db_info(conf: dict):
-    LOG.info("DB info")
-
-    metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
-    api = API(
-        api_cache_dir=conf["api"]["cache_dir"],
-        email=conf["api"]["email"],
-        can_download=conf["api"]["can_download"],
-    )
-    md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
-    num_workers = cpu_count(conf["db"]["create_db_workers"])
-    reader = Reader(
-        md,
-        num_workers=num_workers,
-        sequences_threads=conf["db"]["sequences_threads"],
-    )
-
-    db = Database(
-        kmer_size=conf["db"]["kmer_size"],
-        window_size=conf["db"]["window_size"],
-        step=conf["db"]["step"],
-        full=conf["db"]["full"],
-        dbs_path=conf["db"]["path"],
-        reader=reader,
-    )
-
-    print(db.get_info(as_str=True))
 
 
 def debug():

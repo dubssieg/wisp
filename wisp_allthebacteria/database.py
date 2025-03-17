@@ -28,15 +28,171 @@ class Database:
         step: int,
         full: bool,
         dbs_path: str | Path,
-        reader: Reader,
     ):
         LOG.debug(f"Database({locals()})")
         self._dbs_path = Path(dbs_path).resolve()
         self._kmer_size = kmer_size
-        self._reader = reader
         self._window_size = window_size
         self._step = step
         self._full = full
+
+    def get_counter(self, tax_id: int, num: int) -> dict | None:
+        counter_db = self._get_db(db_type="counter", tax_id=tax_id)
+        return counter_db.get(num, None)
+
+    def get_source(self, tax_id: int, num: int) -> dict | None:
+        source_db = self._get_db(db_type="source", tax_id=tax_id)
+        return source_db.get(num, None)
+
+    def get_info(self, as_str=False) -> dict:
+        """Get DB infos: tax_ids, number of counters, etc."""
+        # tax_ids
+        counters_dir = self.get_db_path() / "counter"
+        tax_ids = [
+            int(dir.name)
+            for dir in counters_dir.iterdir()
+            if dir.is_dir() and dir.name.isdigit()
+        ]
+
+        # archives pushed
+        md_db = self._get_db(db_type="md")
+        archives = md_db.get(ARCHIVES, [])
+
+        # counters for each tax_id
+        counters = {}
+        for tax_id in tax_ids:
+            counters[tax_id] = self._get_last_valid_id(tax_id) + 1
+
+        # path
+        info = {"tax_ids": tax_ids, "archives": archives, "counters": counters}
+
+        if as_str:
+            info_lines = []
+            info_lines.append("\n=== Paths/Config ===")
+            info_lines.append(f"Current base path: {self.get_db_path()}")
+            info_lines.append("Available sub DBs:")
+            all_dbs = self.list_dbs(self._dbs_path)
+            for kmer, win_step in all_dbs:
+                win, step = win_step.split("_")
+                info_lines.append(
+                    f"  - k-mer size: {kmer}, window size: {win}, step: {step}"
+                )
+
+            info_lines.append("\n=== Sequences ===")
+            info_lines.append(f"{len(tax_ids)} counters -> [tax_id] sample_count:")
+            items_per_line = 5
+            counters_str = {
+                tax_id: space_format(num) for tax_id, num in sorted(counters.items())
+            }
+            sorted_items = sorted(counters_str.items())
+            max_tax_id_len = max(len(str(tax_id)) for tax_id, _ in sorted_items)
+            max_counter_len = max(len(str(counter)) for _, counter in sorted_items)
+            for i in range(0, len(sorted_items), items_per_line):
+                line_items = sorted_items[i : i + items_per_line]
+                line = "  - " + " | ".join(
+                    [
+                        f"[{tax_id:<{max_tax_id_len}}] {counter:<{max_counter_len}}"
+                        for tax_id, counter in line_items
+                    ]
+                )
+                info_lines.append(line)
+
+            info_lines.append("")
+            info_lines.append(f"Total: {space_format(sum(counters.values()))} samples")
+
+            info_lines.append("\n==== Archives pushed ====")
+            info_lines.append(", ".join(sorted(archives)))
+
+            return "\n".join(info_lines)
+
+        return info
+
+    def has_archive(self, path: str | Path) -> bool:
+        """Check if archive already was pushed in base."""
+        md_db = self._get_db(db_type="md")
+        return self._archive_stem(path) in md_db.get(ARCHIVES, [])
+
+    def _archive_stem(self, path: str | Path) -> str:
+        return Path(path).stem.split(".")[0]
+
+    def _get_last_valid_id(self, tax_id: int) -> int:
+        """Get last inserted id"""
+        md_db = self._get_db(db_type="md", tax_id=tax_id)
+        return md_db.get(LAST_VALID_ID, -1)
+
+    def _set_last_valid_id(self, tax_id: int, last_valid_id: int) -> int:
+        """Get last inserted id"""
+        md_db = self._get_db(db_type="md", tax_id=tax_id)
+        last_valid_id = md_db.get(LAST_VALID_ID)
+        if last_valid_id is None:
+            return -1
+        return last_valid_id
+
+    def _parse_tax_id(self, tax_id: str | int) -> str | int:
+        try:
+            return int(tax_id)
+        except (ValueError, TypeError):
+            return tax_id
+
+    @lru_cache(maxsize=100)
+    def _get_db(self, db_type: DB_TYPE, tax_id: int | None = None) -> Cache:
+        """Get sub DB"""
+        # <base_dbs>/md/common
+        # <base_dbs>/md/<tax_id>
+        # <base_dbs>/md/counters/<tax_id>
+        # <base_dbs>/md/sources/<tax_id>
+
+        path = self.get_db_path()
+        path /= db_type
+        if tax_id:
+            path /= str(tax_id)
+        else:
+            path /= COMMON
+
+        path.mkdir(parents=True, exist_ok=True)
+
+        return Cache(path, size_limit=sys.maxsize)
+
+    def get_db_path(self):
+        path = self._dbs_path / str(self._kmer_size)
+        if self._full:
+            path /= "full"
+        else:
+            path /= f"{self._window_size}_{self._step}"
+        return path
+
+    @staticmethod
+    def list_dbs(base_path: str | Path) -> list:
+        """Get list of available DB (different configs)"""
+        base = Path(base_path)
+        return [
+            [parent.name, child.name]
+            for parent in base.iterdir()
+            if parent.is_dir()
+            for child in parent.iterdir()
+            if child.is_dir()
+        ]
+
+
+class DataBaseBuilder(Database):
+    def __init__(
+        self,
+        kmer_size: int,
+        window_size: int,
+        step: int,
+        full: bool,
+        dbs_path: str | Path,
+        reader: Reader,
+    ):
+        LOG.debug(f"DatabaseBuilder({locals()})")
+        super().__init__(
+            kmer_size=kmer_size,
+            window_size=window_size,
+            step=step,
+            full=full,
+            dbs_path=dbs_path,
+        )
+        self._reader = reader
         self.clean()
         self._db_lock = threading.Lock()
         self._task_queue = queue.Queue()
@@ -165,82 +321,6 @@ class Database:
         self._worker_thread.join()
         LOG.debug("DB worker stopped")
 
-    def get_counter(self, tax_id: int, num: int) -> dict | None:
-        counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-        return counter_db.get(num, None)
-
-    def get_source(self, tax_id: int, num: int) -> dict | None:
-        source_db = self._get_db(db_type="source", tax_id=tax_id)
-        return source_db.get(num, None)
-
-    def get_info(self, as_str=False) -> dict:
-        """Get DB infos: tax_ids, number of counters, etc."""
-        # tax_ids
-        counters_dir = self.get_db_path() / "counter"
-        tax_ids = [
-            int(dir.name)
-            for dir in counters_dir.iterdir()
-            if dir.is_dir() and dir.name.isdigit()
-        ]
-
-        # archives pushed
-        md_db = self._get_db(db_type="md")
-        archives = md_db.get(ARCHIVES, [])
-
-        # counters for each tax_id
-        counters = {}
-        for tax_id in tax_ids:
-            counters[tax_id] = self._get_last_valid_id(tax_id) + 1
-
-        # path
-        info = {"tax_ids": tax_ids, "archives": archives, "counters": counters}
-
-        if as_str:
-            info_lines = []
-            info_lines.append("\n=== Paths/Config ===")
-            info_lines.append(f"Current base path: {self.get_db_path()}")
-            info_lines.append("Available sub DBs:")
-            all_dbs = self.list_dbs(self._dbs_path)
-            for kmer, win_step in all_dbs:
-                win, step = win_step.split("_")
-                info_lines.append(
-                    f"  - k-mer size: {kmer}, window size: {win}, step: {step}"
-                )
-
-            info_lines.append("\n=== Sequences ===")
-            info_lines.append(f"{len(tax_ids)} counters -> [tax_id] sample_count:")
-            items_per_line = 5
-            counters_str = {
-                tax_id: space_format(num) for tax_id, num in sorted(counters.items())
-            }
-            sorted_items = sorted(counters_str.items())
-            max_tax_id_len = max(len(str(tax_id)) for tax_id, _ in sorted_items)
-            max_counter_len = max(len(str(counter)) for _, counter in sorted_items)
-            for i in range(0, len(sorted_items), items_per_line):
-                line_items = sorted_items[i : i + items_per_line]
-                line = "  - " + " | ".join(
-                    [
-                        f"[{tax_id:<{max_tax_id_len}}] {counter:<{max_counter_len}}"
-                        for tax_id, counter in line_items
-                    ]
-                )
-                info_lines.append(line)
-
-            info_lines.append("")
-            info_lines.append(f"Total: {space_format(sum(counters.values()))} samples")
-
-            info_lines.append("\n==== Archives pushed ====")
-            info_lines.append(", ".join(sorted(archives)))
-
-            return "\n".join(info_lines)
-
-        return info
-
-    def has_archive(self, path: str | Path) -> bool:
-        """Check if archive already was pushed in base."""
-        md_db = self._get_db(db_type="md")
-        return self._archive_stem(path) in md_db.get(ARCHIVES, [])
-
     def clean(self):
         """Undo unfinished transactions"""
         md_db = self._get_db(db_type="md")
@@ -266,64 +346,3 @@ class Database:
                         deleting = True
             del md_db[CURRENT_TRANSACTION]
             LOG.warning("Database cleaned")
-
-    def _archive_stem(self, path: str | Path) -> str:
-        return Path(path).stem.split(".")[0]
-
-    def _get_last_valid_id(self, tax_id: int) -> int:
-        """Get last inserted id"""
-        md_db = self._get_db(db_type="md", tax_id=tax_id)
-        return md_db.get(LAST_VALID_ID, -1)
-
-    def _set_last_valid_id(self, tax_id: int, last_valid_id: int) -> int:
-        """Get last inserted id"""
-        md_db = self._get_db(db_type="md", tax_id=tax_id)
-        last_valid_id = md_db.get(LAST_VALID_ID)
-        if last_valid_id is None:
-            return -1
-        return last_valid_id
-
-    def _parse_tax_id(self, tax_id: str | int) -> str | int:
-        try:
-            return int(tax_id)
-        except (ValueError, TypeError):
-            return tax_id
-
-    @lru_cache(maxsize=100)
-    def _get_db(self, db_type: DB_TYPE, tax_id: int | None = None) -> Cache:
-        """Get sub DB"""
-        # <base_dbs>/md/common
-        # <base_dbs>/md/<tax_id>
-        # <base_dbs>/md/counters/<tax_id>
-        # <base_dbs>/md/sources/<tax_id>
-
-        path = self.get_db_path()
-        path /= db_type
-        if tax_id:
-            path /= str(tax_id)
-        else:
-            path /= COMMON
-
-        path.mkdir(parents=True, exist_ok=True)
-
-        return Cache(path, size_limit=sys.maxsize)
-
-    def get_db_path(self):
-        path = self._dbs_path / str(self._kmer_size)
-        if self._full:
-            path /= "full"
-        else:
-            path /= f"{self._window_size}_{self._step}"
-        return path
-
-    @staticmethod
-    def list_dbs(base_path: str | Path) -> list:
-        """Get list of available DB (different configs)"""
-        base = Path(base_path)
-        return [
-            [parent.name, child.name]
-            for parent in base.iterdir()
-            if parent.is_dir()
-            for child in parent.iterdir()
-            if child.is_dir()
-        ]
