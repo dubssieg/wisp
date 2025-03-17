@@ -1,14 +1,18 @@
+import gc
 import logging
+import os
 import tarfile
 import tempfile
 from collections import Counter
 from itertools import product
 from pathlib import Path
+import time
 
 from Bio import SeqIO
+import concurrent
 from loky import get_reusable_executor
 from metadata import Metadata
-from utils import format_size, config_logger
+from utils import format_size, config_logger, cleanup_zombie_processes
 
 LOG = logging.getLogger(__name__)
 
@@ -22,7 +26,6 @@ class Reader:
         LOG.debug(f"Reader({locals()})")
         self._md = metadata
         self._num_workers = num_workers
-        # self._parent_pid = os.getpid()
         self._logger_config = logger_config
 
     def process_file(
@@ -73,6 +76,8 @@ class Reader:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir).resolve()
+
+            # Extraction de l'archive
             with tarfile.open(archive_path, "r:xz") as tar:
                 tar.extractall(temp_dir)
 
@@ -80,6 +85,7 @@ class Reader:
             LOG.debug(f"[{archive_name}] {len(extracted_files)} FASTA files extracted")
 
             results = []
+
             with get_reusable_executor(max_workers=self._num_workers) as executor:
                 futures = {
                     executor.submit(
@@ -93,21 +99,40 @@ class Reader:
                     ): file_path
                     for file_path in extracted_files
                 }
-                for future in futures:
-                    try:
-                        results.append(future.result())
-                        fasta_count += 1
-                        LOG.debug(
-                            f"[{archive_name}] {fasta_count} / {len(extracted_files)}"
-                        )
-                    except Exception:
-                        LOG.exception(f"[{archive_name}] {futures[future]}")
-                        raise
-                LOG.debug(
-                    f"[{archive_name}] All {len(extracted_files)} Fasta files processed. Terminating worker pool"
-                )
+                try:
+                    for future in concurrent.futures.as_completed(futures):
+                        try:
+                            results.append(future.result(timeout=60))  # TODO: conf
+                            fasta_count += 1
+                            LOG.debug(
+                                f"[{archive_name}] {fasta_count} / {len(extracted_files)}"
+                            )
+                        except concurrent.futures.TimeoutError:
+                            LOG.error(f"[{archive_name}] Timeout on {futures[future]}")
+                        except Exception:
+                            LOG.exception(f"[{archive_name}] {futures[future]}")
+                            raise
+                    LOG.debug(
+                        f"[{archive_name}] All {len(extracted_files)} FASTA files processed. Terminating worker pool"
+                    )
+                finally:
+                    LOG.debug(f"[{archive_name}] Shutting down executor...")
+                    # force workers to stop
+                    executor.shutdown(wait=True, kill_workers=True)
+                    LOG.debug(f"[{archive_name}] Executor shut down.")
 
-            LOG.debug(f"[{archive_name}] Workers pool terminated")
+                    # give time for zombies to appear
+                    time.sleep(2)
+                    LOG.debug(f"[{archive_name}] Checking for zombie processes...")
+                    cleanup_zombie_processes(os.getpid())
+
+                    # free mem
+                    gc.collect()
+                    LOG.debug(
+                        f"[{archive_name}] Cleanup complete. Workers pool terminated."
+                    )
+
+            LOG.debug(f"[{archive_name}] Workers pool terminated, deleting fasta files")
 
         LOG.debug(f"[{archive_name}] Extracted Fasta files deleted")
         merged_data = {}

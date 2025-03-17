@@ -205,6 +205,26 @@ class SystemStatsLogger:
         self._thread.join()
 
 
+def cleanup_zombie_processes(pid: int | None = None):
+    """Kill all zombie processes remaining"""
+
+    if pid is None:
+        pid = psutil.Process().pid
+    for child in psutil.Process(pid).children(recursive=True):
+        if child.status() == psutil.STATUS_ZOMBIE:
+            LOG.warning(f"Killing zombie process {child.pid}")
+            try:
+                child.terminate()
+                child.wait(5)  # Attendre 5 secondes pour qu'il se ferme
+            except psutil.NoSuchProcess:
+                pass
+            except psutil.TimeoutExpired:
+                LOG.error(
+                    f"Failed to terminate zombie process {child.pid}, forcing kill"
+                )
+                child.kill()
+
+
 if __name__ == "__main__":
     print(system_stats())
     print(system_stats(as_str=True))
