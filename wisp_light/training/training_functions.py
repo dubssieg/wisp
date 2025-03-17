@@ -144,8 +144,8 @@ def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, metri
             pred_taxons = extract_majority_classification(result)
             metrics.update(true_labels=gt_taxons, pred_labels=pred_taxons)
             if gt_taxons['phylum'] != pred_taxons['phylum']:
-                logger.info("ERROR phylum")
-                logger.info(f"-> seq_id {seq_id} -> pred: {pred_taxons} -> gt: {gt_taxons}")
+                logger.error("ERROR phylum")
+                logger.error(f"-> seq_id {seq_id} -> pred: {pred_taxons} -> gt: {gt_taxons}")
                 file_error_plylum.write(f"seq_id {seq_id}\n pred: {pred_taxons}\n gt  : {gt_taxons} \n")
             prediction_results.append(result)
         except Exception as e:
@@ -172,7 +172,8 @@ def log_val_metrics(metrics, val_dir, logger):
         mlflow.log_metric(f"accuracy_{level}", accuracy_level)
         logger.info("-" * 20)
         logger.info(f" level {level}, accuracy {accuracy_level:03f}")
-        if id_level < 2:
+
+        if len(conf_mat_level) <= 15 :
             logger.info("\n" + conf_mat_level.to_markdown())
 
         file_csv = os.path.join(os.path.join(val_dir, 'metrics'), f"ConfMat_{level}.csv")

@@ -25,7 +25,7 @@ parser.add_argument("--db_json", type=str, default=None, help="Fichier JSON de l
 args = parser.parse_args()
 print("current working directory: ", os.getcwd())
 args.index_csv = "../dataset/complete_refseq_referent_genome_with_taxo.tsv"
-args.datadir = '/projects/microtaxo/data/refseq2' # '/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1' #  #
+args.datadir = '/projects/microtaxo/data/refseq3' #'/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1' #  #  #  #
 
 # args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/genouest_data/refseq_with_taxo_merged"
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
@@ -39,11 +39,14 @@ else:
     os.makedirs(exp_dir, exist_ok=True)
     log_file = f"{exp_dir}/init_train.log"
 
-mlflow.set_tracking_uri(f"sqlite:///{os.path.dirname(exp_dir)}/mlflow.db")
-mlflow.set_experiment(args.exp_name)
+
 
 logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=log_file)
 
+mlflow.set_tracking_uri(f"file://{os.path.dirname(exp_dir)}/mlruns") # "file://chemin_ml_runs"
+tracking_uri = mlflow.get_tracking_uri()
+logger.info(f"Current tracking uri: {tracking_uri}")
+mlflow.set_experiment(args.exp_name)
 
 with open(args.params_file, 'r') as file:
     params = yaml.safe_load(file)
@@ -64,7 +67,7 @@ with mlflow.start_run():
     # dataset = BacteriaDataset(args.datadir, logger)
     # dataset.filter_family_by_min_species(min_family_threshold=params['min_family_threshold'],
     #                                      max_family_repr=params['max_family_repr'])
-    dataset = RefSeqDataset(args.index_csv, args.datadir)
+    dataset = RefSeqDataset(args.index_csv, args.datadir, logger)
 
     train_dataset, val_dataset = dataset.split(test_size=params['test_size'], random_state=params['random_state'],
                                                family_strat=params['family_strat'])
