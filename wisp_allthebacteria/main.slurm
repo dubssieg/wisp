@@ -29,8 +29,8 @@ df -h
 echo "=== Environment Variables ==="
 printenv | sort
 
-echo "=== NFS Mounts ==="
-mount | grep nfs
+# echo "=== NFS Mounts ==="
+# mount | grep nfs
 
 echo "=== Python Environment ==="
 which python
@@ -38,7 +38,7 @@ python --version
 pip list
 
 echo "=== Running Processes ==="
-ps aux --sort=-%mem | head -n 30
+ps aux --sort=-%mem | head -n 5
 
 echo "=== Slurm Configuration ==="
 scontrol show config

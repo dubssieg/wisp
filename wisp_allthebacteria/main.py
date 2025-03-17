@@ -290,28 +290,28 @@ def import_apt_cache(conf: dict):
     ).import_db()
 
 
-def debug():
+def debug(conf):
     """debugging, ignore it"""
     LOG.info("debug")
-    api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", can_download=True)
-    md = Metadata(
-        csv_path="/data/microtaxo/allthebacteria_sample/metadata/ena_metadata.tsv",
-        api=api,
-        start_loaded=False,
+
+    api = API(
+        api_cache_dir=conf["api"]["cache_dir"],
+        email=conf["api"]["email"],
+        can_download=conf["api"]["can_download"],
+        preload=False,
     )
-    reader = Reader(md, num_workers=8)
+
     db = Database(
-        kmer_size=4,
-        window_size=10000,
-        step=5000,
-        full=False,
-        dbs_path="/data/microtaxo/dbs",
-        reader=reader,
+        kmer_size=conf["db"]["kmer_size"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=conf["db"]["path"],
+        api=api,
     )
-    db.get_info()
-    db.push_file(
-        "/data/microtaxo/allthebacteria_sample/assembly/actinobacillus_lignieresii__01.asm.tar.xz"
-    )
+
+    # print(db.get_info(as_str=True))
+    print(db.get_tax_ids_by_rank("phylum"))
     pass
 
     # mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
@@ -447,7 +447,7 @@ if __name__ == "__main__":
     config_logger(**conf["log"])
 
     if args.debug:
-        debug()
+        debug(conf)
         sys.exit("debug")
 
     if args.populate_api_cache:

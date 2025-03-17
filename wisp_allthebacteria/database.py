@@ -1,3 +1,4 @@
+from collections import defaultdict
 import logging
 from pathlib import Path
 import sys
@@ -10,6 +11,7 @@ from functools import lru_cache
 
 from reader import Reader
 from utils import space_format
+from api import API
 
 LOG = logging.getLogger(__name__)
 
@@ -28,6 +30,7 @@ class Database:
         step: int,
         full: bool,
         dbs_path: str | Path,
+        api: API | None = None,
     ):
         LOG.debug(f"Database({locals()})")
         self._dbs_path = Path(dbs_path).resolve()
@@ -35,6 +38,7 @@ class Database:
         self._window_size = window_size
         self._step = step
         self._full = full
+        self._api = api
 
     def get_counter(self, tax_id: int, num: int) -> dict | None:
         counter_db = self._get_db(db_type="counter", tax_id=tax_id)
@@ -44,15 +48,32 @@ class Database:
         source_db = self._get_db(db_type="source", tax_id=tax_id)
         return source_db.get(num, None)
 
-    def get_info(self, as_str=False) -> dict:
-        """Get DB infos: tax_ids, number of counters, etc."""
-        # tax_ids
+    def get_tax_ids_by_rank(self, rank: str) -> dict[int, list[int]]:
+        if not self._api:
+            raise ValueError("API needed")
+        rank_mapping = defaultdict(list)
+        for tax_id in self.get_tax_ids():
+            lineage_ex = self._api[tax_id].get("LineageEx", [])
+            for entry in lineage_ex:
+                if entry["Rank"] == rank:
+                    rank_mapping[entry["TaxId"]].append(tax_id)
+                    break
+
+        return dict(rank_mapping)
+
+    def get_tax_ids(self) -> list:
+        """Get available tax_ids - TODO: in MD DB"""
         counters_dir = self.get_db_path() / "counter"
-        tax_ids = [
+        return [
             int(dir.name)
             for dir in counters_dir.iterdir()
             if dir.is_dir() and dir.name.isdigit()
         ]
+
+    def get_info(self, as_str=False) -> dict:
+        """Get DB infos: tax_ids, number of counters, etc."""
+        # tax_ids
+        tax_ids = self.get_tax_ids()
 
         # archives pushed
         md_db = self._get_db(db_type="md")
@@ -79,7 +100,7 @@ class Database:
                 )
 
             info_lines.append("\n=== Sequences ===")
-            info_lines.append(f"{len(tax_ids)} counters -> [tax_id] sample_count:")
+            info_lines.append(f"{len(tax_ids)} tax_ids -> [tax_id] sample_count:")
             items_per_line = 5
             counters_str = {
                 tax_id: space_format(num) for tax_id, num in sorted(counters.items())
