@@ -20,7 +20,7 @@ from metrics import ConfusionMatrixTracker, compute_accuracy_from_conf_matrix_df
 
 sys.path.append('../../..')
 from wisp.wisp_light.visu.plots_tools import plot_conf_mat
-from wisp.wisp_light.dataset.RefSeqDataset import TAXO_LEVELS
+from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 # TAXO_LEVELS  = ['root', 'phylum', 'class', 'order', 'family']
 
@@ -83,6 +83,7 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, num_processes=4):
 
     model_time = round((time.time() - start_model))
     logger.info(f"Finished make_model in {model_time} s  tree @ {phylo_path} ")
+    mlflow.log_metric("model_time", model_time)
 
 
 
@@ -116,6 +117,7 @@ def validate(val_dataset, exp_dir,  params, logger,  num_processes=4, save_raw_p
     log_val_metrics(metrics, val_dir, logger)
     validation_time = round((time.time() - start_validation))
     logger.info(f"Finished validation  in {validation_time} s")
+    mlflow.log_metric("validation_time", validation_time)
 
 
 def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, metrics, save_raw_pred):
@@ -184,6 +186,7 @@ def log_val_metrics(metrics, val_dir, logger):
         plot_path = file_csv.replace(".csv", ".png")
         plot_conf_mat(conf_mat_level, level=level, filename=plot_path)
         mlflow.log_artifact(plot_path)
+
 
 if __name__=='__main__':
     logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=None)

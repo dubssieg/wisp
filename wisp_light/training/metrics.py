@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import sys
 sys.path.append('..')
-from wisp.wisp_light.dataset.RefSeqDataset import TAXO_LEVELS
+from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 class ConfusionMatrixTracker:
     def __init__(self):

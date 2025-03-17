@@ -48,6 +48,18 @@ To prevent ssh break, you can use tmux on genouest see https://help.genouest.org
 2. Sbatch , fix parameter in .sh , params.yaml or train_val.py, then 
 `sbatch submit_main_build.sh
 `
+# See results 
+
+from compute  <node_name>  in genouest:
+
+>mlflow ui--port 8123 --backend-store-uri /projects/microtaxo/exp_refseq/mlruns
+
+from local laptop
+
+>ssh -A -t -t hcourtei@genossh.genouest.org -L 8123:localhost:8123 ssh <node_name> -L 8123:localhost:8123
+
+
+
 # conda env with glibc >1.28 
 
 > 2.1 it/s
