@@ -254,7 +254,7 @@ class DataBaseBuilder(Database):
                     f"Adding counters & sources to DB for {len(merged_data)} tax_id(s): {self.get_db_path()}"
                 )
                 for tax_id, tdata in merged_data.items():
-                    LOG.debug(f"Adding couter & sources tax_id: {tax_id}")
+                    LOG.debug(f"Adding counters & sources tax_id: {tax_id}")
                     tax_id = self._parse_tax_id(tax_id)
                     last_valid_id = self._get_last_valid_id(tax_id)
                     counters = tdata["counters"]
