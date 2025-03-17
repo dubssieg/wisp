@@ -103,10 +103,11 @@ class Reader:
                     except Exception:
                         LOG.exception(f"[{archive_name}] {futures[future]}")
                         raise
+                LOG.debug(
+                    f"[{archive_name}] All {len(extracted_files)} Fasta files processed. Terminating worker pool"
+                )
 
-            LOG.debug(
-                f"[{archive_name}] All {len(extracted_files)} Fasta files processed. Fast workers pool terminated"
-            )
+            LOG.debug(f"[{archive_name}] Workers pool terminated")
 
         LOG.debug(f"[{archive_name}] Extracted Fasta files deleted")
         merged_data = {}

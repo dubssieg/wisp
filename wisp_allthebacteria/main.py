@@ -96,10 +96,10 @@ def create_db(conf: dict):
         duration = json_create_db["duration"]
 
         try:
-            for archive_path in tqdm(
-                archives, desc=f"Processing {input_path} -> {output_path}"
+            for i, archive_path in tqdm(
+                enumerate(archives), desc=f"Processing {input_path} -> {output_path}"
             ):
-                LOG.debug(f"=== {archive_path.name} ===")
+                LOG.debug(f"=== [{i+1} / {len(archives)}] {archive_path.name} ===")
                 archive_str = str(archive_path)
 
                 # if archive_str in complete:
