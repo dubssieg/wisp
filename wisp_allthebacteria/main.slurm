@@ -55,9 +55,9 @@ echo "=== Swapiness ==="
 cat /proc/sys/vm/swappiness
 # echo 30 | sudo tee /proc/sys/vm/swappiness
 
-export MALLOC_TRIM_THRESHOLD_=0
-export MALLOC_MMAP_THRESHOLD_=131072
-export MALLOC_ARENA_MAX=2 
+# export MALLOC_TRIM_THRESHOLD_=0
+# export MALLOC_MMAP_THRESHOLD_=131072
+# export MALLOC_ARENA_MAX=2 
 
 # ulimit -Sv 40000000  # Soft limit 40 Go
 # ulimit -Hv 42000000  # Hard limit 

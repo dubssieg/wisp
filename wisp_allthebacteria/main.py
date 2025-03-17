@@ -98,6 +98,7 @@ def create_db(conf: dict):
             for archive_path in tqdm(
                 archives, desc=f"Processing {input_path} -> {output_path}"
             ):
+                LOG.debug(f"=== {archive_path.name} ===")
                 archive_str = str(archive_path)
 
                 # if archive_str in complete:

@@ -98,13 +98,17 @@ class Reader:
                         results.append(future.result())
                         fasta_count += 1
                         LOG.debug(
-                            f"[{archive_name}] DONE {fasta_count} / {len(extracted_files)}"
+                            f"[{archive_name}] {fasta_count} / {len(extracted_files)}"
                         )
                     except Exception:
                         LOG.exception(f"[{archive_name}] {futures[future]}")
                         raise
 
-        LOG.debug(f"[{archive_name}] extracted files deleted")
+            LOG.debug(
+                f"[{archive_name}] All {len(extracted_files)} Fasta files processed. Fast workers pool terminated"
+            )
+
+        LOG.debug(f"[{archive_name}] Extracted Fasta files deleted")
         merged_data = {}
         for result in results:
             for file_id, data in result.items():
@@ -141,7 +145,7 @@ class Reader:
 
         try:
             sequences = Reader._read_fasta(file_path)
-            LOG.debug(f"[{file_name}] {len(sequences)} sequences to count")
+            LOG.debug(f"[{file_name}] {len(sequences)} sequences to process")
         except Exception:
             LOG.exception(f"Error while reading fasta file: {file_path}")
             raise
