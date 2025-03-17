@@ -147,7 +147,7 @@ class Database:
         except (ValueError, TypeError):
             return tax_id
 
-    @lru_cache(maxsize=100)
+    @lru_cache(maxsize=1)
     def _get_db(self, db_type: DB_TYPE, tax_id: int | None = None) -> Cache:
         """Get sub DB"""
         # <base_dbs>/md/common
