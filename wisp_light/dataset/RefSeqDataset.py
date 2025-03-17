@@ -1,13 +1,15 @@
+import logging
 import os
-
+import sys
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+sys.path.append('../../..')
 
 TAXO_LEVELS =  ['phylum', 'class', 'order', 'family']
 
 class RefSeqDataset:
-    def __init__(self, index_csv, datadir, logger):
+    def __init__(self, index_csv, datadir, logger=None):
         self.index_with_label = pd.read_csv(index_csv, sep='\t')
         self.datadir = datadir
         self.logger = logger
@@ -21,7 +23,7 @@ class RefSeqDataset:
 
         self.index_with_label['file'] = self.index_with_label['Assembly Accession'].map(file_map)
         self.index_with_label = self.index_with_label.dropna(subset=['file']).reset_index(drop=True)
-        print(f"nb files in datadir: {len(all_files)} restrict to {len(self.index_with_label)} with labels in index ")
+        self.logger.info(f"nb files in datadir: {len(all_files)} restrict to {len(self.index_with_label)} with labels in index ")
 
     def __len__(self):
         # print(f"Current dataset length: {len(self.index_with_label)}")
@@ -69,15 +71,19 @@ class RefSeqDataset:
 
 
 if __name__ == '__main__':
+    from wisp.wisp_light.training.utils import setup_logger
+
+    logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=None)
+
     index_csv = 'complete_refseq_referent_genome_with_taxo.tsv'
     datadir = '/projects/microtaxo/data/refseq3'
     # datadir = '/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1'
-    ds = RefSeqDataset(index_csv,datadir)
+    ds = RefSeqDataset(index_csv,datadir, logger)
 
     # print(ds.index_with_label['file'])
     x, y = ds[0]
 
-    train_dataset, test_dataset = ds.split(test_size=0.1, random_state=42, family_strat=True)
+    train_dataset, test_dataset = ds.split(test_size=0.1, random_state=42, family_strat=False)
     # print("lenght train_dataset", len(train_dataset))
     # print("index", train_dataset.index_with_label.index)
 
