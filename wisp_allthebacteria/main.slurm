@@ -59,7 +59,7 @@ cat /proc/sys/vm/swappiness
 # export MALLOC_MMAP_THRESHOLD_=131072
 # export MALLOC_ARENA_MAX=2 
 
-# ulimit -Sv 40000000  # Soft limit 40 Go
+ulimit -Sv 70000000  # Soft limit 70 Go
 # ulimit -Hv 42000000  # Hard limit 
 
 # export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libc.so.6

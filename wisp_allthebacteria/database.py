@@ -61,6 +61,20 @@ class Database:
 
         return dict(rank_mapping)
 
+    def tax_ids_to_sample_ids(self, tax_ids: int | list[int]) -> list[tuple[int, int]]:
+        """Given a tax_id or a list of tax_id, get available samples_ids: DB(tax_id, num)
+        Usage: self.get_counter(*sample_id)"""
+        if isinstance(tax_ids, int):
+            tax_ids = [tax_ids]
+
+        sample_ids = []
+        for tax_id in tax_ids:
+            self._get_last_valid_id(tax_id)
+            sample_ids.extend(
+                (tax_id, i) for i in range(self._get_last_valid_id(tax_id) + 1)
+            )
+        return sample_ids
+
     def get_tax_ids(self) -> list:
         """Get available tax_ids - TODO: in MD DB"""
         counters_dir = self.get_db_path() / "counter"

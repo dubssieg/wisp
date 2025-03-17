@@ -1,3 +1,4 @@
+import gc
 import json
 import logging
 import os
@@ -120,6 +121,7 @@ def create_db(conf: dict):
                         LOG.warning(f"{archive_path.name} already in DB, skipping.")
                     else:
                         db.push_file(archive_path)
+                        gc.collect()
 
                     complete.add(archive_str)
                     incomplete.discard(archive_str)
@@ -311,7 +313,13 @@ def debug(conf):
     )
 
     # print(db.get_info(as_str=True))
-    print(db.get_tax_ids_by_rank("phylum"))
+    tids = db.get_tax_ids_by_rank("phylum")
+    res = dict()
+    for rank_tax_id, tax_ids in tids.items():
+        sids = db.tax_ids_to_sample_ids(tax_ids)
+        res[rank_tax_id] = sids
+
+    print({k: len(v) for k, v in res.items()})
     pass
 
     # mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
