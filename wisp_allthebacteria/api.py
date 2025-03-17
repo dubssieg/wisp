@@ -18,6 +18,7 @@ class API:
         can_download: bool = True,
         preload: bool = False,
     ):
+        LOG.debug(f"API({locals()})")
         self._can_download = can_download
         self._preload = preload
         self._cache_dir = Path(api_cache_dir).resolve()

@@ -14,8 +14,7 @@
         "full": false,
         "window_size": 10000,
         "step": 8000,
-        "create_db_workers": "max_minus_2",
-        "sequences_threads": 8     
+        "create_db_workers": "max_minus_2"
     },
     "model":{
         "gpu": false,
@@ -34,8 +33,8 @@
         "log_path": "/projects/microtaxo/exp_allthebacteria/logs/log.txt",
         "terminal_level": "warning",
         "file_level": "debug",
-        "file_size": 10000000,
-        "file_count": 3,
+        "file_size": 100000000,
+        "file_count": 2,
         "ignore_list": ["matplotlib"]
     }
 }
