@@ -15,7 +15,8 @@
         "window_size": 10000,
         "step": 8000,
         "create_db_workers": "max_minus_2",
-        "async_insertion": false
+        "async_insertion": false,
+        "fanout_shards": 64
 
     },
     "model":{

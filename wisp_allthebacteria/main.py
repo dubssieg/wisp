@@ -55,7 +55,7 @@ RANKS = [
 
 def create_db(conf: dict):
     LOG.info("create_db")
-    with SystemStatsLogger(interval=60, pid=os.getpid()):  # TODO: conf + level
+    with SystemStatsLogger(interval=30, pid=os.getpid()):  # TODO: conf + level
         input_path = Path(conf["allthebacteria"]["assembly_dir"])
         output_path = Path(conf["db"]["path"])
         metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
@@ -81,6 +81,7 @@ def create_db(conf: dict):
             step=conf["db"]["step"],
             full=conf["db"]["full"],
             dbs_path=output_path,
+            fanout_shards=conf["db"]["fanout_shards"],
             reader=reader,
         )
         if conf["db"]["async_insertion"]:

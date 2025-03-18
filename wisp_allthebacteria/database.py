@@ -6,8 +6,9 @@ import threading
 import queue
 from typing import Literal
 
-from diskcache import Cache
-from functools import lru_cache
+from diskcache import FanoutCache
+
+# from functools import lru_cache
 
 from reader import Reader
 from utils import space_format
@@ -30,6 +31,7 @@ class Database:
         step: int,
         full: bool,
         dbs_path: str | Path,
+        fanout_shards: int,
         api: API | None = None,
     ):
         LOG.debug(f"Database({locals()})")
@@ -38,6 +40,7 @@ class Database:
         self._window_size = window_size
         self._step = step
         self._full = full
+        self._fanout_shards = fanout_shards
         self._api = api
 
     def get_counter(self, tax_id: int, num: int) -> dict | None:
@@ -161,8 +164,8 @@ class Database:
         except (ValueError, TypeError):
             return tax_id
 
-    @lru_cache(maxsize=1)
-    def _get_db(self, db_type: DB_TYPE, tax_id: int | None = None) -> Cache:
+    # @lru_cache(maxsize=1)
+    def _get_db(self, db_type: DB_TYPE, tax_id: int | None = None) -> FanoutCache:
         """Get sub DB"""
         # <base_dbs>/md/common
         # <base_dbs>/md/<tax_id>
@@ -178,7 +181,7 @@ class Database:
 
         path.mkdir(parents=True, exist_ok=True)
 
-        return Cache(path, size_limit=sys.maxsize)
+        return FanoutCache(path, size_limit=sys.maxsize, shards=self._fanout_shards)
 
     def get_db_path(self):
         path = self._dbs_path / str(self._kmer_size)
@@ -210,6 +213,7 @@ class DatabaseBuilder(Database):
         step: int,
         full: bool,
         dbs_path: str | Path,
+        fanout_shards: int,
         reader: Reader,
     ):
         LOG.debug(f"DatabaseBuilder({locals()})")
@@ -218,6 +222,7 @@ class DatabaseBuilder(Database):
             window_size=window_size,
             step=step,
             full=full,
+            fanout_shards=fanout_shards,
             dbs_path=dbs_path,
         )
         self._reader = reader
@@ -341,6 +346,7 @@ class DatabaseBuilderAsync(DatabaseBuilder):
         step: int,
         full: bool,
         dbs_path: str | Path,
+        fanout_shards: int,
         reader: Reader,
     ):
         LOG.debug(f"DataBaseBuilderAsync({locals()})")
@@ -350,6 +356,7 @@ class DatabaseBuilderAsync(DatabaseBuilder):
             step=step,
             full=full,
             dbs_path=dbs_path,
+            fanout_shards=fanout_shards,
             reader=reader,
         )
 
