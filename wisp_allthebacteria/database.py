@@ -1,6 +1,7 @@
 from collections import defaultdict
 import logging
 from pathlib import Path
+import shutil
 import sys
 import threading
 import queue
@@ -298,6 +299,11 @@ class DatabaseBuilder(Database):
         archives.append(archive)
         md_db[ARCHIVES] = archives
         LOG.debug("Transaction ended successfully")
+
+        if "tmp_dir" in data:
+            LOG.debug(f"Deleting temporary directory {data['tmp_dir']} ...")
+            shutil.rmtree(data["tmp_dir"])
+            LOG.debug("Temporary files deleted")
 
     def _add_merged_data_from_dict(self, merged_data: dict) -> dict:
         last_valid_ids = {}

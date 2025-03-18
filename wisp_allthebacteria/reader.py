@@ -68,7 +68,7 @@ class Reader:
         step: int,
         full: bool = False,
         batch_size: int = None,
-        return_db: bool = True,
+        return_db: bool = True,  # TODO: test backw comp + conf
     ):
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()
@@ -159,13 +159,13 @@ class Reader:
                         # free mem
                         gc.collect()
                         LOG.debug(
-                            f"[{archive_name}] Cleanup complete. Workers pool terminated"
+                            f"[{archive_name}] Cleanup complete - Workers pool terminated"
                         )
 
                 LOG.debug(f"[{archive_name}] Workers pool terminated")
 
             LOG.debug(
-                f"[{archive_name}] All {len(extracted_files)} Fasta files done, sorting results..."
+                f"[{archive_name}] All {len(extracted_files)} Fasta files done - sorting results..."
             )
 
             if return_db:
@@ -217,7 +217,7 @@ class Reader:
                         merged_data[tax_id]["sources"].extend(data["sources"])
 
             LOG.debug(
-                f"[{archive_path}] {len(merged_data)} different tax_id(s) found - Deleting temporary files"
+                f"[{archive_path}] {len(merged_data)} different tax_id(s) found - Deleting temporary directory ({temp_dir}) ..."
             )
 
         LOG.debug(f"[{archive_name}] Temporary files deleted")

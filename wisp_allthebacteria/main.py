@@ -174,6 +174,7 @@ def db_info(conf: dict):
         step=conf["db"]["step"],
         full=conf["db"]["full"],
         dbs_path=conf["db"]["path"],
+        fanout_shards=conf["db"]["fanout_shards"],
     )
 
     print(db.get_info(as_str=True))
