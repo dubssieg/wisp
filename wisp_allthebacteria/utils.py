@@ -7,6 +7,7 @@ import pickle
 import threading
 from typing import Any
 import concurrent.futures
+import zlib
 import psutil
 from tqdm.auto import tqdm
 
@@ -120,6 +121,19 @@ def cpu_count(needed: str | int = 8) -> int:
         return max_cpu // 2
     else:
         raise RuntimeError(f"Cannot get cpu count with: {needed}")
+
+
+def compress(data: Any, as_list: bool = False) -> str | list[str]:
+    if as_list:
+        return [compress(i) for i in data]
+    return zlib.compress(pickle.dumps(data))
+
+
+def decompress(data: str | list[str], as_list: bool = False) -> Any:
+    if as_list:
+        return [decompress(i) for i in data]
+    else:
+        return pickle.loads(zlib.decompress(data))
 
 
 class BrokenProcessPoolFilter(logging.Filter):

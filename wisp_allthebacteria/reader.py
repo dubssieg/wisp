@@ -15,7 +15,7 @@ from Bio import SeqIO
 import concurrent
 from loky import get_reusable_executor
 from metadata import Metadata
-from utils import format_size, cleanup_zombie_processes
+from utils import format_size, cleanup_zombie_processes, compress
 
 LOG = logging.getLogger(__name__)
 
@@ -23,10 +23,11 @@ MAX_RUNNING_TASKS_FASTA = 64
 
 
 class Reader:
-    def __init__(self, metadata: Metadata, num_workers: int):
+    def __init__(self, metadata: Metadata, num_workers: int, compressed: bool = False):
         LOG.debug(f"Reader({locals()})")
         self._md = metadata
         self._num_workers = num_workers
+        self._compressed = compressed
 
     def process_file(
         self,
@@ -72,7 +73,7 @@ class Reader:
         archive_path = Path(archive_path).resolve()
         archive_name = archive_path.name
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory("_wisp_fasta") as temp_dir:
             temp_dir = Path(temp_dir).resolve()
             archive_size = format_size(archive_path.stat().st_size)
             LOG.info(f"[{archive_name}] Extracting archive")
@@ -84,7 +85,6 @@ class Reader:
             extracted_files = list(temp_dir.rglob("*.fa"))
             LOG.debug(f"[{archive_name}] {len(extracted_files)} FASTA files extracted")
 
-            # temp cachedisk
             results = Cache(temp_dir / "results", size_limit=sys.maxsize)
             fasta_count = 0
 
@@ -112,6 +112,7 @@ class Reader:
                             window_size=window_size,
                             step=step,
                             full=full,
+                            compressed=self._compressed,
                         ): file_path
                         for file_path in batch
                     }
@@ -128,28 +129,12 @@ class Reader:
                                     f"[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
                                 )
 
-                                del result
-                                del futures[future]
-                                del future
-                                if not futures:
-                                    futures.clear()
-                                gc.collect()
-
-                                # if fasta_count % 500 == 0:  # TODO: conf
-                                #     # force diskcache write
-                                #     results.close()
-                                #     results = Cache(
-                                #         temp_dir / "results", size_limit=sys.maxsize
-                                #     )
-                                #     # force workers reset
-                                #     LOG.info(
-                                #         f"Resetting workers at {fasta_count} Fasta files"
-                                #     )
-                                #     executor.shutdown(wait=True)
-                                #     executor = get_reusable_executor(
-                                #         max_workers=self._num_workers
-                                #     )
-                                #     gc.collect()
+                                # del result
+                                # del futures[future]
+                                # del future
+                                # if not futures:
+                                #     futures.clear()
+                                # gc.collect()
 
                             except concurrent.futures.TimeoutError:
                                 LOG.error(f"[{archive_name}] Timeout")
@@ -181,7 +166,9 @@ class Reader:
             LOG.debug(
                 f"[{archive_name}] All {len(extracted_files)} Fasta files done, sorting results..."
             )
+
             merged_data = {}
+
             for i in range(fasta_count):
                 result = results[i]
                 for file_id, data in result.items():
@@ -193,6 +180,7 @@ class Reader:
                             tax_id = file_md[0]["TaxId"]
                         case _:
                             tax_id = f"multiple-{'|'.join(m['TaxId'] if m else 'no-tax-id' for m in file_md)}"
+
                     merged_data.setdefault(tax_id, {"counters": [], "sources": []})
                     merged_data[tax_id]["counters"].extend(data["counters"])
                     merged_data[tax_id]["sources"].extend(data["sources"])
@@ -211,7 +199,8 @@ class Reader:
         kmer_size: int,
         window_size: int,
         step: int,
-        full: bool = False,
+        full: bool,
+        compressed: bool,
     ) -> dict:
         """Simpler Fasta counting method, hopefully less bugged"""
         file_path = Path(file_path).resolve()
@@ -237,6 +226,9 @@ class Reader:
             )
             source_id = source["id"]
             source_id_to_data.setdefault(source_id, {"counters": [], "sources": []})
+            if compressed:
+                kmer_count = compress(kmer_count, as_list=True)
+                source = compress(source)
             source_id_to_data[source_id]["counters"].extend(kmer_count)
             source_id_to_data[source_id]["sources"].append(source)
 

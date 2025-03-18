@@ -17,7 +17,8 @@
         "create_db_workers": "max_minus_2",
         "async_insertion": false,
         "fanout_shards": 16,
-        "fasta_batch_size": 1000
+        "fasta_batch_size": 1000,
+        "compressed": true
     },
     "model":{
         "gpu": false,
