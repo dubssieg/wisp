@@ -83,7 +83,7 @@ class Reader:
             with tarfile.open(archive_path, "r:xz") as tar:
                 tar.extractall(temp_dir)
 
-            extracted_files = list(temp_dir.rglob("*.fa"))[:10]
+            extracted_files = list(temp_dir.rglob("*.fa"))
             LOG.debug(f"[{archive_name}] {len(extracted_files)} FASTA files extracted")
 
             results = Cache(temp_dir / "results", size_limit=sys.maxsize)
