@@ -1,18 +1,21 @@
+import concurrent.futures
 import gc
 import logging
 import os
+import sys
 import tarfile
 import tempfile
 from collections import Counter
 from itertools import product
 from pathlib import Path
 import time
+from diskcache import Cache
 
 from Bio import SeqIO
 import concurrent
 from loky import get_reusable_executor
 from metadata import Metadata
-from utils import format_size, config_logger, cleanup_zombie_processes
+from utils import format_size, cleanup_zombie_processes
 
 LOG = logging.getLogger(__name__)
 
@@ -20,13 +23,10 @@ MAX_RUNNING_TASKS_FASTA = 64
 
 
 class Reader:
-    def __init__(
-        self, metadata: Metadata, num_workers: int, logger_config: dict | None = None
-    ):
+    def __init__(self, metadata: Metadata, num_workers: int):
         LOG.debug(f"Reader({locals()})")
         self._md = metadata
         self._num_workers = num_workers
-        self._logger_config = logger_config
 
     def process_file(
         self,
@@ -67,26 +67,28 @@ class Reader:
     ):
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()
-        archive_name, archive_size = archive_path.name, format_size(
-            archive_path.stat().st_size
-        )
-        LOG.info(f"[{archive_name}] Extracting archive: {archive_path}")
-        LOG.info(f"[{archive_name}] SIZE: {archive_size}")
-        fasta_count = 0
+        archive_name = archive_path.name
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir).resolve()
-
-            # Extraction de l'archive
+            archive_size = format_size(archive_path.stat().st_size)
+            LOG.info(f"[{archive_name}] Extracting archive")
+            LOG.info(f"[{archive_name}] SIZE: {archive_size}, temp dir: {temp_dir}")
+            # extraction de l'archive
             with tarfile.open(archive_path, "r:xz") as tar:
                 tar.extractall(temp_dir)
 
             extracted_files = list(temp_dir.rglob("*.fa"))
             LOG.debug(f"[{archive_name}] {len(extracted_files)} FASTA files extracted")
 
-            results = []
+            # temp cachedisk
+            results = Cache(temp_dir / "results", size_limit=sys.maxsize)
+            fasta_count = 0
 
             with get_reusable_executor(max_workers=self._num_workers) as executor:
+                # with concurrent.futures.ProcessPoolExecutor(
+                #     max_workers=self._num_workers
+                # ) as executor:
                 futures = {
                     executor.submit(
                         Reader.process_fasta,
@@ -95,22 +97,49 @@ class Reader:
                         window_size=window_size,
                         step=step,
                         full=full,
-                        logger_config=self._logger_config,
                     ): file_path
                     for file_path in extracted_files
                 }
                 try:
                     for future in concurrent.futures.as_completed(futures):
                         try:
-                            results.append(future.result(timeout=60))  # TODO: conf
+                            result = future.result(timeout=60)  # TODO: conf
+
+                            # serialize and free memory
+                            results[fasta_count] = result
                             fasta_count += 1
+
                             LOG.debug(
-                                f"[{archive_name}] {fasta_count} / {len(extracted_files)}"
+                                f"[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
                             )
+
+                            del result
+                            del futures[future]
+                            del future
+                            if not futures:
+                                futures.clear()
+                            gc.collect()
+
+                            # if fasta_count % 500 == 0:  # TODO: conf
+                            #     # force diskcache write
+                            #     results.close()
+                            #     results = Cache(
+                            #         temp_dir / "results", size_limit=sys.maxsize
+                            #     )
+                            #     # force workers reset
+                            #     LOG.info(
+                            #         f"Resetting workers at {fasta_count} Fasta files"
+                            #     )
+                            #     executor.shutdown(wait=True)
+                            #     executor = get_reusable_executor(
+                            #         max_workers=self._num_workers
+                            #     )
+                            #     gc.collect()
+
                         except concurrent.futures.TimeoutError:
-                            LOG.error(f"[{archive_name}] Timeout on {futures[future]}")
+                            LOG.error(f"[{archive_name}] Timeout")
                         except Exception:
-                            LOG.exception(f"[{archive_name}] {futures[future]}")
+                            LOG.exception(f"[{archive_name}]")
                             raise
                     LOG.debug(
                         f"[{archive_name}] All {len(extracted_files)} FASTA files processed. Terminating worker pool"
@@ -132,25 +161,30 @@ class Reader:
                         f"[{archive_name}] Cleanup complete. Workers pool terminated."
                     )
 
-            LOG.debug(f"[{archive_name}] Workers pool terminated, deleting fasta files")
+            LOG.debug(f"[{archive_name}] Workers pool terminated, sorting results")
 
-        LOG.debug(f"[{archive_name}] Extracted Fasta files deleted")
-        merged_data = {}
-        for result in results:
-            for file_id, data in result.items():
-                file_md = self._md[file_id]
-                match len(file_md):
-                    case 0:
-                        tax_id = "no-tax-id"
-                    case 1:
-                        tax_id = file_md[0]["TaxId"]
-                    case _:
-                        tax_id = f"multiple-{'|'.join(m['TaxId'] if m else 'no-tax-id' for m in file_md)}"
-                merged_data.setdefault(tax_id, {"counters": [], "sources": []})
-                merged_data[tax_id]["counters"].extend(data["counters"])
-                merged_data[tax_id]["sources"].extend(data["sources"])
+            merged_data = {}
+            for i in range(fasta_count):
+                result = results[i]
+                for file_id, data in result.items():
+                    file_md = self._md[file_id]
+                    match len(file_md):
+                        case 0:
+                            tax_id = "no-tax-id"
+                        case 1:
+                            tax_id = file_md[0]["TaxId"]
+                        case _:
+                            tax_id = f"multiple-{'|'.join(m['TaxId'] if m else 'no-tax-id' for m in file_md)}"
+                    merged_data.setdefault(tax_id, {"counters": [], "sources": []})
+                    merged_data[tax_id]["counters"].extend(data["counters"])
+                    merged_data[tax_id]["sources"].extend(data["sources"])
 
-        LOG.debug(f"[{archive_path}] Processed {len(merged_data)} tax_id(s)")
+            LOG.debug(
+                f"[{archive_path}] {len(merged_data)} different tax_id(s) found - Deleting temporary files"
+            )
+
+        LOG.debug(f"[{archive_name}] Temporary files deleted")
+
         return {"archive": archive_path, "merged_data": merged_data}
 
     @staticmethod
@@ -160,18 +194,16 @@ class Reader:
         window_size: int,
         step: int,
         full: bool = False,
-        logger_config: dict = None,
     ) -> dict:
         """Simpler Fasta counting method, hopefully less bugged"""
-        if logger_config:
-            config_logger(**logger_config)
         file_path = Path(file_path).resolve()
         file_name, file_size = file_path.name, format_size(file_path.stat().st_size)
-        LOG.debug(f"[{file_name}] Processing Fasta - SIZE: {file_size})")
 
         try:
             sequences = Reader._read_fasta(file_path)
-            LOG.debug(f"[{file_name}] {len(sequences)} sequences to process")
+            LOG.debug(
+                f"[{file_name}] SIZE: {file_size} - {len(sequences)} sequences found"
+            )
         except Exception:
             LOG.exception(f"Error while reading fasta file: {file_path}")
             raise
