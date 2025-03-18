@@ -293,8 +293,10 @@ class DatabaseBuilder(Database):
         LOG.debug(
             f"Adding counters & sources to DB for {len(merged_data)} tax_id(s): {self.get_db_path()}"
         )
-        for tax_id, tdata in merged_data.items():
-            LOG.debug(f"Adding counters & sources tax_id: {tax_id}")
+        for i, (tax_id, tdata) in enumerate(merged_data.items()):
+            LOG.debug(
+                f"Adding counters & sources tax_id: {tax_id} ({i + 1} / {len(merged_data)})"
+            )
             tax_id = self._parse_tax_id(tax_id)
             last_valid_id = self._get_last_valid_id(tax_id)
             counters = tdata["counters"]
@@ -306,14 +308,14 @@ class DatabaseBuilder(Database):
             batch_counters = {}
             batch_sources = {}
 
-            for i, (source, counter) in enumerate(zip(sources, counters)):
-                current_id = last_valid_id + i + 1
+            for j, (source, counter) in enumerate(zip(sources, counters)):
+                current_id = last_valid_id + j + 1
                 batch_counters[current_id] = counter
                 batch_sources[current_id] = source
-                last_valid_ids[tax_id] = i
+                last_valid_ids[tax_id] = j
 
             LOG.debug(
-                f"Starting 2 DB transactions with {len(batch_counters)} counters & sources for tax_id {tax_id}"
+                f"Starting DB transactions with {len(batch_counters)} counters & sources for tax_id {tax_id}"
             )
             with counter_db.transact():
                 for current_id, counter in batch_counters.items():
@@ -321,9 +323,7 @@ class DatabaseBuilder(Database):
             with source_db.transact():
                 for current_id, source in batch_sources.items():
                     source_db[current_id] = source
-            LOG.debug(
-                f"Ending sources transaction: tax_id {tax_id}: +{len(batch_counters)} counters & sources"
-            )
+            LOG.debug("Ending DB transactions")
 
         LOG.debug("All counters & sources added - ending transaction")
         # end transaction
