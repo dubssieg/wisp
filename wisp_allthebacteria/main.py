@@ -115,9 +115,6 @@ def create_db(conf: dict):
                 LOG.debug(f"=== [{i+1} / {len(archives)}] {archive_path.name} ===")
                 archive_str = str(archive_path)
 
-                # if archive_str in complete:
-                #     continue
-
                 start_time = time.time()
 
                 try:
@@ -127,6 +124,7 @@ def create_db(conf: dict):
                     if db.has_archive(archive_path):
                         LOG.warning(f"{archive_path.name} already in DB, skipping.")
                     else:
+
                         db.push_file(archive_path)
                         gc.collect()
 

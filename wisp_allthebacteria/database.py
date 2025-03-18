@@ -259,14 +259,7 @@ class DatabaseBuilder(Database):
     def push_file(self, file_path: str | Path):
         """Add content."""
         file_path = Path(file_path).resolve()
-        LOG.info(f"Pushing file: {file_path}")
-        md_db = self._get_db(db_type="md")
-        archive = self._archive_stem(file_path)
-        archives = md_db.get(ARCHIVES, [])
-
-        if archive in archives:
-            LOG.info(f"[{archive}] Already in DB: skip")
-            return
+        LOG.info(f"Pushing file: {file_path.name}")
 
         data = self._reader.process_file(
             file_path=file_path,
@@ -286,13 +279,28 @@ class DatabaseBuilder(Database):
         archives = md_db.get(ARCHIVES, [])
         archive = self._archive_stem(data["archive"])
 
-        last_valid_ids = {}
+        # warning, tax_id is a str
 
         merged_data = data["merged_data"]
-        # warning, tax_id is a str
         LOG.debug(
             f"Adding counters & sources to DB for {len(merged_data)} tax_id(s): {self.get_db_path()}"
         )
+        if "tmp_dir" in data:
+            last_valid_ids = self._add_merged_data_from_dbs(merged_data)
+        else:
+            last_valid_ids = self._add_merged_data_from_dict(merged_data)
+
+        LOG.debug("All counters & sources added - ending transaction")
+        # end transaction
+        del md_db[CURRENT_TRANSACTION]
+        for tax_id, last_valid_id in last_valid_ids.items():
+            self._set_last_valid_id(tax_id=tax_id, last_valid_id=last_valid_id)
+        archives.append(archive)
+        md_db[ARCHIVES] = archives
+        LOG.debug("Transaction ended successfully")
+
+    def _add_merged_data_from_dict(self, merged_data: dict) -> dict:
+        last_valid_ids = {}
         for i, (tax_id, tdata) in enumerate(merged_data.items()):
             LOG.debug(
                 f"Adding counters & sources tax_id: {tax_id} ({i + 1} / {len(merged_data)})"
@@ -324,15 +332,34 @@ class DatabaseBuilder(Database):
                 for current_id, source in batch_sources.items():
                     source_db[current_id] = source
             LOG.debug("Ending DB transactions")
+            return last_valid_ids
 
-        LOG.debug("All counters & sources added - ending transaction")
-        # end transaction
-        del md_db[CURRENT_TRANSACTION]
-        for tax_id, last_valid_id in last_valid_ids.items():
-            self._set_last_valid_id(tax_id=tax_id, last_valid_id=last_valid_id)
-        archives.append(archive)
-        md_db[ARCHIVES] = archives
-        LOG.debug("Transaction ended successfully")
+    def _add_merged_data_from_dbs(self, merged_data: dict) -> dict:
+        last_valid_ids = {}
+        for i, (tax_id, tdata) in enumerate(merged_data.items()):
+            LOG.debug(
+                f"Adding counters & sources tax_id: {tax_id} ({i + 1} / {len(merged_data)})"
+            )
+            tax_id = self._parse_tax_id(tax_id)
+            last_valid_id = self._get_last_valid_id(tax_id)
+            counters = tdata["counters"]
+            sources = tdata["sources"]
+            merged_data_last_id = tdata["last_id"]
+            counter_db = self._get_db(db_type="counter", tax_id=tax_id)
+            source_db = self._get_db(db_type="source", tax_id=tax_id)
+
+            LOG.debug(
+                f"Starting DB transactions with {merged_data_last_id + 1} counters & sources for tax_id {tax_id}"
+            )
+            with counter_db.transact():
+                for j in range(merged_data_last_id):
+                    counter_db[last_valid_id + j + 1] = counters[j]
+            with source_db.transact():
+                for j in range(merged_data_last_id):
+                    source_db[last_valid_id + j + 1] = sources[j]
+            last_valid_ids[tax_id] = last_valid_id + merged_data_last_id + 1
+            LOG.debug("Ending DB transactions")
+        return last_valid_ids
 
     def _set_last_valid_id(self, tax_id: int, last_valid_id: int) -> None:
         """Get last inserted id"""

@@ -68,6 +68,7 @@ class Reader:
         step: int,
         full: bool = False,
         batch_size: int = None,
+        return_db: bool = True,
     ):
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()
@@ -82,7 +83,7 @@ class Reader:
             with tarfile.open(archive_path, "r:xz") as tar:
                 tar.extractall(temp_dir)
 
-            extracted_files = list(temp_dir.rglob("*.fa"))
+            extracted_files = list(temp_dir.rglob("*.fa"))[:10]
             LOG.debug(f"[{archive_name}] {len(extracted_files)} FASTA files extracted")
 
             results = Cache(temp_dir / "results", size_limit=sys.maxsize)
@@ -167,6 +168,8 @@ class Reader:
                 f"[{archive_name}] All {len(extracted_files)} Fasta files done, sorting results..."
             )
 
+            if return_db:
+                merged_data_path = Path(tempfile.mkdtemp("_wisp_merged_data"))
             merged_data = {}
 
             for i in range(fasta_count):
@@ -181,9 +184,37 @@ class Reader:
                         case _:
                             tax_id = f"multiple-{'|'.join(m['TaxId'] if m else 'no-tax-id' for m in file_md)}"
 
-                    merged_data.setdefault(tax_id, {"counters": [], "sources": []})
-                    merged_data[tax_id]["counters"].extend(data["counters"])
-                    merged_data[tax_id]["sources"].extend(data["sources"])
+                    if return_db:
+                        if tax_id not in merged_data:
+                            merged_data[tax_id] = {
+                                "counters": Cache(
+                                    merged_data_path / str(tax_id) / "counter",
+                                    size_limit=sys.maxsize,
+                                ),
+                                "sources": Cache(
+                                    merged_data_path / str(tax_id) / "source",
+                                    size_limit=sys.maxsize,
+                                ),
+                                "last_id": -1,
+                            }
+
+                        Cache(
+                            merged_data_path / str(tax_id) / "counter",
+                            size_limit=sys.maxsize,
+                        )
+
+                        current_id = merged_data[tax_id]["last_id"]
+                        db_counter = merged_data[tax_id]["counters"]
+                        db_source = merged_data[tax_id]["sources"]
+                        for counter, source in zip(data["counters"], data["sources"]):
+                            current_id += 1
+                            db_counter[current_id] = counter
+                            db_source[current_id] = source
+                        merged_data[tax_id]["last_id"] = current_id
+                    else:
+                        merged_data.setdefault(tax_id, {"counters": [], "sources": []})
+                        merged_data[tax_id]["counters"].extend(data["counters"])
+                        merged_data[tax_id]["sources"].extend(data["sources"])
 
             LOG.debug(
                 f"[{archive_path}] {len(merged_data)} different tax_id(s) found - Deleting temporary files"
@@ -191,7 +222,11 @@ class Reader:
 
         LOG.debug(f"[{archive_name}] Temporary files deleted")
 
-        return {"archive": archive_path, "merged_data": merged_data}
+        return {
+            "archive": archive_path,
+            "merged_data": merged_data,
+            "tmp_dir": merged_data_path if return_db else None,
+        }
 
     @staticmethod
     def process_fasta(
