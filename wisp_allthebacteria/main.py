@@ -83,7 +83,9 @@ def create_db(conf: dict):
             dbs_path=output_path,
             fanout_shards=conf["db"]["fanout_shards"],
             reader=reader,
+            fasta_batch_size=conf["db"]["fasta_batch_size"],
         )
+
         if conf["db"]["async_insertion"]:
             db = DatabaseBuilderAsync(**db_params)
         else:
@@ -104,7 +106,9 @@ def create_db(conf: dict):
 
         try:
             for i, archive_path in tqdm(
-                enumerate(archives), desc=f"Processing {input_path} -> {output_path}"
+                enumerate(archives),
+                desc=f"Processing {input_path} -> {output_path}",
+                total=len(archives),
             ):
                 LOG.debug(f"=== [{i+1} / {len(archives)}] {archive_path.name} ===")
                 archive_str = str(archive_path)

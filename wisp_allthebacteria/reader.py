@@ -35,6 +35,7 @@ class Reader:
         window_size: int,
         step: int,
         full: bool = False,
+        batch_size: int | None = None,
     ) -> dict:
         """Just call process_archive of process_fasta, based on file suffix."""
         file_path = Path(file_path).resolve()
@@ -46,6 +47,7 @@ class Reader:
                 window_size=window_size,
                 step=step,
                 full=full,
+                batch_size=batch_size,
             )
         elif suffix == ".fa":
             return self.process_fasta(
@@ -64,6 +66,7 @@ class Reader:
         window_size: int,
         step: int,
         full: bool = False,
+        batch_size: int = None,
     ):
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()
@@ -85,84 +88,99 @@ class Reader:
             results = Cache(temp_dir / "results", size_limit=sys.maxsize)
             fasta_count = 0
 
-            with get_reusable_executor(max_workers=self._num_workers) as executor:
-                # with concurrent.futures.ProcessPoolExecutor(
-                #     max_workers=self._num_workers
-                # ) as executor:
-                futures = {
-                    executor.submit(
-                        Reader.process_fasta,
-                        file_path=file_path,
-                        kmer_size=kmer_size,
-                        window_size=window_size,
-                        step=step,
-                        full=full,
-                    ): file_path
-                    for file_path in extracted_files
-                }
-                try:
-                    for future in concurrent.futures.as_completed(futures):
-                        try:
-                            result = future.result(timeout=60)  # TODO: conf
+            if batch_size is None:
+                batches = [extracted_files]
+            else:
+                batches = [
+                    extracted_files[i : i + batch_size]
+                    for i in range(0, len(extracted_files), batch_size)
+                ]
+            for batch_i, batch in enumerate(batches):
+                LOG.debug(
+                    f"[{archive_name}] Batch {batch_i + 1} / {len(batches)} - {len(batch)} fasta files"
+                )
 
-                            # serialize and free memory
-                            results[fasta_count] = result
-                            fasta_count += 1
+                with get_reusable_executor(max_workers=self._num_workers) as executor:
+                    # with concurrent.futures.ProcessPoolExecutor(
+                    #     max_workers=self._num_workers
+                    # ) as executor:
+                    futures = {
+                        executor.submit(
+                            Reader.process_fasta,
+                            file_path=file_path,
+                            kmer_size=kmer_size,
+                            window_size=window_size,
+                            step=step,
+                            full=full,
+                        ): file_path
+                        for file_path in batch
+                    }
+                    try:
+                        for future in concurrent.futures.as_completed(futures):
+                            try:
+                                result = future.result(timeout=60)  # TODO: conf
 
-                            LOG.debug(
-                                f"[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
-                            )
+                                # serialize and free memory
+                                results[fasta_count] = result
+                                fasta_count += 1
 
-                            del result
-                            del futures[future]
-                            del future
-                            if not futures:
-                                futures.clear()
-                            gc.collect()
+                                LOG.debug(
+                                    f"[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
+                                )
 
-                            # if fasta_count % 500 == 0:  # TODO: conf
-                            #     # force diskcache write
-                            #     results.close()
-                            #     results = Cache(
-                            #         temp_dir / "results", size_limit=sys.maxsize
-                            #     )
-                            #     # force workers reset
-                            #     LOG.info(
-                            #         f"Resetting workers at {fasta_count} Fasta files"
-                            #     )
-                            #     executor.shutdown(wait=True)
-                            #     executor = get_reusable_executor(
-                            #         max_workers=self._num_workers
-                            #     )
-                            #     gc.collect()
+                                del result
+                                del futures[future]
+                                del future
+                                if not futures:
+                                    futures.clear()
+                                gc.collect()
 
-                        except concurrent.futures.TimeoutError:
-                            LOG.error(f"[{archive_name}] Timeout")
-                        except Exception:
-                            LOG.exception(f"[{archive_name}]")
-                            raise
-                    LOG.debug(
-                        f"[{archive_name}] All {len(extracted_files)} FASTA files processed. Terminating worker pool"
-                    )
-                finally:
-                    LOG.debug(f"[{archive_name}] Shutting down executor...")
-                    # force workers to stop
-                    executor.shutdown(wait=True, kill_workers=True)
-                    LOG.debug(f"[{archive_name}] Executor shut down.")
+                                # if fasta_count % 500 == 0:  # TODO: conf
+                                #     # force diskcache write
+                                #     results.close()
+                                #     results = Cache(
+                                #         temp_dir / "results", size_limit=sys.maxsize
+                                #     )
+                                #     # force workers reset
+                                #     LOG.info(
+                                #         f"Resetting workers at {fasta_count} Fasta files"
+                                #     )
+                                #     executor.shutdown(wait=True)
+                                #     executor = get_reusable_executor(
+                                #         max_workers=self._num_workers
+                                #     )
+                                #     gc.collect()
 
-                    # give time for zombies to appear
-                    time.sleep(2)
-                    LOG.debug(f"[{archive_name}] Checking for zombie processes...")
-                    cleanup_zombie_processes(os.getpid())
+                            except concurrent.futures.TimeoutError:
+                                LOG.error(f"[{archive_name}] Timeout")
+                            except Exception:
+                                LOG.exception(f"[{archive_name}]")
+                                raise
+                        LOG.debug(
+                            f"[{archive_name}] Batch {batch_i + 1} / {len(batches)} done. Terminating worker pool..."
+                        )
+                    finally:
+                        LOG.debug(f"[{archive_name}] Shutting down executor...")
+                        # force workers to stop
+                        executor.shutdown(wait=True, kill_workers=True)
+                        LOG.debug(f"[{archive_name}] Executor shut down.")
 
-                    # free mem
-                    gc.collect()
-                    LOG.debug(
-                        f"[{archive_name}] Cleanup complete. Workers pool terminated."
-                    )
+                        # give time for zombies to appear
+                        time.sleep(2)
+                        LOG.debug(f"[{archive_name}] Checking for zombie processes...")
+                        cleanup_zombie_processes(os.getpid())
 
-            LOG.debug(f"[{archive_name}] Workers pool terminated, sorting results")
+                        # free mem
+                        gc.collect()
+                        LOG.debug(
+                            f"[{archive_name}] Cleanup complete. Workers pool terminated"
+                        )
 
+                LOG.debug(f"[{archive_name}] Workers pool terminated")
+
+            LOG.debug(
+                f"[{archive_name}] All {len(extracted_files)} Fasta files done, sorting results..."
+            )
             merged_data = {}
             for i in range(fasta_count):
                 result = results[i]

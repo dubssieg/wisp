@@ -215,6 +215,7 @@ class DatabaseBuilder(Database):
         dbs_path: str | Path,
         fanout_shards: int,
         reader: Reader,
+        fasta_batch_size: int | None = None,
     ):
         LOG.debug(f"DatabaseBuilder({locals()})")
         super().__init__(
@@ -226,6 +227,7 @@ class DatabaseBuilder(Database):
             dbs_path=dbs_path,
         )
         self._reader = reader
+        self._fasta_batch_size = fasta_batch_size
         self.clean()
 
     def clean(self):
@@ -272,6 +274,7 @@ class DatabaseBuilder(Database):
             window_size=self._window_size,
             step=self._step,
             full=self._full,
+            batch_size=self._fasta_batch_size,
         )
 
         self._add_data_to_db(data)
@@ -348,6 +351,7 @@ class DatabaseBuilderAsync(DatabaseBuilder):
         dbs_path: str | Path,
         fanout_shards: int,
         reader: Reader,
+        fasta_batch_size: int | None = None,
     ):
         LOG.debug(f"DataBaseBuilderAsync({locals()})")
         super().__init__(
@@ -358,8 +362,8 @@ class DatabaseBuilderAsync(DatabaseBuilder):
             dbs_path=dbs_path,
             fanout_shards=fanout_shards,
             reader=reader,
+            fasta_batch_size=fasta_batch_size,
         )
-
         self._db_lock = threading.Lock()
         self._task_queue = queue.Queue()
         self._worker_thread = threading.Thread(target=self._db_worker, daemon=True)
@@ -384,6 +388,7 @@ class DatabaseBuilderAsync(DatabaseBuilder):
             window_size=self._window_size,
             step=self._step,
             full=self._full,
+            batch_size=self._fasta_batch_size,
         )
         LOG.info(f"[{file_name}] File processed: data queuing for DB insertion")
         self._task_queue.put(data)

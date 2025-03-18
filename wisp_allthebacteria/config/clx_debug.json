@@ -16,7 +16,8 @@
         "step": 8000,
         "create_db_workers": "max_minus_2",
         "async_insertion": false,
-        "fanout_shards": 4
+        "fanout_shards": 4,
+        "fasta_batch_size": 100
 
     },
     "model":{
