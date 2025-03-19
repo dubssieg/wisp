@@ -73,9 +73,7 @@ def create_db(conf: dict):
         md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
         num_workers = cpu_count(conf["db"]["create_db_workers"])
         LOG.info(f"Max CPUs: {cpu_count('max')}, using {num_workers} workers")
-        reader = Reader(
-            md, num_workers=num_workers, compressed=conf["db"]["compressed"]
-        )
+        reader = Reader(md, num_workers=num_workers)
 
         db = DatabaseBuilder(
             kmer_size=conf["db"]["kmer_size"],
@@ -87,6 +85,7 @@ def create_db(conf: dict):
             reader=reader,
             fasta_batch_size=conf["db"]["fasta_batch_size"],
             insert_threads=conf["db"]["db_insert_threads"],
+            compressed=conf["db"]["compressed"],
         )
 
         json_create_db_path = db.get_db_path() / "create_db.json"

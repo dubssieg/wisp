@@ -23,11 +23,10 @@ MAX_RUNNING_TASKS_FASTA = 64
 
 
 class Reader:
-    def __init__(self, metadata: Metadata, num_workers: int, compressed: bool = False):
+    def __init__(self, metadata: Metadata, num_workers: int):
         LOG.debug(f"Reader({locals()})")
         self._md = metadata
         self._num_workers = num_workers
-        self._compressed = compressed
 
     def process_file(
         self,
@@ -37,6 +36,7 @@ class Reader:
         step: int,
         full: bool = False,
         batch_size: int | None = None,
+        compressed: bool = False,
     ) -> dict:
         """Just call process_archive of process_fasta, based on file suffix."""
         file_path = Path(file_path).resolve()
@@ -49,6 +49,7 @@ class Reader:
                 step=step,
                 full=full,
                 batch_size=batch_size,
+                compressed=compressed,
             )
         elif suffix == ".fa":
             return self.process_fasta(
@@ -57,6 +58,7 @@ class Reader:
                 window_size=window_size,
                 step=step,
                 full=full,
+                compressed=compressed,
             )
         LOG.debug(f"processed file: {file_path}")
 
@@ -68,6 +70,7 @@ class Reader:
         step: int,
         full: bool = False,
         batch_size: int = None,
+        compressed: int = False,
         return_db: bool = True,  # TODO: test backw comp + conf
     ):
         """Extract and process an archive."""
@@ -113,7 +116,7 @@ class Reader:
                             window_size=window_size,
                             step=step,
                             full=full,
-                            compressed=self._compressed,
+                            compressed=compressed,
                         ): file_path
                         for file_path in batch
                     }

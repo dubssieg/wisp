@@ -29,6 +29,7 @@ class Database:
         full: bool,
         dbs_path: str | Path,
         fanout_shards: int,
+        compressed: bool,
         api: API | None = None,
     ):
         LOG.debug(f"Database({locals()})")
@@ -39,6 +40,7 @@ class Database:
         self._full = full
         self._fanout_shards = fanout_shards
         self._api = api
+        self._compressed = compressed
 
     def get_counter(self, tax_id: int, num: int) -> dict | None:
         counter_db = self._get_db(db_type="counter", tax_id=tax_id)
@@ -181,12 +183,19 @@ class Database:
         return FanoutCache(path, size_limit=sys.maxsize, shards=self._fanout_shards)
 
     def get_db_path(self):
-        path = self._dbs_path / str(self._kmer_size)
+
+        dir_name = str(self._kmer_size)
         if self._full:
-            path /= "full"
+            dir_name += "__full"
         else:
-            path /= f"{self._window_size}_{self._step}"
-        return path
+            dir_name += f"__ws_{self._window_size}__st_{self._step}"
+
+        if self._compressed:
+            dir_name += "__comp"
+
+        dir_name += f"__sh_{self._fanout_shards}"
+
+        return self._dbs_path / dir_name
 
     @staticmethod
     def list_dbs(base_path: str | Path) -> list:
@@ -213,6 +222,7 @@ class DatabaseBuilder(Database):
         fanout_shards: int,
         reader: Reader,
         insert_threads: int,
+        compressed: bool,
         fasta_batch_size: int | None = None,
     ):
         LOG.debug(f"DatabaseBuilder({locals()})")
@@ -223,6 +233,7 @@ class DatabaseBuilder(Database):
             full=full,
             fanout_shards=fanout_shards,
             dbs_path=dbs_path,
+            compressed=compressed,
         )
         self._reader = reader
         self._fasta_batch_size = fasta_batch_size
@@ -267,6 +278,7 @@ class DatabaseBuilder(Database):
             step=self._step,
             full=self._full,
             batch_size=self._fasta_batch_size,
+            compresed=self._compressed,
         )
 
         self._push_merged_data(data)
