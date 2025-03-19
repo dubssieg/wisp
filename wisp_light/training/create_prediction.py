@@ -10,7 +10,6 @@ from create_database import encoder,splitting, counter_kmer
 sys.path.append('../../..')
 from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
-# LEVELS = ['root', 'domain', 'phylum', 'group', 'order']
 
 def make_prediction(model_path, datas_path, normalisation_func,read_identity_threshold) -> list:
     """Does a prediction with a pre-calculated model
