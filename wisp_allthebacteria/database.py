@@ -4,7 +4,7 @@ import shutil
 import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Generator, Literal
 
 from diskcache import FanoutCache
 from reader import Reader
@@ -61,6 +61,29 @@ class Database:
                 (tax_id, i) for i in range(self._get_last_valid_id(tax_id) + 1)
             )
         return sample_ids
+
+    def tax_ids_to_sample_ids_generator(
+        self, tax_ids: int | list[int]
+    ) -> Generator[tuple[int, int], None, None]:
+        """Generator version of tax_ids_to_sample_ids, looping on tax_ids.
+        Take one of tax_id 1, take one, of tax_id 2, etc."""
+        if isinstance(tax_ids, int):
+            tax_ids = [tax_ids]
+
+        # initialize a list of iterators for each tax_id
+        iterators = [
+            iter(range(self._get_last_valid_id(tax_id) + 1)) for tax_id in tax_ids
+        ]
+
+        while iterators:
+            for tax_id, iterator in zip(tax_ids, iterators):
+                try:
+                    num = next(iterator)
+                    yield (tax_id, num)
+                except StopIteration:
+                    # remove the iterator if it's exhausted
+                    iterators.remove(iterator)
+                    tax_ids.remove(tax_id)
 
     def get_tax_ids(self) -> list:
         """Get available tax_ids - TODO: in MD DB"""
