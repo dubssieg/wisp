@@ -141,10 +141,12 @@ def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, metri
             result =  partial_pred(seq_id, seq_data)
             pred_taxons = extract_majority_classification(result)
             metrics.update(true_labels=gt_taxons, pred_labels=pred_taxons)
+
             if gt_taxons['phylum'] != pred_taxons['phylum']:
                 logger.error("ERROR phylum")
                 logger.error(f"-> seq_id {seq_id} -> pred: {pred_taxons} -> gt: {gt_taxons}")
                 file_error_plylum.write(f"seq_id {seq_id}\n pred: {pred_taxons}\n gt  : {gt_taxons} \n")
+
             prediction_results.append(result)
         except Exception as e:
             logger.debug(f"⚠️ Error for id {seq_id}: {e}")

@@ -1,13 +1,16 @@
 import time
 import os
+import sys
 from collections import Counter
 from utils import softmax
 from xgboost import Booster, DMatrix
 from xgboost.core import XGBoostError
 from create_database import encoder,splitting, counter_kmer
 
+sys.path.append('../../..')
+from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
-LEVELS = ['root', 'domain', 'phylum', 'group', 'order']
+# LEVELS = ['root', 'domain', 'phylum', 'group', 'order']
 
 def make_prediction(model_path, datas_path, normalisation_func,read_identity_threshold) -> list:
     """Does a prediction with a pre-calculated model
@@ -69,7 +72,7 @@ def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_di
     # Evaluate at one level
     results: list[dict] = [{} for _ in range(5)]
     kept_taxas = ['Root']
-    for id_level, level in enumerate(LEVELS):
+    for id_level, level in enumerate(['root'] + TAXO_LEVELS[:-1]):
         mappings_taxa = {node.data.code: node.tag for node in tree.filter_nodes(lambda x: tree.depth(x) == id_level+1)}
         # Use the tree to select next level
         for taxa in tree.filter_nodes(lambda x: tree.depth(x) == id_level):
