@@ -1,5 +1,6 @@
 import concurrent
 import logging
+import random
 import shutil
 import sys
 from functools import lru_cache
@@ -63,16 +64,26 @@ class Database:
         return sample_ids
 
     def tax_ids_to_sample_ids_generator(
-        self, tax_ids: int | list[int]
+        self,
+        tax_ids: int | list[int],
+        loop_on_exhausted: bool = False,
+        seed: int = None,
     ) -> Generator[tuple[int, int], None, None]:
         """Generator version of tax_ids_to_sample_ids, looping on tax_ids.
-        Take one of tax_id 1, take one, of tax_id 2, etc."""
+        Take one of tax_id 1, take one of tax_id 2, etc.
+        """
         if isinstance(tax_ids, int):
             tax_ids = [tax_ids]
 
-        # initialize a list of iterators for each tax_id
+        # initialize a list of iterators for each tax_id with random order
         iterators = [
-            iter(range(self._get_last_valid_id(tax_id) + 1)) for tax_id in tax_ids
+            iter(
+                random.Random(seed).sample(
+                    range(self._get_last_valid_id(tax_id) + 1),
+                    k=self._get_last_valid_id(tax_id) + 1,
+                )
+            )
+            for tax_id in tax_ids
         ]
 
         while iterators:
@@ -81,9 +92,19 @@ class Database:
                     num = next(iterator)
                     yield (tax_id, num)
                 except StopIteration:
-                    # remove the iterator if it's exhausted
-                    iterators.remove(iterator)
-                    tax_ids.remove(tax_id)
+                    if loop_on_exhausted:
+                        # reinitialize the iterator
+                        iterator = iter(
+                            random.Random(seed).sample(
+                                range(self._get_last_valid_id(tax_id) + 1),
+                                k=self._get_last_valid_id(tax_id) + 1,
+                            )
+                        )
+                        iterators[tax_ids.index(tax_id)] = iterator
+                    else:
+                        # remove the iterator if it's exhausted
+                        iterators.remove(iterator)
+                        tax_ids.remove(tax_id)
 
     def get_tax_ids(self) -> list:
         """Get available tax_ids - TODO: in MD DB"""
