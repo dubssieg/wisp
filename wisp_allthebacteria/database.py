@@ -19,6 +19,33 @@ CURRENT_TRANSACTION = "_current_transaction_"
 ARCHIVES = "_archives_"
 COMMON = "_common_"
 
+RANKS = [
+    "no rank",
+    "superkingdom",
+    "kingdom",
+    "clade",
+    "phylum",
+    "class",
+    "subclass",
+    "order",
+    "suborder",
+    "family",
+    "subfamily",
+    "tribe",
+    "genus",
+    "subgenus",
+    "species",
+    "species group",
+    "subspecies",
+    "species subgroup",
+    "strain",
+    # ?
+    "biotype",
+    "pathogroup",
+    "serogroup",
+    "serotype",
+]
+
 
 class Database:
     def __init__(
@@ -72,45 +99,48 @@ class Database:
     def tax_ids_to_sample_ids_generator(
         self,
         tax_ids: int | list[int],
-        loop_on_exhausted: bool = False,
         seed: int = None,
     ) -> Generator[tuple[int, int], None, None]:
-        """Generator version of tax_ids_to_sample_ids, looping on tax_ids.
-        Take one of tax_id 1, take one of tax_id 2, etc.
-        """
+        """Generator version of tax_ids_to_sample_ids, with proportional sampling."""
         if isinstance(tax_ids, int):
             tax_ids = [tax_ids]
+
+        LOG.debug(
+            f"Initializing tax_id -> sample_id generator for {len(tax_ids)} tax_ids"
+        )
+        counts = [self.count(tax_id) for tax_id in tax_ids]
+        total_samples = sum(counts)
+        weights = [count / total_samples for count in counts]
 
         # initialize a list of iterators for each tax_id with random order
         iterators = [
             iter(
                 random.Random(seed).sample(
-                    range(self._get_last_valid_id(tax_id) + 1),
-                    k=self._get_last_valid_id(tax_id) + 1,
+                    range(count),
+                    k=count,
                 )
             )
-            for tax_id in tax_ids
+            for count in counts
         ]
+        LOG.debug("Generator initialized (tax_id -> sample_id)")
 
         while iterators:
-            for tax_id, iterator in zip(tax_ids, iterators):
-                try:
-                    num = next(iterator)
-                    yield (tax_id, num)
-                except StopIteration:
-                    if loop_on_exhausted:
-                        # reinitialize the iterator
-                        iterator = iter(
-                            random.Random(seed).sample(
-                                range(self._get_last_valid_id(tax_id) + 1),
-                                k=self._get_last_valid_id(tax_id) + 1,
-                            )
-                        )
-                        iterators[tax_ids.index(tax_id)] = iterator
-                    else:
-                        # remove the iterator if it's exhausted
-                        iterators.remove(iterator)
-                        tax_ids.remove(tax_id)
+            # Select a tax_id based on the calculated weights
+            tax_id = random.Random(seed).choices(tax_ids, weights=weights, k=1)[0]
+            index = tax_ids.index(tax_id)
+            iterator = iterators[index]
+
+            try:
+                num = next(iterator)
+                yield (tax_id, num)
+            except StopIteration:
+                # remove the iterator if it's exhausted
+                iterators.pop(index)
+                tax_ids.pop(index)
+                counts.pop(index)
+                # Recalculate weights after removing an exhausted tax_id
+                total_samples = sum(counts)
+                weights = [count / total_samples for count in counts]
 
     def get_tax_ids(self) -> list:
         """Get available tax_ids - TODO: in MD DB"""
