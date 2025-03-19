@@ -46,20 +46,27 @@ def get_current_datetime_string() -> str:
 
 
 def system_stats(pid: int = None, as_str: bool = False) -> dict:
-
     if pid is None:
         pid = os.getpid()
-    current_process = psutil.Process(pid)
+    try:
+        current_process = psutil.Process(pid)
+    except psutil.NoSuchProcess:
+        LOG.warning(f"Process with PID {pid} no longer exists.")
+        return {} if not as_str else "Process no longer exists."
 
     # Current process and children RAM
-    mem_info = current_process.memory_full_info()
-    script_memory_usage = sum(
-        (
-            child.memory_full_info().uss
-            for child in current_process.children(recursive=True)
-        ),
-        start=mem_info.uss,
-    )
+    try:
+        mem_info = current_process.memory_full_info()
+    except psutil.NoSuchProcess:
+        LOG.warning(f"Process with PID {pid} no longer exists.")
+        return {} if not as_str else "Process no longer exists."
+
+    script_memory_usage = mem_info.uss
+    for child in current_process.children(recursive=True):
+        try:
+            script_memory_usage += child.memory_full_info().uss
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
 
     # System total RAM
     total_system_memory = psutil.virtual_memory().total
