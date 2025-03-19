@@ -49,6 +49,12 @@ class Database:
             return decompress(data)
         return data
 
+    def count(self, tax_ids: int | list[int]) -> int:
+        """sample count"""
+        if isinstance(tax_ids, int):
+            tax_ids = [tax_ids]
+        return sum(self._get_last_valid_id(tax_id) + 1 for tax_id in tax_ids)
+
     def tax_ids_to_sample_ids(self, tax_ids: int | list[int]) -> list[tuple[int, int]]:
         """Given a tax_id or a list of tax_id, get available samples_ids: DB(tax_id, num)
         Usage: self.get_data(*sample_id)"""

@@ -313,17 +313,23 @@ def debug(conf):
     )
 
     ds = Dataset(database=db, api=api)
+    tids = ds._get_tax_ids_by_rank("phylum")
+    res = {}
+    for rank_tax_id, tax_ids in tids.items():
+        res[rank_tax_id] = ds.analyse_ranks(tax_ids)
+
+    print(res)
 
     # ds.by_rank_generator("phylum")
 
-    print(db.get_info(as_str=True))
-    tids = ds._get_tax_ids_by_rank("phylum")
-    res = dict()
-    for rank_tax_id, tax_ids in tids.items():
-        sids = list(db.tax_ids_to_sample_ids_generator(tax_ids))
-        res[rank_tax_id] = sids
+    # print(db.get_info(as_str=True))
+    # tids = ds._get_tax_ids_by_rank("phylum")
+    # res = dict()
+    # for rank_tax_id, tax_ids in tids.items():
+    #     sids = list(db.tax_ids_to_sample_ids_generator(tax_ids))
+    #     res[rank_tax_id] = sids
 
-    print({k: len(v) for k, v in res.items()})
+    # print({k: len(v) for k, v in res.items()})
 
     # pass
 
