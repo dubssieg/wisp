@@ -40,7 +40,7 @@ def build_sample(params: dict, dna_sequence: str, id_sequence: str, sample_outpu
 
     with open(sample_output_path, 'w', encoding='utf-8') as jdb:
         # Counting kmers inside each read
-        counters =  [counter_kmer(read, params['ksize'], params['pattern']) for read in all_reads]
+        counters =  [counter_kmer(read, params['pattern']) for read in all_reads]
         encoded: list = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]   # Encoding reads for XGBoost
 
         for sample in encoded:
