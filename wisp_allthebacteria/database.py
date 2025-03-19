@@ -1,18 +1,15 @@
-from collections import defaultdict
+import concurrent
 import logging
-from pathlib import Path
 import shutil
 import sys
+from collections import defaultdict
+from pathlib import Path
 from typing import Literal
 
-import concurrent
+from api import API
 from diskcache import FanoutCache
-
-# from functools import lru_cache
-
 from reader import Reader
 from utils import space_format
-from api import API
 
 LOG = logging.getLogger(__name__)
 
@@ -390,68 +387,6 @@ class DatabaseBuilder(Database):
 
         LOG.debug(f"Finished tax_id: {tax_id}")
         return tax_id, new_last_valid_id
-
-    # def _add_merged_data_from_dict(self, merged_data: dict) -> dict:
-    #     last_valid_ids = {}
-    #     for i, (tax_id, tdata) in enumerate(merged_data.items()):
-    #         LOG.debug(
-    #             f"Adding counters & sources tax_id: {tax_id} ({i + 1} / {len(merged_data)})"
-    #         )
-    #         tax_id = self._parse_tax_id(tax_id)
-    #         last_valid_id = self._get_last_valid_id(tax_id)
-    #         counters = tdata["counters"]
-    #         sources = tdata["sources"]
-    #         counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-    #         source_db = self._get_db(db_type="source", tax_id=tax_id)
-
-    #         # populate and add batch of counters/sources
-    #         batch_counters = {}
-    #         batch_sources = {}
-
-    #         for j, (source, counter) in enumerate(zip(sources, counters)):
-    #             current_id = last_valid_id + j + 1
-    #             batch_counters[current_id] = counter
-    #             batch_sources[current_id] = source
-    #             last_valid_ids[tax_id] = j
-
-    #         LOG.debug(
-    #             f"Starting DB transactions with {len(batch_counters)} counters & sources for tax_id {tax_id}"
-    #         )
-    #         with counter_db.transact():
-    #             for current_id, counter in batch_counters.items():
-    #                 counter_db[current_id] = counter
-    #         with source_db.transact():
-    #             for current_id, source in batch_sources.items():
-    #                 source_db[current_id] = source
-    #         LOG.debug("Ending DB transactions")
-    #         return last_valid_ids
-
-    # def _add_merged_data_from_dbs(self, merged_data: dict) -> dict:
-    #     last_valid_ids = {}
-    #     for i, (tax_id, tdata) in enumerate(merged_data.items()):
-    #         LOG.debug(
-    #             f"Adding counters & sources tax_id: {tax_id} ({i + 1} / {len(merged_data)})"
-    #         )
-    #         tax_id = self._parse_tax_id(tax_id)
-    #         last_valid_id = self._get_last_valid_id(tax_id)
-    #         counters = tdata["counters"]
-    #         sources = tdata["sources"]
-    #         merged_data_last_id = tdata["last_id"]
-    #         counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-    #         source_db = self._get_db(db_type="source", tax_id=tax_id)
-
-    #         LOG.debug(
-    #             f"Starting DB transactions with {merged_data_last_id + 1} counters & sources for tax_id {tax_id}"
-    #         )
-    #         with counter_db.transact():
-    #             for j in range(merged_data_last_id):
-    #                 counter_db[last_valid_id + j + 1] = counters[j]
-    #         with source_db.transact():
-    #             for j in range(merged_data_last_id):
-    #                 source_db[last_valid_id + j + 1] = sources[j]
-    #         last_valid_ids[tax_id] = last_valid_id + merged_data_last_id + 1
-    #         LOG.debug("Ending DB transactions")
-    #     return last_valid_ids
 
     def _set_last_valid_id(self, tax_id: int, last_valid_id: int) -> None:
         """Get last inserted id"""
