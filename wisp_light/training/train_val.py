@@ -44,7 +44,7 @@ else:
     log_file = f"{exp_dir}/init_train.log"
 
 
-logger = setup_logger(os.path.basename(__file__), level=logging.DEBUG, log_file=log_file)
+logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=log_file)
 
 mlflow.set_tracking_uri(f"file://{os.path.dirname(exp_dir)}/mlruns") # "file://chemin_ml_runs"
 logger.info(f"Current tracking uri: { mlflow.get_tracking_uri()}")
