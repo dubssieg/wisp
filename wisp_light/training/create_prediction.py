@@ -67,7 +67,6 @@ def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_di
 
     file = f"unk_sample_{str(time.time()).replace('.', '_')}_{id_sequence.replace(' ', '_')}.txt"
     sample_output_path = f"{val_dir}/temp/{file}"
-
     build_sample(params, dna_sequence, id_sequence, sample_output_path)
     # Evaluate at one level
     results: list[dict] = [{} for _ in range(5)]

@@ -27,10 +27,10 @@ args = parser.parse_args()
 
 args.index_csv = "../dataset/complete_refseq_referent_genome_with_taxo.tsv"
 
-args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1"
-args.exp_rootdir = '/home/hcourtei/Projects/MicroTaxo/codes/exp_refseq' #
-# args.datadir = '/projects/microtaxo/data/refseq3' #'/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1' #  #  #  #
-# args.exp_rootdir = '/projects/microtaxo/exp_refseq'
+# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1"
+# args.exp_rootdir = '/home/hcourtei/Projects/MicroTaxo/codes/exp_refseq' #
+args.datadir = '/projects/microtaxo/data/refseq3' #'/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1' #  #  #  #
+args.exp_rootdir = '/projects/microtaxo/exp_refseq'
 
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
 if args.db_json:
