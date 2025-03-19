@@ -127,20 +127,12 @@ class Reader:
                             try:
                                 result = future.result(timeout=60)  # TODO: conf
 
-                                # serialize and free memory
                                 results[fasta_count] = result
                                 fasta_count += 1
 
                                 LOG.debug(
                                     f"[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
                                 )
-
-                                # del result
-                                # del futures[future]
-                                # del future
-                                # if not futures:
-                                #     futures.clear()
-                                # gc.collect()
 
                             except concurrent.futures.TimeoutError:
                                 LOG.error(f"[{archive_name}] Timeout")

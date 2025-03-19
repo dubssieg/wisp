@@ -307,6 +307,8 @@ def debug(conf):
         step=conf["db"]["step"],
         full=conf["db"]["full"],
         dbs_path=conf["db"]["path"],
+        fanout_shards=conf["db"]["fanout_shards"],
+        compressed=conf["db"]["compressed"],
         api=api,
     )
 

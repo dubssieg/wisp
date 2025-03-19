@@ -1,4 +1,5 @@
 import concurrent
+from functools import lru_cache
 import logging
 import shutil
 import sys
@@ -9,7 +10,7 @@ from typing import Literal
 from api import API
 from diskcache import FanoutCache
 from reader import Reader
-from utils import space_format
+from utils import decompress, space_format
 
 LOG = logging.getLogger(__name__)
 
@@ -42,13 +43,14 @@ class Database:
         self._api = api
         self._compressed = compressed
 
-    def get_counter(self, tax_id: int, num: int) -> dict | None:
-        counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-        return counter_db.get(num, None)
-
-    def get_source(self, tax_id: int, num: int) -> dict | None:
-        source_db = self._get_db(db_type="source", tax_id=tax_id)
-        return source_db.get(num, None)
+    def get_data(
+        self, tax_id: int, num: int, target: Literal["counter", "source"] = "counter"
+    ) -> dict | None:
+        db = self._get_db(db_type=target, tax_id=tax_id)
+        data = db.get(num, None)
+        if data and self._compressed:
+            return decompress(data)
+        return data
 
     def get_tax_ids_by_rank(self, rank: str) -> dict[int, list[int]]:
         if not self._api:
@@ -65,7 +67,7 @@ class Database:
 
     def tax_ids_to_sample_ids(self, tax_ids: int | list[int]) -> list[tuple[int, int]]:
         """Given a tax_id or a list of tax_id, get available samples_ids: DB(tax_id, num)
-        Usage: self.get_counter(*sample_id)"""
+        Usage: self.get_data(*sample_id)"""
         if isinstance(tax_ids, int):
             tax_ids = [tax_ids]
 
@@ -155,7 +157,7 @@ class Database:
         except (ValueError, TypeError):
             return tax_id
 
-    # @lru_cache(maxsize=1)
+    @lru_cache(maxsize=1)
     def _get_db(self, db_type: DB_TYPE, tax_id: int | None = None) -> FanoutCache:
         """Get sub DB"""
         # <base_dbs>/md/common
