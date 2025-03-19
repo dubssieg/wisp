@@ -107,14 +107,6 @@ class Database:
             info_lines = []
             info_lines.append("\n=== Paths/Config ===")
             info_lines.append(f"Current base path: {self.get_db_path()}")
-            info_lines.append("Available sub DBs:")
-            all_dbs = self.list_dbs(self._dbs_path)
-            for kmer, win_step in all_dbs:
-                win, step = win_step.split("_")
-                info_lines.append(
-                    f"  - k-mer size: {kmer}, window size: {win}, step: {step}"
-                )
-
             info_lines.append("\n=== Sequences ===")
             info_lines.append(f"{len(tax_ids)} tax_ids -> [tax_id] sample_count:")
             items_per_line = 5
@@ -196,18 +188,6 @@ class Database:
         dir_name += f"__sh_{self._fanout_shards}"
 
         return self._dbs_path / dir_name
-
-    @staticmethod
-    def list_dbs(base_path: str | Path) -> list:
-        """Get list of available DB (different configs)"""
-        base = Path(base_path)
-        return [
-            [parent.name, child.name]
-            for parent in base.iterdir()
-            if parent.is_dir()
-            for child in parent.iterdir()
-            if child.is_dir()
-        ]
 
 
 class DatabaseBuilder(Database):

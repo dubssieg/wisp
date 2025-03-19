@@ -165,6 +165,7 @@ def db_info(conf: dict):
         step=conf["db"]["step"],
         full=conf["db"]["full"],
         dbs_path=conf["db"]["path"],
+        compressed=conf["db"]["compressed"],
         fanout_shards=conf["db"]["fanout_shards"],
     )
 
