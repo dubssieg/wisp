@@ -1,13 +1,11 @@
 import concurrent
-from functools import lru_cache
 import logging
 import shutil
 import sys
-from collections import defaultdict
+from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from api import API
 from diskcache import FanoutCache
 from reader import Reader
 from utils import decompress, space_format
@@ -31,7 +29,6 @@ class Database:
         dbs_path: str | Path,
         fanout_shards: int,
         compressed: bool,
-        api: API | None = None,
     ):
         LOG.debug(f"Database({locals()})")
         self._dbs_path = Path(dbs_path).resolve()
@@ -40,7 +37,6 @@ class Database:
         self._step = step
         self._full = full
         self._fanout_shards = fanout_shards
-        self._api = api
         self._compressed = compressed
 
     def get_data(
@@ -51,19 +47,6 @@ class Database:
         if data and self._compressed:
             return decompress(data)
         return data
-
-    def get_tax_ids_by_rank(self, rank: str) -> dict[int, list[int]]:
-        if not self._api:
-            raise ValueError("API needed")
-        rank_mapping = defaultdict(list)
-        for tax_id in self.get_tax_ids():
-            lineage_ex = self._api[tax_id].get("LineageEx", [])
-            for entry in lineage_ex:
-                if entry["Rank"] == rank:
-                    rank_mapping[entry["TaxId"]].append(tax_id)
-                    break
-
-        return dict(rank_mapping)
 
     def tax_ids_to_sample_ids(self, tax_ids: int | list[int]) -> list[tuple[int, int]]:
         """Given a tax_id or a list of tax_id, get available samples_ids: DB(tax_id, num)

@@ -12,6 +12,7 @@ from reader import Reader
 from api import API
 from model import XGBoostModel
 from database import Database, DatabaseBuilder
+from dataset import Dataset
 from utils import (
     SystemStatsLogger,
     format_duration,
@@ -196,7 +197,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
         use_gpu=conf["model"]["gpu"],
         scientific_name=conf["model"]["scientific_name"],
     )
-    db = Database(path=Path(conf["db"]["output_dir"]), api=api)
+    db = Database(path=Path(conf["db"]["output_dir"]))
     batch_size = conf["model"]["batch_size"]
     # dmat_generator = db.make_dmatrix(
     #     rank=rank,
@@ -309,17 +310,19 @@ def debug(conf):
         dbs_path=conf["db"]["path"],
         fanout_shards=conf["db"]["fanout_shards"],
         compressed=conf["db"]["compressed"],
-        api=api,
     )
 
+    ds = Dataset(database=db, api=api)
+
     # print(db.get_info(as_str=True))
-    tids = db.get_tax_ids_by_rank("phylum")
+    tids = ds.get_tax_ids_by_rank("phylum")
     res = dict()
     for rank_tax_id, tax_ids in tids.items():
         sids = db.tax_ids_to_sample_ids(tax_ids)
         res[rank_tax_id] = sids
 
     print({k: len(v) for k, v in res.items()})
+
     pass
 
     # mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
