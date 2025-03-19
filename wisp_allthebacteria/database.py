@@ -184,7 +184,7 @@ class Database:
 
     def get_db_path(self):
 
-        dir_name = str(self._kmer_size)
+        dir_name = f"km_{self._kmer_size}"
         if self._full:
             dir_name += "__full"
         else:
@@ -278,7 +278,7 @@ class DatabaseBuilder(Database):
             step=self._step,
             full=self._full,
             batch_size=self._fasta_batch_size,
-            compresed=self._compressed,
+            compressed=self._compressed,
         )
 
         self._push_merged_data(data)

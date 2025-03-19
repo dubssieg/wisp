@@ -72,7 +72,10 @@ def create_db(conf: dict):
         )
         md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
         num_workers = cpu_count(conf["db"]["create_db_workers"])
-        LOG.info(f"Max CPUs: {cpu_count('max')}, using {num_workers} workers")
+        num_threads = cpu_count(conf["db"]["db_insert_threads"])
+        LOG.info(
+            f"Max CPUs: {cpu_count('max')}, using {num_workers} fasta workers and {num_threads} DB insertion threads"
+        )
         reader = Reader(md, num_workers=num_workers)
 
         db = DatabaseBuilder(
@@ -84,7 +87,7 @@ def create_db(conf: dict):
             fanout_shards=conf["db"]["fanout_shards"],
             reader=reader,
             fasta_batch_size=conf["db"]["fasta_batch_size"],
-            insert_threads=conf["db"]["db_insert_threads"],
+            insert_threads=num_threads,
             compressed=conf["db"]["compressed"],
         )
 
