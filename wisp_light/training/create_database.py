@@ -55,7 +55,7 @@ def load_phylo_tree(databse_json: str) :
     nb_genome_indexed = len(db_data['datas'])
     return phylo_tree, nb_genome_indexed
 
-def build_database(train_dataset: list[str], params: dict, database_json: str , logger) ->  Tree:
+def build_database(train_dataset: list[str], params: dict, database_json: str , logger, max_workers) ->  Tree:
     """Builds a json file with taxa levels as dict information"""
     # creating encoder
     my_encoder: dict = encoder(ksize=params['ksize'])
@@ -88,7 +88,7 @@ def build_database(train_dataset: list[str], params: dict, database_json: str , 
             all_reads = splitting(dna_sequence, params['read_size'], params['max_sampling'], shift_ratio=params['shift_ratio'])
             # l = list(all_reads)
             # Counting kmers inside each read
-            with ProcessPoolExecutor(max_workers= params['max_workers']) as executor:
+            with ProcessPoolExecutor(max_workers= max_workers) as executor:
                 counters = list(executor.map(count_kmers_partial, all_reads))
             # counters: list[Counter] = [counter_kmer(read,params['ksize'],params['pattern']) for read in all_reads]
             total_nb_count_win += len(counters)

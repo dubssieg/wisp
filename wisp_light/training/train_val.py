@@ -63,6 +63,9 @@ params_copy_path = os.path.join(exp_dir, "params.yaml")
 with open(params_copy_path, 'w') as f:
     yaml.safe_dump(params, f)
 
+
+print(f" nb core cpu {os.cpu_count()} , counting kmer with max_workers {params['max_workers']}")
+
 with mlflow.start_run():
     mlflow.log_params(params)
 
@@ -85,14 +88,14 @@ with mlflow.start_run():
         logger.info(f"Starting database creation for {len(train_dataset)} genome files ")
         start_database = time.time()
         database_json = os.path.join(exp_dir, 'databases.json')
-        phylo_tree = build_database(train_dataset, params, database_json, logger)
+        phylo_tree = build_database(train_dataset, params, database_json, logger,max_workers=params['max_workers_db'])
         database_time = round((time.time() - start_database))
         logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
         mlflow.log_metric("database_time", database_time)
 
-    train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=params['max_workers'])
+    train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=params['max_workers_trainval'])
     #
-    validate(val_dataset, exp_dir, params, logger, max_workers=params['max_workers'])
+    validate(val_dataset, exp_dir, params, logger, max_workers=params['max_workers_trainval'])
 
 
 

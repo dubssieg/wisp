@@ -7,7 +7,8 @@ mi projet : 25 février
 fin prévu : 25 mai
 
 - version refseq  :  Release 227 November 4, 2024.
-
+## TIMING
+### laptop
 je passe de 24.2 s à 22.7 s avec cython, gain en %age ?  6% 
 read_size = 10_000
 max_sampling = 400
@@ -26,6 +27,16 @@ seq = Seq("ATGC")
 revcomp_seq = seq.reverse_complement()
 
 MOINSBIEN 24 s 
+### genouest
+avec 16 multiprocess en db et train_val 
+ srun --pty --cpus-per-task=16 --mem=50G bash
+[hcourtei@cl1n041] CPUS(A/I/O/T) 48/24/0/72 Memory 772432
+ nb 196 into train :176 val: 20
+avg_nb_count_win 100 avg_dna_length 4 042 976
+Database successfully built in 44 s
+long pour le reste
+
+
 
 ## make env
 depuis le répertoire wisp_light

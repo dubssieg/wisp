@@ -15,7 +15,8 @@ family_strat: False  # -> Only for RefSeqDataset
 min_family_threshold: 10 # minimum davg_nb_count_wine représentant espèce par famille -> Only for BacteriaDataset
 max_family_repr: inf # maximum de représentant espèce par famille  -> Only for BacteriaDataset
 
-max_workers: 16
+max_workers_db: 16
+max_workers_trainval: 4
 #MODEL XGBOOST: params
 eval_metric: mlogloss
 tree_method: hist
