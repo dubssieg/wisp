@@ -96,18 +96,18 @@ class Database:
             )
         return sample_ids
 
-    def tax_ids_to_sample_ids_generator(
+    def sample_generator(
         self,
         tax_ids: int | list[int],
-        seed: int = None,
+        seed: int = 2025,
+        target: Literal["counter", "source", "sample_id"] = "counter",
     ) -> Generator[tuple[int, int], None, None]:
         """Generator version of tax_ids_to_sample_ids, with proportional sampling."""
         if isinstance(tax_ids, int):
             tax_ids = [tax_ids]
+        random_instance = random.Random(seed)
 
-        LOG.debug(
-            f"Initializing tax_id -> sample_id generator for {len(tax_ids)} tax_ids"
-        )
+        LOG.debug(f"Initializing sample generator using {len(tax_ids)} tax_ids")
         counts = [self.count(tax_id) for tax_id in tax_ids]
         total_samples = sum(counts)
         weights = [count / total_samples for count in counts]
@@ -115,26 +115,33 @@ class Database:
         # initialize a list of iterators for each tax_id with random order
         iterators = [
             iter(
-                random.Random(seed).sample(
+                random_instance.sample(
                     range(count),
                     k=count,
                 )
             )
             for count in counts
         ]
-        LOG.debug("Generator initialized (tax_id -> sample_id)")
+        LOG.debug("Sample generator initialized")
 
         while iterators:
             # Select a tax_id based on the calculated weights
-            tax_id = random.Random(seed).choices(tax_ids, weights=weights, k=1)[0]
+            tax_id = random_instance.choices(tax_ids, weights=weights, k=1)[0]
             index = tax_ids.index(tax_id)
             iterator = iterators[index]
 
             try:
                 num = next(iterator)
-                yield (tax_id, num)
+                sample_id = (tax_id, num)
+                match target:
+                    case "counter" | "source":
+                        yield self.get_data(*sample_id, target=target)
+                    case "sample_id":
+                        yield sample_id
+                    case _:
+                        raise ValueError(f"{target=}")
             except StopIteration:
-                # remove the iterator if it's exhausted
+                LOG.debug(f"Generator for tax_id={tax_id[index]} exhausted")
                 iterators.pop(index)
                 tax_ids.pop(index)
                 counts.pop(index)
