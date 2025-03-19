@@ -11,7 +11,7 @@ from metadata import Metadata
 from reader import Reader
 from api import API
 from model import XGBoostModel
-from database import Database, DatabaseBuilder
+from database import Database, DatabaseBuilder, RANKS
 from dataset import Dataset
 from utils import (
     SystemStatsLogger,
@@ -25,33 +25,6 @@ LOG = logging.getLogger(__name__)
 
 
 METADATA_FILENAME = "ena_metadata.tsv"
-
-RANKS = [
-    "superkingdom",
-    "kingdom",
-    "phylum",
-    "class",
-    "subclass",
-    "order",
-    "suborder",
-    "family",
-    "subfamily",
-    "tribe",
-    "genus",
-    "subgenus",
-    "species",
-    "subspecies",
-    "strain",
-    # ?
-    "biotype",
-    "clade",
-    "no rank",
-    "pathogroup",
-    "serogroup",
-    "serotype",
-    "species group",
-    "species subgroup",
-]
 
 
 def create_db(conf: dict):
@@ -313,12 +286,20 @@ def debug(conf):
     )
 
     ds = Dataset(database=db, api=api)
-    tids = ds._get_tax_ids_by_rank("phylum")
-    res = {}
-    for rank_tax_id, tax_ids in tids.items():
-        res[rank_tax_id] = ds.analyse_ranks(tax_ids)
+    for batch in ds.by_rank_generator("phylum", batch_size=100, normalize=None):
+        print(batch)
 
-    print(res)
+    # tids = ds._get_tax_ids_by_rank("phylum")
+    # res = {}
+    # for rank_tax_id, tax_ids in tids.items():
+    #     sids = list(db.tax_ids_to_sample_ids_generator(tax_ids))
+    #     res[rank_tax_id] = sids
+    # print({k: len(v) for k, v in res.items()})
+
+    # for rank_tax_id, tax_ids in tids.items():
+    #     res[rank_tax_id] = ds.analyse(tax_ids)
+
+    # print(res)
 
     # ds.by_rank_generator("phylum")
 
@@ -376,7 +357,7 @@ if __name__ == "__main__":
         Examples:
         Create a database:
             python main.py --create-db
-        
+
         Create a database (local machine/debug)
             python main.py -- create-db --json="wisp_allthebacteria/config/clx_debug.json"
 
@@ -385,7 +366,7 @@ if __name__ == "__main__":
 
         Evaluate a model for phylum classification 1
             python main.py --evaluate-model-kfold --rank="phylum"
-        
+
         Evaluate a model for phylum classification 2
             python main.py --evaluate-model-kfold=5 --rank="phylum" --save-path="report_1"
 
