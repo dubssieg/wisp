@@ -2,7 +2,7 @@ import json
 import logging
 from numpy import argmax, amax, mean, ndarray,array, vectorize
 import sys
-sys.path.append('..')
+sys.path.append('../../..')
 from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 

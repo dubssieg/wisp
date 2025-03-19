@@ -8,6 +8,24 @@ fin prévu : 25 mai
 
 - version refseq  :  Release 227 November 4, 2024.
 
+je passe de 24.2 s à 22.7 s avec cython, gain en %age ?  6% 
+read_size = 10_000
+max_sampling = 400
+nb_genome = 200
+
+version a peu près Siegfried : 91.5 
+version max_workers=8: 24.6 
+version max_workers=16: 21.8
+version max_workers=25.1: 25.1 s
+version max_workers=16 + cython : 20.7
+lib khmer, pas d'amelioration, difficile a parametrer selon mémoire , donnée, nb cpu, charge bcp les cpu
+                        
+from Bio.Seq import Seq
+
+seq = Seq("ATGC")
+revcomp_seq = seq.reverse_complement()
+
+MOINSBIEN 24 s 
 
 ## make env
 depuis le répertoire wisp_light
@@ -50,15 +68,18 @@ To prevent ssh break, you can use tmux on genouest see https://help.genouest.org
 `
 # See results 
 
-from compute  <node_name>  in genouest:
+from compute  <node>  in genouest:
 
->mlflow ui--port 8123 --backend-store-uri /projects/microtaxo/exp_refseq/mlruns
+>mlflow ui --port 8123 --backend-store-uri /projects/microtaxo/exp_refseq/mlruns
 
 from local laptop
 
->ssh -A -t -t hcourtei@genossh.genouest.org -L 8123:localhost:8123 ssh <node_name> -L 8123:localhost:8123
+>ssh -A -t -t hcourtei@genossh.genouest.org -L 8123:localhost:8123 ssh <node> -L 8123:localhost:8123
+
+ls /projects/microtaxo/exp_refseq/
 
 
+print(list(counters[0].items())[:10])
 
 # conda env with glibc >1.28 
 

@@ -1,7 +1,6 @@
 """Builds predictions from reads"""
 import logging
 import os
-import yaml
 import time
 import sys
 import pickle
@@ -12,7 +11,7 @@ from Bio import SeqIO
 import mlflow
 
 from functools import partial
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from create_model import make_model
 from create_prediction import prediction
 from utils import  extract_majority_classification, setup_logger
@@ -22,12 +21,9 @@ sys.path.append('../../..')
 from wisp.wisp_light.visu.plots_tools import plot_conf_mat
 from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
-# TAXO_LEVELS  = ['root', 'phylum', 'class', 'order', 'family']
 
-def train_model_targets(phylo_tree, exp_dir, params, logger, num_processes=4):
+def train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=4):
     start_model = time.time()
-
-    # levels = ['root', 'phylum', 'class', 'order']
 
     nodes_per_level: dict = {
         level: [node.tag for node in list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))]
@@ -45,9 +41,9 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, num_processes=4):
                        ]
 
     make_model_partial = partial(make_model, exp_dir, database, params, logger)
-    logger.info(f"Lancement de {len(classif_targets)} modèles avec num_processes={num_processes}")
+    logger.info(f"Lancement de {len(classif_targets)} modèles avec num_processes={max_workers}")
 
-    with ThreadPoolExecutor(max_workers=num_processes) as executor:
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(make_model_partial, *classif_target): classif_target for classif_target in
                    classif_targets}
 
@@ -87,7 +83,7 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, num_processes=4):
 
 
 
-def validate(val_dataset, exp_dir,  params, logger,  num_processes=4, save_raw_pred=False):
+def validate(val_dataset, exp_dir, params, logger, max_workers=4, save_raw_pred=False):
     start_validation = time.time()
     logger.info(f"Start evaluation for {len(val_dataset)} genome files")
 
@@ -107,7 +103,7 @@ def validate(val_dataset, exp_dir,  params, logger,  num_processes=4, save_raw_p
 
 
     # Parallelize across genomes
-    with ThreadPoolExecutor(max_workers=num_processes) as executor:
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
         # Submit the processing of each genome as a task to the executor
         futures = [executor.submit(process_genome_partial, sample) for sample in val_dataset]
 

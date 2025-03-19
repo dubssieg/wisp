@@ -1,26 +1,22 @@
 """Creates a json database"""
 import json
-import logging
-import os
+import sys
+from itertools import islice
 from collections import Counter
 from json import dumps
-from typing import Generator
+from functools import partial
 from itertools import product
 from dataclasses import dataclass
 from Bio import SeqIO
 from treelib import Tree
+from concurrent.futures import ProcessPoolExecutor
+
 from treelib.exceptions import DuplicatedNodeIdError
 from tqdm import tqdm
-from utils import setup_logger
 from collections import defaultdict
-import sys
 sys.path.append('..')
 from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
-
-# TAXO_LEVELS  = ['root', 'phylum', 'class', 'order', 'family']
-
-TAXO_LEVELS =  ['phylum', 'class', 'order', 'family']
 
 def load_phylo_tree(databse_json: str) :
     with open(databse_json, 'r', encoding='utf-8') as f:
@@ -69,6 +65,7 @@ def build_database(train_dataset: list[str], params: dict, database_json: str , 
 
     # Writing the database
     json_datas = list()
+    count_kmers_partial = partial(counter_kmer, pattern=params['pattern'])   # Multiprocessing pour le comptage des kmers
 
     with open(database_json, 'w', encoding='utf-8') as jdb:
         jdb.write("{\n")
@@ -78,53 +75,52 @@ def build_database(train_dataset: list[str], params: dict, database_json: str , 
         total_dna_length = 0
         total_nb_count_win = 0
         for id_genome, sample in (pbar:= tqdm(enumerate(train_dataset))):
-            genome, taxonomy = sample
+            genome_path, taxonomy = sample
+            dna_sequence = read_genome(genome_path)
             # pbar.set_description(f"Genome {path.basename(genome)}")
-            with open(genome, 'r', encoding='utf-8') as freader:
-                # genome_data: list = [str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')]
-                genome_data = (str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta'))  # Générateur
-                dna_sequence = (''.join([seq for seq in genome_data])).upper() # Merging all seqs together
+            # with open(genome, 'r', encoding='utf-8') as freader:
+            #     # genome_data: list = [str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')]
+            #     genome_data = (str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta'))  # Générateur
+            #     dna_sequence = (''.join([seq for seq in genome_data])).upper() # Merging all seqs together
             # Splitting of reads
             total_dna_length += len(dna_sequence)
-            if len(dna_sequence) >= params['read_size']:
-                all_reads = splitting(dna_sequence, params['read_size'], params['max_sampling'], shift_ratio=params['shift_ratio'])
-                # l = list(all_reads)
-                # Counting kmers inside each read
-                counters: list[Counter] = [counter_kmer(read,params['ksize'],params['pattern']) for read in all_reads]
-                total_nb_count_win += len(counters)
-                del all_reads
-                # Encoding reads for XGBoost
-                encoded: list[dict] = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
-                del counters
-                # Dumping in output file
-                phylo_tree = taxonomy_information(taxonomy, phylo_tree)
+            # if len(dna_sequence) >= params['read_size']:
+            all_reads = splitting(dna_sequence, params['read_size'], params['max_sampling'], shift_ratio=params['shift_ratio'])
+            # l = list(all_reads)
+            # Counting kmers inside each read
+            with ProcessPoolExecutor(max_workers= params['max_workers']) as executor:
+                counters = list(executor.map(count_kmers_partial, all_reads))
+            # counters: list[Counter] = [counter_kmer(read,params['ksize'],params['pattern']) for read in all_reads]
+            total_nb_count_win += len(counters)
+            del all_reads
+            # Encoding reads for XGBoost
+            encoded: list[dict] = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]
+            del counters
+            # Dumping in output file
+            phylo_tree = taxonomy_information(taxonomy, phylo_tree)
 
-                logger.debug("-"*60)
-                logger.debug(f"\nTaxo {taxonomy}")
-                tree_output = phylo_tree.show(line_type="ascii", stdout=False)
-                logger.debug(tree_output)
+            logger.debug("-"*60)
+            logger.debug(f"\nTaxo {taxonomy}")
+            tree_output = phylo_tree.show(line_type="ascii", stdout=False)
+            logger.debug(tree_output)
 
-                dict_write = {**taxonomy, 'datas': encoded}
-                if id_genome == 0:
-                    jdb.write(dumps(dict_write))
-                else :
-                    jdb.write(','+dumps(dict_write))
-                del encoded
+            dict_write = {**taxonomy, 'datas': encoded}
+            if id_genome == 0:
+                jdb.write(dumps(dict_write))
+            else :
+                jdb.write(','+dumps(dict_write))
+            del encoded
 
             json_datas.append({**taxonomy})  # if 'taxonomy' in locals(): #
             if 'taxonomy' not in locals():
                 logger.error(f"ERROR NOT IN LOCALS {taxonomy}")
-            del genome_data
+            del dna_sequence
 
         taxa_codes = mapping_sp(json_datas)
         jdb.write("],\"mappings\": ")         # Writing taxonomy to file
         jdb.write(dumps(taxa_codes))
         jdb.write("\n}")
-        # numérotation des noeuds de l'arbre
-        # Depth 2 level  phylum
-        # from NODE tag Campylobacterota   to  0
-        # from NODE tag Spirochaetota   to  1
-        # from NODE tag Pseudomonadati   to  2
+
         for i, level in enumerate(['root'] + TAXO_LEVELS):
             # list_node_depth_i = list(phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))
             node_iterator = (node for node in phylo_tree.filter_nodes(lambda x: phylo_tree.depth(x) == i))
@@ -166,139 +162,139 @@ def mapping_sp(datas: list[dict]) -> dict:
     return taxa_codes
 
 
-def splitting(seq: str, read_size: int, max_sampling = None, shift_ratio = None) -> Generator:
-    """Splits a lecture into subreads
-    Args:
-        seq (str): a DNA sequence
-        read_size (int): size of splits
-        max_sampling (int): maximum number of samples inside lecture
-        shift_ratio (float): ratio of read_size for step in crop
-    Raises:
-        ValueError: if read is too short
-    Yields:
-        Generator: subreads collection
-    """
-    if len(seq) < read_size:
-        raise ValueError("Read is too short.")
-    if shift_ratio is not None and max_sampling is not None:
-        raise ValueError("Provide either shift_ratio or max_sampling, not both.")
-
-    # print("shift_ratio", shift_ratio)
-    if shift_ratio is not None:
-        assert max_sampling is None
-        shift = int(shift_ratio * read_size)
-        nb_win = int((len(seq) - read_size) / shift)
-    else:
-        assert max_sampling is not None
-        shift = int((len(seq)-read_size)/max_sampling)
-        nb_win = max_sampling
-
-    if shift <= 0 or nb_win<=0:
-        raise ValueError(f"Calculated shift {shift} must be positive.")
-
-    # print("shift", shift)
-    for i in range(nb_win):
-        yield seq[shift*i:shift*i+read_size]
-
-
-def pattern_filter(substring: str, pattern: list[int]) -> str:
-    """Applies a positional filter over a string
-    Args:
-        substring (str): substring to clean
-        pattern (list): integers to be multiplied by
-    Returns:
-        str: a cleaned kmer
-    """
-    return ''.join([char * pattern[i] for i, char in enumerate(substring)])
+# def splitting(seq: str, read_size: int, max_sampling = None, shift_ratio = None) -> Generator:
+#     """Splits a lecture into subreads
+#     Args:
+#         seq (str): a DNA sequence
+#         read_size (int): size of splits
+#         max_sampling (int): maximum number of samples inside lecture
+#         shift_ratio (float): ratio of read_size for step in crop
+#     Raises:
+#         ValueError: if read is too short
+#     Yields:
+#         Generator: subreads collection
+#     """
+#     if len(seq) < read_size:
+#         raise ValueError("Read is too short.")
+#     if shift_ratio is not None and max_sampling is not None:
+#         raise ValueError("Provide either shift_ratio or max_sampling, not both.")
+#
+#     # print("shift_ratio", shift_ratio)
+#     if shift_ratio is not None:
+#         assert max_sampling is None
+#         shift = int(shift_ratio * read_size)
+#         nb_win = int((len(seq) - read_size) / shift)
+#     else:
+#         assert max_sampling is not None
+#         shift = int((len(seq)-read_size)/max_sampling)
+#         nb_win = max_sampling
+#
+#     if shift <= 0 or nb_win<=0:
+#         raise ValueError(f"Calculated shift {shift} must be positive.")
+#
+#     # print("shift", shift)
+#     for i in range(nb_win):
+#         yield seq[shift*i:shift*i+read_size]
 
 
-def counter_kmer(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
-    """Counts all kmers and filter non-needed ones
-    Args:
-        entry (str): a subread
-        kmer_size (int): k size
-        pattern (list[int]): 110110... pattern, to select specific chars in kmer
-    Returns:
-        Counter: counts of kmers inside subread
-    """
-    # Defining custom complementarity
-    complements: dict = {'A': 'T',
-                         'T': 'A',
-                         'C': 'G',
-                         'G': 'C',
-                         'U': 'A',
-                         'R': 'Y',
-                         'Y': 'R',
-                         'K': 'M',
-                         'M': 'K',
-                         'S': 'W',
-                         'W': 'S',
-                         'B': 'V',
-                         'V': 'B',
-                         'D': 'H',
-                         'H': 'D',
-                         'N': 'N'}
+# def pattern_filter(substring: str, pattern: list[int]) -> str:
+#     """Applies a positional filter over a string
+#     Args:
+#         substring (str): substring to clean
+#         pattern (list): integers to be multiplied by
+#     Returns:
+#         str: a cleaned kmer
+#     """
+#     return ''.join([char * pattern[i] for i, char in enumerate(substring)])
 
-    all_kmers: Generator = (entry[i:i+len(pattern)] for i in range(len(entry)-len(pattern)-1))
-    counts: Counter = Counter(all_kmers)
-    rev_counts: Counter = Counter({revcomp(k, compl=complements): v for k, v in counts.items()})
-    counts += rev_counts
-    del rev_counts
-    if not all(pattern):
-        # All positions in pattern should not be kept, we apply filter
-        counts = Counter({pattern_filter(k, pattern): v for k, v in counts.items()})
-    for filtered_kmer in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
-        if filtered_kmer in counts:
-            del counts[filtered_kmer]
-    # We treat cases where sequence alphabet is not ATCG
-    counts_purged = {}
-
-    for key, count in counts.items():
-        list_of_keys = list()
-        splitted_key: list = [*key]
-        for x in splitted_key:
-            if x in ['A', 'T', 'C', 'G']:
-                nuct: list = [x]
-            elif x == 'U':
-                nuct: list = ['T']
-            elif x == 'R':
-                nuct: list = ['G', 'A']
-            elif x == 'Y':
-                nuct: list = ['C', 'T']
-            elif x == 'K':
-                nuct: list = ['G', 'T']
-            elif x == 'M':
-                nuct: list = ['A', 'C']
-            elif x == 'S':
-                nuct: list = ['G', 'C']
-            elif x == 'W':
-                nuct: list = ['A', 'T']
-            elif x == 'B':
-                nuct: list = ['G', 'T', 'C']
-            elif x == 'D':
-                nuct: list = ['G', 'T', 'A']
-            elif x == 'H':
-                nuct: list = ['A', 'T', 'C']
-            elif x == 'V':
-                nuct: list = ['G', 'A', 'C']
-            else:
-                nuct: list = ['A', 'T', 'C', 'G']
-            # Adding to the keys
-            # If list empty
-            if len(list_of_keys) == 0:
-                list_of_keys = nuct
-            else:
-                list_of_keys = [new_key+n for n in nuct for new_key in list_of_keys]
-        # Updating counts to stay with only ATGC counts
-        for prob_key in list_of_keys:
-            kmer_number: int = count//len(list_of_keys)
-            if prob_key in counts_purged:
-                counts_purged[prob_key] += kmer_number
-            else:
-                counts_purged[prob_key] = kmer_number
-    del counts
-    # We divide count by the number of keys we end up with to normalize
-    return Counter(counts_purged)
+#
+# def counter_kmer(entry: str, kmer_size: int, pattern: list[int]) -> Counter:
+#     """Counts all kmers and filter non-needed ones
+#     Args:
+#         entry (str): a subread
+#         kmer_size (int): k size
+#         pattern (list[int]): 110110... pattern, to select specific chars in kmer
+#     Returns:
+#         Counter: counts of kmers inside subread
+#     """
+#     # Defining custom complementarity
+#     complements: dict = {'A': 'T',
+#                          'T': 'A',
+#                          'C': 'G',
+#                          'G': 'C',
+#                          'U': 'A',
+#                          'R': 'Y',
+#                          'Y': 'R',
+#                          'K': 'M',
+#                          'M': 'K',
+#                          'S': 'W',
+#                          'W': 'S',
+#                          'B': 'V',
+#                          'V': 'B',
+#                          'D': 'H',
+#                          'H': 'D',
+#                          'N': 'N'}
+#
+#     all_kmers: Generator = (entry[i:i+len(pattern)] for i in range(len(entry)-len(pattern)-1))
+#     counts: Counter = Counter(all_kmers)
+#     rev_counts: Counter = Counter({revcomp(k, compl=complements): v for k, v in counts.items()})
+#     counts += rev_counts
+#     del rev_counts
+#     if not all(pattern):
+#         # All positions in pattern should not be kept, we apply filter
+#         counts = Counter({pattern_filter(k, pattern): v for k, v in counts.items()})
+#     for filtered_kmer in (alpha * kmer_size for alpha in ['A', 'T', 'C', 'G']):
+#         if filtered_kmer in counts:
+#             del counts[filtered_kmer]
+#     # We treat cases where sequence alphabet is not ATCG
+#     counts_purged = {}
+#
+#     for key, count in counts.items():
+#         list_of_keys = list()
+#         splitted_key: list = [*key]
+#         for x in splitted_key:
+#             if x in ['A', 'T', 'C', 'G']:
+#                 nuct: list = [x]
+#             elif x == 'U':
+#                 nuct: list = ['T']
+#             elif x == 'R':
+#                 nuct: list = ['G', 'A']
+#             elif x == 'Y':
+#                 nuct: list = ['C', 'T']
+#             elif x == 'K':
+#                 nuct: list = ['G', 'T']
+#             elif x == 'M':
+#                 nuct: list = ['A', 'C']
+#             elif x == 'S':
+#                 nuct: list = ['G', 'C']
+#             elif x == 'W':
+#                 nuct: list = ['A', 'T']
+#             elif x == 'B':
+#                 nuct: list = ['G', 'T', 'C']
+#             elif x == 'D':
+#                 nuct: list = ['G', 'T', 'A']
+#             elif x == 'H':
+#                 nuct: list = ['A', 'T', 'C']
+#             elif x == 'V':
+#                 nuct: list = ['G', 'A', 'C']
+#             else:
+#                 nuct: list = ['A', 'T', 'C', 'G']
+#             # Adding to the keys
+#             # If list empty
+#             if len(list_of_keys) == 0:
+#                 list_of_keys = nuct
+#             else:
+#                 list_of_keys = [new_key+n for n in nuct for new_key in list_of_keys]
+#         # Updating counts to stay with only ATGC counts
+#         for prob_key in list_of_keys:
+#             kmer_number: int = count//len(list_of_keys)
+#             if prob_key in counts_purged:
+#                 counts_purged[prob_key] += kmer_number
+#             else:
+#                 counts_purged[prob_key] = kmer_number
+#     del counts
+#     # We divide count by the number of keys we end up with to normalize
+#     return Counter(counts_purged)
 
 
 @dataclass
@@ -379,20 +375,146 @@ def taxonomy_information(taxo_dict:dict, tree_struct: Tree) ->  Tree:
 
 
 
-def revcomp(string: str, compl=None) -> str:
-    """Tries to compute the reverse complement of a sequence
-    Args:
-        string (str): original character set
-        compl (dict, optional): dict of correspondences. Defaults to {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}.
-    Raises:
-        IndexError: Happens if revcomp encounters a char that is not in the dict
-    Returns:
-        str: the reverse-complemented string
+# def revcomp(string: str, compl=None) -> str:
+#     """Tries to compute the reverse complement of a sequence
+#     Args:
+#         string (str): original character set
+#         compl (dict, optional): dict of correspondences. Defaults to {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}.
+#     Raises:
+#         IndexError: Happens if revcomp encounters a char that is not in the dict
+#     Returns:
+#         str: the reverse-complemented string
+#     """
+#     if compl is None:
+#         compl = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}
+#     try:
+#         result = ''.join([compl[s] for s in string][::-1])
+#     except IndexError as exc:
+#         raise IndexError("Complementarity does not include all chars in sequence.") from exc
+#     return result
+
+ALL_COMPLEMENTS =  { 'A': 'T',
+                     'T': 'A',
+                     'C': 'G',
+                     'G': 'C',
+                     'U': 'A',
+                     'R': 'Y',
+                     'Y': 'R',
+                     'K': 'M',
+                     'M': 'K',
+                     'S': 'W',
+                     'W': 'S',
+                     'B': 'V',
+                     'V': 'B',
+                     'D': 'H',
+                     'H': 'D',
+                     'N': 'N'}
+NUCLEOTIDE_MAP = {
+    'A': ['A'], 'T': ['T'], 'C': ['C'], 'G': ['G'],
+    'U': ['T'],  # Uracile → Thymine
+    'R': ['G', 'A'], 'Y': ['C', 'T'], 'K': ['G', 'T'], 'M': ['A', 'C'],
+    'S': ['G', 'C'], 'W': ['A', 'T'], 'B': ['G', 'T', 'C'],
+    'D': ['G', 'T', 'A'], 'H': ['A', 'T', 'C'], 'V': ['G', 'A', 'C']
+}
+
+# Par défaut, un caractère inconnu peut être A, T, C ou G
+DEFAULT_NUC = ['A', 'T', 'C', 'G']
+
+
+
+def pattern_filter(substring: str, pattern: list[int]) -> str:
+    pattern_filtered = ''.join([char * pattern[i] for i, char in enumerate(substring)])
+    return pattern_filtered
+
+
+def revcomp(seq: str) -> str:
+    # reverse_complement = ''.join([compl[s] for s in string][::-1]) original
+    # reverse_complement = ''.join(map(ALL_COMPLEMENTS.get, reversed(string)))
+    reverse_complement =''.join(ALL_COMPLEMENTS[c] for c in reversed(seq))
+    return reverse_complement #seq.translate(COMP_TABLE)[::-1]
+
+#
+def process_ambiguous(counts):
+    counts = defaultdict(int, counts)  # Convertir counts en defaultdict(int)
+    modifications = []  # Stocker les nouvelles valeurs
+    to_remove = []  # Stocker les clés à supprimer
+
+    for key, count in counts.items():
+        list_of_keys = ['']
+        for x in key:
+            nuct = NUCLEOTIDE_MAP.get(x, DEFAULT_NUC)  # Liste des nucléotides possibles
+            list_of_keys = [new_key + n for new_key in list_of_keys for n in nuct]
+
+            # Normalisation : Répartir le compte entre toutes les combinaisons
+        kmer_number = count // len(list_of_keys)
+        modifications.extend((prob_key, kmer_number) for prob_key in list_of_keys)
+        to_remove.append(key)  # On supprime l'ancienne clé après l’itération
+
+    # Supprimer les anciennes clés en toute sécurité
+    for key in to_remove:
+        counts.pop(key, None)  # pop() évite les erreurs si la clé est absente
+
+    # Appliquer les nouvelles valeurs
+    for key, value in modifications:
+        counts[key] += value  # defaultdict évite .get(), code plus propre et rapide
+
+    return counts
+
+#
+# Fonction de lecture
+def read_genome(genome_path):
+    with open(genome_path, 'r', encoding='utf-8') as freader:
+        # genome_data = (str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta'))
+        return ''.join(str(fasta.seq).upper() for fasta in SeqIO.parse(freader, 'fasta'))
+
+
+def splitting(seq: str, read_size: int, max_sampling = None, shift_ratio = None) :
+    """Splits a lecture into subreads
     """
-    if compl is None:
-        compl = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}
-    try:
-        result = ''.join([compl[s] for s in string][::-1])
-    except IndexError as exc:
-        raise IndexError("Complementarity does not include all chars in sequence.") from exc
-    return result
+    if len(seq) < read_size:
+        raise ValueError("Read is too short.")
+    if shift_ratio is not None and max_sampling is not None:
+        raise ValueError("Provide either shift_ratio or max_sampling, not both.")
+
+    shift = int(shift_ratio * read_size) if shift_ratio else int((len(seq)-read_size)/max_sampling)
+    if shift <= 0 :
+        raise ValueError(f"Calculated shift {shift} must be positive.")
+    # for i in range(nb_win):
+    #     yield seq[shift*i:shift*i+read_size]
+    return islice((seq[i:i + read_size] for i in range(0, len(seq) - read_size + 1, shift)), max_sampling)
+
+def counter_kmer(read: str, pattern: list[int]) -> Counter:
+    """Counts all kmers and filter non-needed ones
+    """
+    kmer_size = len(pattern)
+
+    all_kmers = (read[i:i+kmer_size] for i in range(len(read)-kmer_size+1))
+    # counts = Counter(map(lambda i: read[i:i + kmer_size], range(len(read) - kmer_size + 1))) ## --
+    counts = Counter(all_kmers)
+    counts +=  Counter({revcomp(k): v for k, v in counts.items()}) #comptage avec reverse-complements.
+
+    # khmer_graph = Countgraph(kmer_size, starting_size=1e5,n_tables=4)
+    # counts = defaultdict(int)
+    # for i in range(len(read) - kmer_size + 1):
+    #     kmer = read[i:i + kmer_size]
+    #     if khmer_graph.get(kmer):
+    #         counts[kmer] += 1
+    #
+    # # Prendre en compte le complément inverse
+    # for kmer, count in list(counts.items()):
+    #     rev_kmer = revcomp(kmer)
+    #     counts[rev_kmer] += count
+
+    if not all(pattern):
+        # All positions in pattern should not be kept, we apply filter
+        counts = Counter({pattern_filter(k, pattern): v for k, v in counts.items()})
+
+    # suppression des homopolymères (AAAA, TTTT, etc.)
+    for base in "ATCG":
+        counts.pop(base * kmer_size, None)
+
+        # We treat cases where sequence alphabet is not ATCG, Gérer les nucléotides ambigus (RYKM...U).
+    # counts = dict(counts)  # Correction ici
+    counts_purged = process_ambiguous(counts)
+
+    return Counter(counts_purged)
