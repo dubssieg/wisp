@@ -9,8 +9,10 @@ sys.path.append('../../..')
 TAXO_LEVELS =  ['phylum', 'class', 'order', 'family']
 
 class RefSeqDataset:
-    def __init__(self, index_csv, datadir, logger=None):
+    def __init__(self, index_csv, datadir, logger=None, cut=None):
         self.index_with_label = pd.read_csv(index_csv, sep='\t')
+        if cut:
+            self.index_with_label = self.index_with_label.head(cut)
         self.datadir = datadir
         self.logger = logger
         self.pairing_label_to_file()
@@ -65,9 +67,6 @@ class RefSeqDataset:
         """Permet l'itération sur les éléments de l'index_with_label."""
         for idx in range(len(self.index_with_label)):
             yield self[idx]
-
-
-
 
 
 if __name__ == '__main__':

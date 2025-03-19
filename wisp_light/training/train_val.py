@@ -16,7 +16,7 @@ from wisp.wisp_light.dataset.refSeqDataset import RefSeqDataset
 # from wisp.wisp_light.dataset.bactero_set import BacteriaDataset
 
 parser = argparse.ArgumentParser(description="Script d'entraînement pour le modèle bactérien.")
-parser.add_argument("--exp_name", type=str, default="model_ref", help="Nom de l'expérience.")
+parser.add_argument("--exp_name", type=str, default="model_test_speed", help="Nom de l'expérience.")
 parser.add_argument("--datadir", type=str, default="/projects/microtaxo/data/refseq_with_taxo_merged", help="Répertoire des données.")
 parser.add_argument("--params_file", type=str, default="params.yaml", help="Chemin du fichier de paramètres.")
 parser.add_argument("--exp_rootdir", type=str, default=os.path.abspath('../../exp/'), help="Répertoire racine des expériences.")
@@ -63,6 +63,10 @@ params_copy_path = os.path.join(exp_dir, "params.yaml")
 with open(params_copy_path, 'w') as f:
     yaml.safe_dump(params, f)
 
+
+print(f" nb core cpu {os.cpu_count()} , counting kmer with max_workers_trainval {params['max_workers_trainval']} "
+      f"max_workers_db {params['max_workers_db']}")
+
 with mlflow.start_run():
     mlflow.log_params(params)
 
@@ -71,7 +75,7 @@ with mlflow.start_run():
     # dataset = BacteriaDataset(args.datadir, logger)
     # dataset.filter_family_by_min_species(min_family_threshold=params['min_family_threshold'],
     #                                      max_family_repr=params['max_family_repr'])
-    dataset = RefSeqDataset(args.index_csv, args.datadir, logger)
+    dataset = RefSeqDataset(args.index_csv, args.datadir, logger, cut=200)
 
     train_dataset, val_dataset = dataset.split(test_size=params['test_size'], random_state=params['random_state'],
                                                family_strat=params['family_strat'])
@@ -85,14 +89,14 @@ with mlflow.start_run():
         logger.info(f"Starting database creation for {len(train_dataset)} genome files ")
         start_database = time.time()
         database_json = os.path.join(exp_dir, 'databases.json')
-        phylo_tree = build_database(train_dataset, params, database_json, logger)
+        phylo_tree = build_database(train_dataset, params, database_json, logger,max_workers=params['max_workers_db'])
         database_time = round((time.time() - start_database))
         logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
         mlflow.log_metric("database_time", database_time)
 
-    train_model_targets(phylo_tree,  exp_dir, params, logger, num_processes=params['num_processes'])
+    train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=params['max_workers_trainval'])
     #
-    validate(val_dataset, exp_dir, params,logger, num_processes=params['num_processes'])
+    validate(val_dataset, exp_dir, params, logger, max_workers=params['max_workers_trainval'])
 
 
 

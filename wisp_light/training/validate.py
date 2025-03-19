@@ -63,4 +63,4 @@ with mlflow.start_run():
 
 
     # train_model_targets(phylo_tree,  exp_dir, params, logger, num_processes=params['num_processes'])
-    validate(val_files_list, exp_dir, params,logger, num_processes=params['num_processes'])
+    validate(val_files_list, exp_dir, params, logger, max_workers=params['num_processes'])

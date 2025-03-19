@@ -1,7 +1,7 @@
 #DATA:
 read_size: 10000 # taille des fenêtres dans le génom dans lequel ce fait le comptage
-max_sampling: null # nombres de fenetres dans un génome .fna,  # if null, shift_ratio should be specified
-shift_ratio: 0.5  # if null, max_sampling should be specified
+max_sampling: 100 # nombres de fenetres dans un génome .fna,  # if null, shift_ratio should be specified
+shift_ratio: null  # if null, max_sampling should be specified
 ksize: 4 # taille des kmers
 pattern: # motif à prendre en compte dans le kmer
   - 1
@@ -15,9 +15,9 @@ family_strat: False  # -> Only for RefSeqDataset
 min_family_threshold: 10 # minimum davg_nb_count_wine représentant espèce par famille -> Only for BacteriaDataset
 max_family_repr: inf # maximum de représentant espèce par famille  -> Only for BacteriaDataset
 
-
+max_workers_db: 16
+max_workers_trainval: 4
 #MODEL XGBOOST: params
-num_processes: 2
 eval_metric: mlogloss
 tree_method: hist
 device: cpu

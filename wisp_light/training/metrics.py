@@ -68,8 +68,10 @@ class ConfusionMatrixTracker:
 
         Returns:
             dict: {niveau: matrice de confusion sous forme de DataFrame}
+
         """
-        return {level: self.get_confusion_matrix(level) for level in self.true_labels if self.true_labels[level]}
+        result = {level: self.get_confusion_matrix(level) for level in self.true_labels if self.true_labels[level]}
+        return result
 
 
 def compute_accuracy_from_conf_matrix_df(conf_mat_level):
