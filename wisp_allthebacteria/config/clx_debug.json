@@ -15,9 +15,9 @@
         "window_size": 10000,
         "step": 8000,
         "create_db_workers": "max_minus_2",
-        "async_insertion": false,
+        "db_insert_threads": "max_minus_2",
         "fanout_shards": 4,
-        "fasta_batch_size": 100,
+        "fasta_batch_size": 100,        
         "compressed": true
     },
     "model":{
