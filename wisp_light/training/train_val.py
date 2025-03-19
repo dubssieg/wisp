@@ -64,7 +64,8 @@ with open(params_copy_path, 'w') as f:
     yaml.safe_dump(params, f)
 
 
-print(f" nb core cpu {os.cpu_count()} , counting kmer with max_workers {params['max_workers']}")
+print(f" nb core cpu {os.cpu_count()} , counting kmer with max_workers_trainval {params['max_workers_trainval']}"
+      f"max_workers_db {params['max_workers_db']}")
 
 with mlflow.start_run():
     mlflow.log_params(params)
