@@ -210,7 +210,6 @@ class Database:
         ]
 
 
-# sync version
 class DatabaseBuilder(Database):
     def __init__(
         self,
@@ -224,6 +223,7 @@ class DatabaseBuilder(Database):
         insert_threads: int,
         compressed: bool,
         fasta_batch_size: int | None = None,
+        merged_data_as_db: bool = False,
     ):
         LOG.debug(f"DatabaseBuilder({locals()})")
         super().__init__(
@@ -238,6 +238,7 @@ class DatabaseBuilder(Database):
         self._reader = reader
         self._fasta_batch_size = fasta_batch_size
         self._insert_threads = insert_threads
+        self._merged_data_as_db = merged_data_as_db
         self.clean()
 
     def clean(self):
@@ -279,6 +280,7 @@ class DatabaseBuilder(Database):
             full=self._full,
             batch_size=self._fasta_batch_size,
             compressed=self._compressed,
+            merged_data_as_db=self._merged_data_as_db,
         )
 
         self._push_merged_data(data)
@@ -297,7 +299,8 @@ class DatabaseBuilder(Database):
         )
 
         last_valid_ids = {}
-        is_db = "tmp_dir" in data
+        insert_counter = 0
+        is_db = data["tmp_dir"] is not None
 
         # 1 - update counters & sources
         with concurrent.futures.ThreadPoolExecutor(
@@ -314,6 +317,8 @@ class DatabaseBuilder(Database):
                 try:
                     tax_id, last_valid_id = future.result()
                     last_valid_ids[tax_id] = last_valid_id
+                    insert_counter += 1
+                    LOG.debug(f"DB insertions: {insert_counter} / {len(merged_data)}")
                 except Exception:
                     LOG.exception(
                         f"Pushing counters & sources to DB for tax_id {tax_id}"

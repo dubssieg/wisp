@@ -37,6 +37,7 @@ class Reader:
         full: bool = False,
         batch_size: int | None = None,
         compressed: bool = False,
+        merged_data_as_db: bool = False,
     ) -> dict:
         """Just call process_archive of process_fasta, based on file suffix."""
         file_path = Path(file_path).resolve()
@@ -50,6 +51,7 @@ class Reader:
                 full=full,
                 batch_size=batch_size,
                 compressed=compressed,
+                return_db=merged_data_as_db,
             )
         elif suffix == ".fa":
             return self.process_fasta(
@@ -71,7 +73,7 @@ class Reader:
         full: bool = False,
         batch_size: int = None,
         compressed: int = False,
-        return_db: bool = True,  # TODO: test backw comp + conf
+        return_db: bool = True,
     ):
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()

@@ -89,6 +89,7 @@ def create_db(conf: dict):
             fasta_batch_size=conf["db"]["fasta_batch_size"],
             insert_threads=num_threads,
             compressed=conf["db"]["compressed"],
+            merged_data_as_db=conf["db"]["merged_data_as_db"],
         )
 
         json_create_db_path = db.get_db_path() / "create_db.json"
