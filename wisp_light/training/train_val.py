@@ -75,7 +75,7 @@ with mlflow.start_run():
     # dataset = BacteriaDataset(args.datadir, logger)
     # dataset.filter_family_by_min_species(min_family_threshold=params['min_family_threshold'],
     #                                      max_family_repr=params['max_family_repr'])
-    dataset = RefSeqDataset(args.index_csv, args.datadir, logger)
+    dataset = RefSeqDataset(args.index_csv, args.datadir, logger, cut=200)
 
     train_dataset, val_dataset = dataset.split(test_size=params['test_size'], random_state=params['random_state'],
                                                family_strat=params['family_strat'])
