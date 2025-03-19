@@ -1,3 +1,4 @@
+import gc
 import json
 import logging
 import os
@@ -10,7 +11,8 @@ from metadata import Metadata
 from reader import Reader
 from api import API
 from model import XGBoostModel
-from database import Database, DataBaseBuilder
+from database import Database, DatabaseBuilder
+from dataset import Dataset
 from utils import (
     SystemStatsLogger,
     format_duration,
@@ -54,7 +56,7 @@ RANKS = [
 
 def create_db(conf: dict):
     LOG.info("create_db")
-    with SystemStatsLogger(interval=60, pid=os.getpid()):  # TODO: conf + level
+    with SystemStatsLogger(interval=30, pid=os.getpid()):  # TODO: conf + level
         input_path = Path(conf["allthebacteria"]["assembly_dir"])
         output_path = Path(conf["db"]["path"])
         metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
@@ -71,16 +73,24 @@ def create_db(conf: dict):
         )
         md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
         num_workers = cpu_count(conf["db"]["create_db_workers"])
-        LOG.info(f"Max CPUs: {cpu_count('max')}, using {num_workers} workers")
-        reader = Reader(md, num_workers=num_workers, logger_config=conf["log"])
+        num_threads = cpu_count(conf["db"]["db_insert_threads"])
+        LOG.info(
+            f"Max CPUs: {cpu_count('max')}, using {num_workers} fasta workers and {num_threads} DB insertion threads"
+        )
+        reader = Reader(md, num_workers=num_workers)
 
-        db = DataBaseBuilder(
+        db = DatabaseBuilder(
             kmer_size=conf["db"]["kmer_size"],
             window_size=conf["db"]["window_size"],
             step=conf["db"]["step"],
             full=conf["db"]["full"],
             dbs_path=output_path,
+            fanout_shards=conf["db"]["fanout_shards"],
             reader=reader,
+            fasta_batch_size=conf["db"]["fasta_batch_size"],
+            insert_threads=num_threads,
+            compressed=conf["db"]["compressed"],
+            merged_data_as_db=conf["db"]["merged_data_as_db"],
         )
 
         json_create_db_path = db.get_db_path() / "create_db.json"
@@ -97,13 +107,12 @@ def create_db(conf: dict):
 
         try:
             for i, archive_path in tqdm(
-                enumerate(archives), desc=f"Processing {input_path} -> {output_path}"
+                enumerate(archives),
+                desc=f"Processing {input_path} -> {output_path}",
+                total=len(archives),
             ):
                 LOG.debug(f"=== [{i+1} / {len(archives)}] {archive_path.name} ===")
                 archive_str = str(archive_path)
-
-                # if archive_str in complete:
-                #     continue
 
                 start_time = time.time()
 
@@ -114,7 +123,9 @@ def create_db(conf: dict):
                     if db.has_archive(archive_path):
                         LOG.warning(f"{archive_path.name} already in DB, skipping.")
                     else:
+
                         db.push_file(archive_path)
+                        gc.collect()
 
                     complete.add(archive_str)
                     incomplete.discard(archive_str)
@@ -143,12 +154,6 @@ def create_db(conf: dict):
             LOG.exception(f"Error processing {archive_path.name}")
             raise
 
-        finally:
-            LOG.info("Waiting for last DB insertions")
-            db.wait_for_completion()
-            db.stop_worker()
-            LOG.info("DB queue is empty")
-
     LOG.info("create_db -> DONE")
 
 
@@ -161,6 +166,8 @@ def db_info(conf: dict):
         step=conf["db"]["step"],
         full=conf["db"]["full"],
         dbs_path=conf["db"]["path"],
+        compressed=conf["db"]["compressed"],
+        fanout_shards=conf["db"]["fanout_shards"],
     )
 
     print(db.get_info(as_str=True))
@@ -190,7 +197,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
         use_gpu=conf["model"]["gpu"],
         scientific_name=conf["model"]["scientific_name"],
     )
-    db = Database(path=Path(conf["db"]["output_dir"]), api=api)
+    db = Database(path=Path(conf["db"]["output_dir"]))
     batch_size = conf["model"]["batch_size"]
     # dmat_generator = db.make_dmatrix(
     #     rank=rank,
@@ -284,29 +291,47 @@ def import_apt_cache(conf: dict):
     ).import_db()
 
 
-def debug():
+def debug(conf):
     """debugging, ignore it"""
     LOG.info("debug")
-    api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", can_download=True)
-    md = Metadata(
-        csv_path="/data/microtaxo/allthebacteria_sample/metadata/ena_metadata.tsv",
-        api=api,
-        start_loaded=False,
+
+    api = API(
+        api_cache_dir=conf["api"]["cache_dir"],
+        email=conf["api"]["email"],
+        can_download=conf["api"]["can_download"],
+        preload=False,
     )
-    reader = Reader(md, num_workers=8)
+
     db = Database(
-        kmer_size=4,
-        window_size=10000,
-        step=5000,
-        full=False,
-        dbs_path="/data/microtaxo/dbs",
-        reader=reader,
+        kmer_size=conf["db"]["kmer_size"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=conf["db"]["path"],
+        fanout_shards=conf["db"]["fanout_shards"],
+        compressed=conf["db"]["compressed"],
     )
-    db.get_info()
-    db.push_file(
-        "/data/microtaxo/allthebacteria_sample/assembly/actinobacillus_lignieresii__01.asm.tar.xz"
-    )
-    pass
+
+    ds = Dataset(database=db, api=api)
+    tids = ds._get_tax_ids_by_rank("phylum")
+    res = {}
+    for rank_tax_id, tax_ids in tids.items():
+        res[rank_tax_id] = ds.analyse_ranks(tax_ids)
+
+    print(res)
+
+    # ds.by_rank_generator("phylum")
+
+    # print(db.get_info(as_str=True))
+    # tids = ds._get_tax_ids_by_rank("phylum")
+    # res = dict()
+    # for rank_tax_id, tax_ids in tids.items():
+    #     sids = list(db.tax_ids_to_sample_ids_generator(tax_ids))
+    #     res[rank_tax_id] = sids
+
+    # print({k: len(v) for k, v in res.items()})
+
+    # pass
 
     # mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
 
@@ -441,7 +466,7 @@ if __name__ == "__main__":
     config_logger(**conf["log"])
 
     if args.debug:
-        debug()
+        debug(conf)
         sys.exit("debug")
 
     if args.populate_api_cache:
