@@ -28,15 +28,22 @@ revcomp_seq = seq.reverse_complement()
 
 MOINSBIEN 24 s 
 ### genouest
-avec 16 multiprocess en db et train_val 
- srun --pty --cpus-per-task=16 --mem=50G bash
+srun --pty --cpus-per-task=16 --mem=50G bash
 [hcourtei@cl1n041] CPUS(A/I/O/T) 48/24/0/72 Memory 772432
  nb 196 into train :176 val: 20
 avg_nb_count_win 100 avg_dna_length 4 042 976
-Database successfully built in 44 s
+
+- avec 16 multiprocess en db et train_val 
+Database successfully built in 36 s 
 long pour le reste
 
+- Avec 4 multithread pour trainval
+Database successfully built in 36 s
+Finished make_model in 18 s 
+Finished validation  in 22 s
 
+- Avec 8 multithread pour trainval
+des échecs de train sur certains noeud du modèles ... 
 
 ## make env
 depuis le répertoire wisp_light

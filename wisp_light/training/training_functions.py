@@ -132,7 +132,7 @@ def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, metri
         genome_data = {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')}
 
     sequences = [(id_sequence, dna_sequence) for id_sequence, dna_sequence in genome_data.items()]
-    partial_pred = partial(prediction, tree=phylo_tree, model_dir=model_dir, params=params, val_dir=val_dir)
+    partial_pred = partial(prediction, tree=phylo_tree, model_dir=model_dir, params=params, val_dir=val_dir, logger=logger)
 
     prediction_results = []
     file_error_plylum = open(f"{val_dir}/error_phylum_val.txt", "a")

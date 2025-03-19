@@ -4,13 +4,12 @@
 #SBATCH --output=slurm/trainBio_%j.txt     # Fichier de sortie
 #SBATCH --error=slurm/trainBio_%j.err
 #SBATCH --ntasks=1               # Nombre de tâches
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=16
 #SBATCH --time=2-00:00:00        # Durée maximale (2 jours)
+#SBATCH --mem=50G
+#SBATCH --mail-user=hermann.courteille@irisa.fr
+#SBATCH --mail-type=END,FAIL
 #SBATCH --mem-per-cpu=20000	 # Mémoire par CPU
-
-##SBATCH --mem=80G
-##SBATCH --mail-user=siegfried.dubois@irisa.fr
-##SBATCH --mail-type=END,FAIL
 
 # sourcing conda
 . /local/env/envconda.sh

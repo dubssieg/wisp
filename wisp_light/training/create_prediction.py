@@ -49,7 +49,7 @@ def build_sample(params: dict, dna_sequence: str, id_sequence: str, sample_outpu
             jdb.write(f"0 {' '.join([str(k)+':'+str(v) for k,v in sample.items()])} #{id_sequence}\n")
             # Each read is a dict with code:count for kmer
 
-def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_dir:str, val_dir) ->list:
+def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_dir, val_dir, logger) ->list:
     """Creates a prediction for a read.
 
     Args:
@@ -68,8 +68,9 @@ def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_di
     sample_output_path = f"{val_dir}/temp/{file}"
     build_sample(params, dna_sequence, id_sequence, sample_output_path)
     # Evaluate at one level
-    results: list[dict] = [{} for _ in range(5)]
+    results: list[dict] = [{} for _ in range(5)] # FIXME  : why 5
     kept_taxas = ['Root']
+
     for id_level, level in enumerate(['root'] + TAXO_LEVELS[:-1]):
         mappings_taxa = {node.data.code: node.tag for node in tree.filter_nodes(lambda x: tree.depth(x) == id_level+1)}
         # Use the tree to select next level
@@ -77,7 +78,7 @@ def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_di
             if taxa.tag not in kept_taxas:
                 continue  # On ignore les taxons non sélectionnés
             if taxa.data.model_path is None:
-                print(f"⚠️ Avertissement: Aucun modèle pour {taxa.tag} (niveau {level})")
+                logger.info(f"⚠️ Avertissement: Aucun modèle pour {taxa.tag} (niveau {level}) taxa.tag {taxa.tag}")
                 continue
 
             model_path = os.path.join(model_dir, taxa.data.model_path)
