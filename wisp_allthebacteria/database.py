@@ -109,10 +109,9 @@ class Database:
             tax_ids = [tax_ids]
         random_instance = random.Random(seed)
 
-        # db_info = self.get_info()
-
         LOG.debug(f"Initializing sample generator using {len(tax_ids)} tax_ids")
-        counts = [self.count(tax_id) for tax_id in tax_ids]
+        db_info = self.get_info()
+        counts = [db_info["counters"][tax_id] for tax_id in tax_ids]
         total_samples = sum(counts)
         weights = [count / total_samples for count in counts]
 
@@ -166,6 +165,7 @@ class Database:
         """Get DB infos: tax_ids, number of counters, etc."""
         info = self.get_index(IDX_DB_INFO)
         if not info:
+            LOG.debug("Computing DB infos...")
             # tax_ids
             tax_ids = self.get_tax_ids()
 
@@ -179,6 +179,7 @@ class Database:
 
             # path
             info = {"tax_ids": tax_ids, "archives": archives, "counters": counters}
+            LOG.debug("DB infos - DONE")
             self.set_index(IDX_DB_INFO, info)
 
         if as_str:

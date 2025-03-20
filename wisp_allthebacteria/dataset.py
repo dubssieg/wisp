@@ -12,7 +12,8 @@ from utils import hash
 
 LOG = logging.getLogger(__name__)
 
-ANALYSIS = "_analysis_"
+IDX_ANALYSIS = "_analysis_"
+IDX_TID_BY_RANK = "_tid_by_rank_"
 
 
 class Dataset:
@@ -32,7 +33,7 @@ class Dataset:
         if isinstance(tax_ids, int):
             tax_ids = [tax_ids]
 
-        idx_key = (ANALYSIS, hash(tax_ids))
+        idx_key = (IDX_ANALYSIS, hash(tax_ids))
         analysis_result = self._db.get_index(idx_key)
         if not analysis_result:
             LOG.debug(f"Analysing {len(tax_ids)} tax_ids")
@@ -98,7 +99,8 @@ class Dataset:
 
         # total samples and weights for each rank_tax_id
         rank_tax_ids = list(tax_ids_by_rank.keys())
-        counts = [self._db.count(tax_ids) for tax_ids in tax_ids_by_rank.values()]
+        db_info = self._db.get_info()
+        counts = [db_info["counters"][tax_ids] for tax_ids in tax_ids_by_rank.values()]
         total_samples = sum(counts)
         weights = [count / total_samples for count in counts]
 
@@ -182,15 +184,20 @@ class Dataset:
         }
 
     def _get_tax_ids_by_rank(self, rank: str) -> dict[int, list[int]]:
-        rank_mapping = defaultdict(list)
-        for tax_id in self._db.get_tax_ids():
-            lineage_ex = self._api[tax_id].get("LineageEx", [])
-            for entry in lineage_ex:
-                if entry["Rank"] == rank:
-                    rank_mapping[int(entry["TaxId"])].append(tax_id)
-                    break
+        idx_key = (IDX_TID_BY_RANK, rank)
+        rank_mapping = self._db.get_index(idx_key)
+        if not rank_mapping:
+            rank_mapping = defaultdict(list)
+            for tax_id in self._db.get_tax_ids():
+                lineage_ex = self._api[tax_id].get("LineageEx", [])
+                for entry in lineage_ex:
+                    if entry["Rank"] == rank:
+                        rank_mapping[int(entry["TaxId"])].append(tax_id)
+                        break
+            rank_mapping = dict(rank_mapping)
+            self._db.set_index(idx_key, rank_mapping)
 
-        return dict(rank_mapping)
+        return rank_mapping
 
     def _counter_to_row(self, counter: dict, normalize: str) -> np.array:
         row = np.zeros(len(self._column_names))
