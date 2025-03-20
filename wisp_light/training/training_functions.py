@@ -170,6 +170,7 @@ def log_val_metrics(metrics, val_dir, logger):
     logger.info("VALIDATION metrics")
     metrics.build_taxonomy_df()
     level_sep = 'phylum'
+
     for id_level, level in enumerate(TAXO_LEVELS):
         conf_mat_level = metrics.get_confusion_matrix(level)
         accuracy_level = compute_accuracy_from_conf_matrix_df(conf_mat_level)

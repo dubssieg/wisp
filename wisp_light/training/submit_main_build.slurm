@@ -9,7 +9,7 @@
 #SBATCH --mem=60G
 #SBATCH --mail-user=hermann.courteille@irisa.fr
 #SBATCH --mail-type=END,FAIL
-#SBATCH --mem-per-cpu=20000	 # Mémoire par CPU
+##SBATCH --mem-per-cpu=20000	 # Mémoire par CPU
 
 # sourcing conda
 . /local/env/envconda.sh
