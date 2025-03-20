@@ -1,4 +1,5 @@
 from datetime import datetime
+import hashlib
 import logging
 from logging.handlers import RotatingFileHandler
 import os
@@ -8,6 +9,7 @@ import threading
 from typing import Any
 import concurrent.futures
 import zlib
+import numpy as np
 import psutil
 from tqdm.auto import tqdm
 
@@ -244,6 +246,15 @@ def cleanup_zombie_processes(pid: int | None = None):
                     f"Failed to terminate zombie process {child.pid}, forcing kill"
                 )
                 child.kill()
+
+
+def hash(data: Any) -> str:
+    if not isinstance(data, (tuple, list, np.array)):
+        data = [data]
+    hasher = hashlib.sha256()
+    for item in sorted(map(str, data)):
+        hasher.update(item.encode())
+    return hasher.hexdigest()
 
 
 if __name__ == "__main__":
