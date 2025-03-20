@@ -46,8 +46,9 @@ class Dataset:
             }
 
             for tax_id in tax_ids:
+                db_info = self._db.get_info()
                 # get sample count and additional information
-                sample_count = self._db.count(tax_id)
+                sample_count = db_info["counters"][tax_id]
                 tax_info = self._api[tax_id]
                 scientific_name = tax_info.get("ScientificName", "Unknown")
                 rank = tax_info.get("Rank", "Unknown")
@@ -86,6 +87,10 @@ class Dataset:
 
         return analysis_result
 
+    def total_samples(self) -> int:
+        db_info = self._db.get_info()
+        return db_info["total_samples"]
+
     def labels(self, rank: str) -> list[str]:
         """All labels in this DB, for this rank"""
         return list(self._get_tax_ids_by_rank(rank).keys())
@@ -100,7 +105,10 @@ class Dataset:
         # total samples and weights for each rank_tax_id
         rank_tax_ids = list(tax_ids_by_rank.keys())
         db_info = self._db.get_info()
-        counts = [db_info["counters"][tax_ids] for tax_ids in tax_ids_by_rank.values()]
+        counts = [
+            sum(db_info["counters"][tax_id] for tax_id in tax_ids)
+            for tax_ids in tax_ids_by_rank.values()
+        ]
         total_samples = sum(counts)
         weights = [count / total_samples for count in counts]
 
