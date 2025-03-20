@@ -1,5 +1,5 @@
 from collections import defaultdict
-from itertools import cycle, product
+from itertools import product
 import logging
 import random
 from typing import Generator
@@ -8,8 +8,11 @@ import xgboost as xgb
 from pathlib import Path
 from database import Database
 from api import API
+from utils import hash
 
 LOG = logging.getLogger(__name__)
+
+ANALYSIS = "_analysis_"
 
 
 class Dataset:
@@ -23,63 +26,75 @@ class Dataset:
             name: index for index, name in enumerate(self._column_names)
         }
 
-    def analyse(self, tax_ids: int | list[int]) -> dict:
+    def analyse(self, tax_ids: int | list[int] | None = None) -> dict:
+        if tax_ids is None:
+            tax_ids = self._db.get_tax_ids()
         if isinstance(tax_ids, int):
             tax_ids = [tax_ids]
 
-        analysis_result = {
-            "samples": {},
-            "total_samples": 0,
-            "rank_counts": defaultdict(
-                lambda: defaultdict(lambda: {"count": 0, "tax_id": None})
-            ),
-        }
-
-        for tax_id in tax_ids:
-            # get sample count and additional information
-            sample_count = self._db.count(tax_id)
-            tax_info = self._api[tax_id]
-            scientific_name = tax_info.get("ScientificName", "Unknown")
-            rank = tax_info.get("Rank", "Unknown")
-            division = tax_info.get("Division", "Unknown")
-
-            # store sample information
-            analysis_result["sample"][tax_id] = {
-                "scientific_name": scientific_name,
-                "rank": rank,
-                "division": division,
-                "count": sample_count,
+        idx_key = (ANALYSIS, hash(tax_ids))
+        analysis_result = self._db.get_index(idx_key)
+        if not analysis_result:
+            LOG.debug(f"Analysing {len(tax_ids)} tax_ids")
+            analysis_result = {
+                "samples": {},
+                "total_samples": 0,
+                "rank_counts": defaultdict(
+                    lambda: defaultdict(lambda: {"count": 0, "tax_id": None})
+                ),
             }
-            analysis_result["total_samples"] += sample_count
 
-            # lineage information (ranks)
-            lineage_ex = tax_info.get("LineageEx", [])
+            for tax_id in tax_ids:
+                # get sample count and additional information
+                sample_count = self._db.count(tax_id)
+                tax_info = self._api[tax_id]
+                scientific_name = tax_info.get("ScientificName", "Unknown")
+                rank = tax_info.get("Rank", "Unknown")
+                division = tax_info.get("Division", "Unknown")
 
-            # count the number of elements for each parent rank
-            for entry in lineage_ex:
-                parent_rank = entry["Rank"]
-                parent_scientific_name = entry["ScientificName"]
-                parent_tax_id = int(entry["TaxId"])
+                # store sample information
+                analysis_result["samples"][tax_id] = {
+                    "scientific_name": scientific_name,
+                    "rank": rank,
+                    "division": division,
+                    "count": sample_count,
+                }
+                analysis_result["total_samples"] += sample_count
 
-                # update the rank_counts structure
-                analysis_result["rank_counts"][parent_rank][parent_scientific_name][
-                    "count"
-                ] += sample_count
-                analysis_result["rank_counts"][parent_rank][parent_scientific_name][
-                    "tax_id"
-                ] = parent_tax_id
+                # lineage information (ranks)
+                lineage_ex = tax_info.get("LineageEx", [])
 
-        analysis_result["rank_counts"] = {
-            k: dict(v) for k, v in analysis_result["rank_counts"].items()
-        }
+                # count the number of elements for each parent rank
+                for entry in lineage_ex:
+                    parent_rank = entry["Rank"]
+                    parent_scientific_name = entry["ScientificName"]
+                    parent_tax_id = int(entry["TaxId"])
+
+                    # update the rank_counts structure
+                    analysis_result["rank_counts"][parent_rank][parent_scientific_name][
+                        "count"
+                    ] += sample_count
+                    analysis_result["rank_counts"][parent_rank][parent_scientific_name][
+                        "tax_id"
+                    ] = parent_tax_id
+
+            analysis_result["rank_counts"] = {
+                k: dict(v) for k, v in analysis_result["rank_counts"].items()
+            }
+            self._db.set_index(idx_key, analysis_result)
 
         return analysis_result
+
+    def labels(self, rank: str) -> list[str]:
+        """All labels in this DB, for this rank"""
+        return list(self._get_tax_ids_by_rank(rank).keys())
 
     def by_rank_generator(
         self, rank: str, batch_size: int, normalize: str | None = None, seed: int = 2025
     ) -> Generator[xgb.DMatrix, None, None]:
         LOG.debug(f"By rank generator for {rank=}, {batch_size=}, {normalize=}")
         tax_ids_by_rank = self._get_tax_ids_by_rank(rank)
+        self.labels_ = list(tax_ids_by_rank.keys())
 
         # total samples and weights for each rank_tax_id
         rank_tax_ids = list(tax_ids_by_rank.keys())
@@ -99,7 +114,7 @@ class Dataset:
 
         random_instance = random.Random(seed)
 
-        LOG.debug("By rank generator ready - first batch might be slower")
+        LOG.debug("By rank generator ready")
         while generators:
             # select a rank_tax_id based on the calculated weights
             rank_tax_id = random_instance.choices(rank_tax_ids, weights=weights, k=1)[0]
