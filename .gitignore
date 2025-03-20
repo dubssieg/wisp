@@ -136,3 +136,4 @@ sandbox.py
 .vscode/launch.json
 memo.txt
 wisp_allthebacteria/out/*
+wisp_allthebacteria/*_deprecated.py
