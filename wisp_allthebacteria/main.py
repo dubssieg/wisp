@@ -33,13 +33,12 @@ def create_db(conf: dict):
         input_path = Path(conf["allthebacteria"]["assembly_dir"])
         output_path = Path(conf["db"]["path"])
         metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
-        api_cache_path = Path(conf["api"]["cache_dir"])
         output_path.mkdir(parents=True, exist_ok=True)
 
         archives = list(input_path.glob("*.xz"))
 
         api = API(
-            api_cache_dir=api_cache_path,
+            api_cache_dir=conf["api"]["cache_dir"],
             email=conf["api"]["email"],
             can_download=conf["api"]["can_download"],
             preload=False,
@@ -154,30 +153,46 @@ def load_config(json_file: Path | str):
 
 def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int | None):
     LOG.info("train_model")
-    if rank not in RANKS:
-        raise ValueError(f"Invalid rank {rank}")
+    with SystemStatsLogger(interval=30, pid=os.getpid()):
+        if rank not in RANKS:
+            raise ValueError(f"Invalid rank {rank}")
 
-    if kfold is not None and kfold == -1:
-        kfold = conf["model"]["kfold"]
+        if save_path is None:
+            save_path = (
+                Path(conf["model"]["default_models_dir"])
+                / get_current_datetime_string()
+            )
 
-    api = API(
-        api_cache_dir=Path(conf["api"]["cache_dir"]),
-        email=conf["api"]["email"],
-        can_download=conf["api"]["can_download"],
-    )
-    model = XGBoostModel(
-        api=api,
-        use_gpu=conf["model"]["gpu"],
-        scientific_name=conf["model"]["scientific_name"],
-    )
-    db = Database(path=Path(conf["db"]["output_dir"]))
-    batch_size = conf["model"]["batch_size"]
-    # dmat_generator = db.make_dmatrix(
-    #     rank=rank,
-    #     sample_limit_by_tax_id=None,  # TODO
-    #     normalize=conf["model"]["normalize"],
-    #     batch_size=batch_size,
-    # )
+        api = API(
+            api_cache_dir=conf["api"]["cache_dir"],
+            email=conf["api"]["email"],
+            can_download=conf["api"]["can_download"],
+        )
+        database = Database(
+            kmer_size=conf["db"]["kmer_size"],
+            window_size=conf["db"]["window_size"],
+            step=conf["db"]["step"],
+            full=conf["db"]["full"],
+            dbs_path=conf["db"]["path"],
+            fanout_shards=conf["db"]["fanout_shards"],
+            compressed=conf["db"]["compressed"],
+        )
+
+        dataset = Dataset(database=database, api=api)
+        xgb_model = XGBoostModel(
+            rank=rank,
+            dataset=dataset,
+            batch_size=conf["model"]["batch_size"],
+            normalize=conf["model"]["normalize"],
+            api=api,
+        )
+
+        max_batches = xgb_model.available_batches_count()
+        xgb_model.train(1000)
+
+        xgb_model.save(save_path)
+        xgb_model.evaluate(200)
+
     # dgf = DMatrixGeneratorFactory(
     #     database=db,
     #     rank=rank,
@@ -186,20 +201,20 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
     #     batch_size=batch_size,
     #     max_samples=conf["model"]["max_samples"],
     # )
-    dmat = db.make_dmatrix(
-        rank=rank,
-        normalize=conf["model"]["normalize"],
-    )
-    tax_id_classes = db.get_tax_id_classes(rank)
+    # dmat = db.make_dmatrix(
+    #     rank=rank,
+    #     normalize=conf["model"]["normalize"],
+    # )
+    # tax_id_classes = db.get_tax_id_classes(rank)
 
-    report = model.train(
-        # dtrain=dmat_generator,
-        # dtrain_factory=dgf,
-        dtrain=dmat,
-        tax_id_classes=tax_id_classes,
-        kfold=kfold,
-        num_boost_round=conf["model"]["num_boost_round"],
-    )
+    # report = model.train(
+    #     # dtrain=dmat_generator,
+    #     # dtrain_factory=dgf,
+    #     dtrain=dmat,
+    #     tax_id_classes=tax_id_classes,
+    #     kfold=kfold,
+    #     num_boost_round=conf["model"]["num_boost_round"],
+    # )
     # train mode
     if kfold is None:
         if save_path is None:

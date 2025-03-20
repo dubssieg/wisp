@@ -151,15 +151,17 @@ class Dataset:
             if len(data_batch) >= batch_size:
                 dmatrix = self._data2DMatrix(data_batch, labels_batch)
                 batch_count += 1
-                LOG.debug(f"Sending batch {batch_count} - {len(labels_batch)} rows")
+                LOG.debug(f"Sending batch {batch_count} - {len(labels_batch)} samples")
                 yield dmatrix
                 data_batch = []
                 labels_batch = []
 
-        # Yield any remaining data as a final DMatrix
+        # yield any remaining data as a final DMatrix
         if data_batch:
             dmatrix = self._data2DMatrix(data_batch, labels_batch)
-            LOG.debug(f"Sending (last) batch {batch_count} - {len(labels_batch)} rows")
+            LOG.debug(
+                f"Sending (last) batch {batch_count} - {len(labels_batch)} samples"
+            )
             yield dmatrix
 
     @staticmethod
