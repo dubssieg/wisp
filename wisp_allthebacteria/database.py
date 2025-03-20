@@ -5,7 +5,7 @@ import shutil
 import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import Generator, Literal
+from typing import Any, Generator, Literal
 
 from diskcache import FanoutCache
 from reader import Reader
@@ -45,6 +45,8 @@ RANKS = [
     "serogroup",
     "serotype",
 ]
+
+IDX_DB_INFO = "_idx_db_info_"
 
 
 class Database:
@@ -107,6 +109,8 @@ class Database:
             tax_ids = [tax_ids]
         random_instance = random.Random(seed)
 
+        # db_info = self.get_info()
+
         LOG.debug(f"Initializing sample generator using {len(tax_ids)} tax_ids")
         counts = [self.count(tax_id) for tax_id in tax_ids]
         total_samples = sum(counts)
@@ -160,20 +164,22 @@ class Database:
 
     def get_info(self, as_str=False) -> dict:
         """Get DB infos: tax_ids, number of counters, etc."""
-        # tax_ids
-        tax_ids = self.get_tax_ids()
+        info = self.get_index(IDX_DB_INFO)
+        if not info:
+            # tax_ids
+            tax_ids = self.get_tax_ids()
 
-        # archives pushed
-        md_db = self._get_db(db_type="md")
-        archives = md_db.get(ARCHIVES, [])
+            # archives pushed
+            archives = self.get_archives()
 
-        # counters for each tax_id
-        counters = {}
-        for tax_id in tax_ids:
-            counters[tax_id] = self._get_last_valid_id(tax_id) + 1
+            # counters for each tax_id
+            counters = {}
+            for tax_id in tax_ids:
+                counters[tax_id] = self.count(tax_id)
 
-        # path
-        info = {"tax_ids": tax_ids, "archives": archives, "counters": counters}
+            # path
+            info = {"tax_ids": tax_ids, "archives": archives, "counters": counters}
+            self.set_index(IDX_DB_INFO, info)
 
         if as_str:
             info_lines = []
@@ -208,10 +214,31 @@ class Database:
 
         return info
 
+    def set_index(self, key: Any, value: Any) -> None:
+        """Everything indexed will be deleted next time a file is pushed on DB"""
+        LOG.debug(f"Add/update INDEX DB for {key=}")
+        in_db = self._get_db(db_type="index")
+        in_db[key] = value
+
+    def get_index(self, key: Any) -> Any:
+        """Indexed value or None"""
+        in_db = self._get_db(db_type="index")
+        return in_db.get(key, None)
+
+    def clear_index(self) -> None:
+        LOG.debug("Clearing INDEX DB...")
+        in_db = self._get_db(db_type="index")
+        in_db.clear()
+        LOG.debug("INDEX DB is now empty")
+
+    def get_archives(self) -> list[str]:
+        """Pushed archives"""
+        md_db = self._get_db(db_type="md")
+        return md_db.get(ARCHIVES, [])
+
     def has_archive(self, path: str | Path) -> bool:
         """Check if archive already was pushed in base."""
-        md_db = self._get_db(db_type="md")
-        return self._archive_stem(path) in md_db.get(ARCHIVES, [])
+        return self._archive_stem(path) in self.get_archives()
 
     def _archive_stem(self, path: str | Path) -> str:
         return Path(path).stem.split(".")[0]
@@ -335,6 +362,7 @@ class DatabaseBuilder(Database):
             merged_data_as_db=self._merged_data_as_db,
         )
 
+        self.clear_index()
         self._push_merged_data(data)
 
     def _push_merged_data(self, data):
@@ -378,8 +406,6 @@ class DatabaseBuilder(Database):
                     raise
 
         LOG.debug("All counters & sources added - ending transaction")
-        # end transaction
-        del md_db[CURRENT_TRANSACTION]
 
         # 2 - update MD
         with concurrent.futures.ThreadPoolExecutor(
@@ -402,6 +428,8 @@ class DatabaseBuilder(Database):
 
         archives.append(archive)
         md_db[ARCHIVES] = archives
+        # ending transaction
+        del md_db[CURRENT_TRANSACTION]
         LOG.debug("Transaction ended successfully")
 
         if is_db:
