@@ -169,6 +169,22 @@ def log_val_metrics(metrics, val_dir, logger):
     logger.info("=" * 60)
     logger.info("VALIDATION metrics")
 
+    metrics.build_taxonomy_df()
+    for level in TAXO_LEVELS:
+        conf_mat_level = metrics.get_confusion_matrix(level)
+        print(f"level {level} :\n", conf_mat_level)
+
+    print(metrics.taxonomy_df)
+    level_base = 'family'
+    level_sep = 'class'
+    separator_indices = metrics.calculate_separator_indices(level_1=level_sep, level_2=level_base)
+    print("Indices de séparation :", separator_indices)
+
+    conf_mat = metrics.get_confusion_matrix(level_base)
+    from wisp.wisp_light.visu.plots_tools import plot_conf_mat
+    plot_conf_mat(conf_mat, level_base, separator_indices, filename=None)
+
+
     for id_level, level in enumerate(TAXO_LEVELS):
         conf_mat_level = all_val_conf_matrix[level]
         accuracy_level = compute_accuracy_from_conf_matrix_df(conf_mat_level)
