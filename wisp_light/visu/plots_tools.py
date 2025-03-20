@@ -4,24 +4,30 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
 
-def plot_conf_mat(conf_mat,  level, filename=None):
+def plot_conf_mat(conf_mat,  level, separator_indices,  filename=None):
     fig, ax = plt.subplots(figsize=(8, 6))
     # Déterminer si on doit afficher les labels
-    afficher_labels = len(conf_mat) <= 15
+    show_label = len(conf_mat) <= 15
     # Création de la figure
     cmap = plt.cm.RdBu_r  # Colormap avec bon contraste
     norm = mcolors.PowerNorm(gamma=0.5)  # Accentue les différences des faibles valeurs
 
     title = f'Conf_mat for level {level}'
 
-    if afficher_labels:
+    if show_label:
         sns.heatmap(conf_mat, annot=True, fmt="d", cmap="Blues",
-                    xticklabels=afficher_labels, yticklabels=afficher_labels, ax=ax)
+                    xticklabels=show_label, yticklabels=show_label, ax=ax)
         plt.xticks(rotation=45, ha="right")  # Rotation des prédictions
         plt.yticks(rotation=45, va="top")  # Rotation des réels
     else:
         cax = ax.imshow(conf_mat, cmap=cmap, norm=norm, interpolation="nearest")    # Ajout des titres
         plt.colorbar(cax, ax=ax)
+
+    for idx in separator_indices:
+        if not show_label:
+            idx -= 0.5
+        ax.axvline(x=idx, color='red', linewidth=2, linestyle='--')  # Ligne verticale rouge
+        ax.axhline(y=idx, color='red', linewidth=2, linestyle='--')  # Ligne horiz
 
     plt.title(title)
     plt.xlabel("Prédit")
