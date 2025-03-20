@@ -9,7 +9,7 @@ pattern: # motif à prendre en compte dans le kmer
   - 1
   - 1
 
-test_size: 0.5 # pourcentage du split train/val
+test_size: 0.1 # pourcentage du split train/val
 random_state: 42 # seed pour xgboost, et le split train/val
 family_strat: False  # -> Only for RefSeqDataset
 min_family_threshold: 10 # minimum davg_nb_count_wine représentant espèce par famille -> Only for BacteriaDataset

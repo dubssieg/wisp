@@ -93,14 +93,17 @@ class ConfusionMatrixTracker:
         """
         if not hasattr(self, 'taxonomy_df'):
             raise AttributeError("L'attribut 'taxonomy_df' not present , call before self.build_taxonomy_df")
-        separator_indices = []
+        unique_df = self.taxonomy_df.drop_duplicates(subset=[level_2])
+
         # Trier le DataFrame selon le niveau inférieur
-        sorted_df = self.taxonomy_df.sort_values(by=[level_2]).reset_index(drop=True)
+        sorted_df = unique_df.sort_values(by=[level_2]).reset_index(drop=True)
+        separator_indices = []
+
         previous_level_1_value = None
         for i, row in sorted_df.iterrows():
             current_level_1_value = row[level_1]
             if previous_level_1_value is not None and current_level_1_value != previous_level_1_value:
-                separator_indices.append(i)  # Ajouter l'indice où phylum change
+                separator_indices.append(i)  # Ajouter l'indice où level_1 change
 
             previous_level_1_value = current_level_1_value
 

@@ -133,7 +133,7 @@ def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, metri
     with open(genome, 'r', encoding='utf-8') as freader:
         genome_data = {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')}
 
-    logger.info(f"File {os.path.basename(genome)} contains {len(genome_data)} sequences.")
+    logger.debug(f"File {os.path.basename(genome)} contains {len(genome_data)} sequences.")
     sequences = [(id_sequence, dna_sequence) for id_sequence, dna_sequence in genome_data.items()]
     partial_pred = partial(prediction, tree=phylo_tree, model_dir=model_dir, params=params, val_dir=val_dir, logger=logger)
 
@@ -165,28 +165,13 @@ def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, metri
 
 
 def log_val_metrics(metrics, val_dir, logger):
-    all_val_conf_matrix = metrics.get_all_confusion_matrices()
+    # all_val_conf_matrix = metrics.get_all_confusion_matrices()
     logger.info("=" * 60)
     logger.info("VALIDATION metrics")
-
     metrics.build_taxonomy_df()
-    for level in TAXO_LEVELS:
-        conf_mat_level = metrics.get_confusion_matrix(level)
-        print(f"level {level} :\n", conf_mat_level)
-
-    print(metrics.taxonomy_df)
-    level_base = 'family'
-    level_sep = 'class'
-    separator_indices = metrics.calculate_separator_indices(level_1=level_sep, level_2=level_base)
-    print("Indices de séparation :", separator_indices)
-
-    conf_mat = metrics.get_confusion_matrix(level_base)
-    from wisp.wisp_light.visu.plots_tools import plot_conf_mat
-    plot_conf_mat(conf_mat, level_base, separator_indices, filename=None)
-
-
+    level_sep = 'phylum'
     for id_level, level in enumerate(TAXO_LEVELS):
-        conf_mat_level = all_val_conf_matrix[level]
+        conf_mat_level = metrics.get_confusion_matrix(level)
         accuracy_level = compute_accuracy_from_conf_matrix_df(conf_mat_level)
         mlflow.log_metric(f"accuracy_{level}", accuracy_level)
         logger.info("-" * 20)
@@ -200,8 +185,10 @@ def log_val_metrics(metrics, val_dir, logger):
 
         conf_mat_level.to_csv(file_csv, sep=';', index=True)
         mlflow.log_artifact(file_csv)
+
+        separator_indices = metrics.calculate_separator_indices(level_1=level_sep, level_2=level)
         plot_path = file_csv.replace(".csv", ".png")
-        plot_conf_mat(conf_mat_level, level=level, filename=plot_path)
+        plot_conf_mat(conf_mat_level, level, separator_indices, filename=plot_path)
         mlflow.log_artifact(plot_path)
 
 

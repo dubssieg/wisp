@@ -55,7 +55,7 @@ for level in TAXO_LEVELS:
     print(f"level {level} :\n", conf_mat_level)
 
 print(metrics.taxonomy_df)
-level_base ='family'
+level_base ='order'
 level_sep = 'class'
 separator_indices = metrics.calculate_separator_indices(level_1=level_sep, level_2=level_base)
 print("Indices de séparation :", separator_indices)
