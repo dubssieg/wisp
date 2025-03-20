@@ -74,7 +74,7 @@ def build_database(train_dataset: list[str], params: dict, database_json: str , 
 
         total_dna_length = 0
         total_nb_count_win = 0
-        for id_genome, sample in (pbar:= tqdm(enumerate(train_dataset))):
+        for id_genome, sample in tqdm(enumerate(train_dataset), disable=not sys.stdout.isatty()):
             genome_path, taxonomy = sample
             dna_sequence = read_genome(genome_path)
             # pbar.set_description(f"Genome {path.basename(genome)}")

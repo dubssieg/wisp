@@ -116,13 +116,13 @@ def setup_logger(name: str, level=logging.INFO, log_file=None) -> logging.Logger
     format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%H:%M')
     logger = logging.getLogger(name)
     logger.setLevel(level)
-    handler = logging.StreamHandler()
+    handler = logging.StreamHandler(sys.stdout)
     # handler.setLevel(console_level)
     handler.setFormatter(format)#''%Y-%m-%d %H:%M:%S'))
     logger.addHandler(handler)
 
     if log_file:
-        print(log_file)
+        sys.stdout.write(log_file + "\n")
         file_handler = logging.FileHandler(log_file)
         file_handler.setLevel(level)
         file_handler.setFormatter(format)  # ''%Y-%m-%d %H:%M:%S'))

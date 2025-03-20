@@ -28,6 +28,7 @@ revcomp_seq = seq.reverse_complement()
 
 MOINSBIEN 24 s 
 ### genouest
+#### base test
 srun --pty --cpus-per-task=16 --mem=50G bash
 [hcourtei@cl1n041] CPUS(A/I/O/T) 48/24/0/72 Memory 772432
  nb 196 into train :176 val: 20
@@ -44,6 +45,24 @@ Finished validation  in 22 s
 
 - Avec 8 multithread pour trainval
 des échecs de train sur certains noeud du modèles ... 
+
+#### base complète , avec 16 multiprocess en db et 4 train_val 
+ Splitted dataset nb 18897 into train :17007 val: 1890
+avg_nb_count_win 100 avg_dna_length 4 513 875
+ - Database successfully built in 5268 s , 1.5h @ /projects/microtaxo/exp_refseq/model_base_index_03_19_17_01/databases.json 
+ - Finished make_model in 2614 s <1h: nb erreur 1 modèle sur 433 pour order=Spirulinales
+ - Finished validation  in 25347 s= 7h: pour 1890 génomes en test
+
+02:15 - train_val.py - INFO - --------------------
+02:15 - train_val.py - INFO -  level phylum, accuracy 0.970355
+02:15 - train_val.py - INFO - --------------------
+02:15 - train_val.py - INFO -  level class, accuracy 0.939024
+02:15 - train_val.py - INFO - --------------------
+02:15 - train_val.py - INFO -  level order, accuracy 0.876670
+02:15 - train_val.py - INFO - --------------------
+02:15 - train_val.py - INFO -  level family, accuracy 0.829728
+
+
 
 ## make env
 depuis le répertoire wisp_light

@@ -42,7 +42,7 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=4):
 
     make_model_partial = partial(make_model, exp_dir, database, params, logger)
     logger.info(f"Lancement de {len(classif_targets)} modèles avec num_processes={max_workers}")
-
+    nb_model_fail = 0  # Compteur de modèles non générés
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(make_model_partial, *classif_target): classif_target for classif_target in
                    classif_targets}
@@ -67,9 +67,11 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=4):
 
                 else:
                     logger.warning(f"⚠ [{idx}/{len(futures)}] Modèle non généré , model_path=None {taxo_target} ({taxo_level})")
-
+                    nb_model_fail += 1
             except Exception as e:
                 logger.error(f"🔥 Erreur lors de l'entraînement du modèle pour {taxo_target} ({taxo_level}) : {e}")
+
+        logger.info(f"📊 Modèles non générés : {nb_model_fail}/{ len(futures) }")
 
     phylo_path = f"{exp_dir}/phylo_tree.txt"
     os.makedirs(os.path.dirname(phylo_path), exist_ok=True)
@@ -107,7 +109,7 @@ def validate(val_dataset, exp_dir, params, logger, max_workers=4, save_raw_pred=
         # Submit the processing of each genome as a task to the executor
         futures = [executor.submit(process_genome_partial, sample) for sample in val_dataset]
 
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Predicting Genomes"):
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Predicting Genomes", disable=not sys.stdout.isatty()):
             future.result()  #Handle exceptions by raising them if any
 
     log_val_metrics(metrics, val_dir, logger)
@@ -131,6 +133,7 @@ def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, metri
     with open(genome, 'r', encoding='utf-8') as freader:
         genome_data = {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')}
 
+    logger.debug(f"File {os.path.basename(genome)} contains {len(genome_data)} sequences.")
     sequences = [(id_sequence, dna_sequence) for id_sequence, dna_sequence in genome_data.items()]
     partial_pred = partial(prediction, tree=phylo_tree, model_dir=model_dir, params=params, val_dir=val_dir, logger=logger)
 
@@ -162,12 +165,14 @@ def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, metri
 
 
 def log_val_metrics(metrics, val_dir, logger):
-    all_val_conf_matrix = metrics.get_all_confusion_matrices()
+    # all_val_conf_matrix = metrics.get_all_confusion_matrices()
     logger.info("=" * 60)
     logger.info("VALIDATION metrics")
+    metrics.build_taxonomy_df()
+    level_sep = 'phylum'
 
     for id_level, level in enumerate(TAXO_LEVELS):
-        conf_mat_level = all_val_conf_matrix[level]
+        conf_mat_level = metrics.get_confusion_matrix(level)
         accuracy_level = compute_accuracy_from_conf_matrix_df(conf_mat_level)
         mlflow.log_metric(f"accuracy_{level}", accuracy_level)
         logger.info("-" * 20)
@@ -181,8 +186,10 @@ def log_val_metrics(metrics, val_dir, logger):
 
         conf_mat_level.to_csv(file_csv, sep=';', index=True)
         mlflow.log_artifact(file_csv)
+
+        separator_indices = metrics.calculate_separator_indices(level_1=level_sep, level_2=level)
         plot_path = file_csv.replace(".csv", ".png")
-        plot_conf_mat(conf_mat_level, level=level, filename=plot_path)
+        plot_conf_mat(conf_mat_level, level, separator_indices, filename=plot_path)
         mlflow.log_artifact(plot_path)
 
 

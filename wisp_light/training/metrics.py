@@ -6,16 +6,17 @@ import sys
 sys.path.append('..')
 from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
+
 class ConfusionMatrixTracker:
     def __init__(self):
         # Stocke les vraies et prédictions pour chaque niveau
         self.true_labels = defaultdict(list)
         self.pred_labels = defaultdict(list)
 
+
     def update(self, true_labels, pred_labels):
         """
         Met à jour les listes de vraies étiquettes et de prédictions.
-
         Args:
             true_labels (dict): {niveau: classe_vraie}
             pred_labels (dict): {niveau: classe_prédite}
@@ -27,6 +28,25 @@ class ConfusionMatrixTracker:
             if true_value is not None and pred_value is not None:  # Exclure les None
                 self.true_labels[level].append(true_value)
                 self.pred_labels[level].append(pred_value)
+
+    def build_taxonomy_df(self):
+        """
+        Crée un DataFrame avec toutes les hiérarchies taxonomiques pour chaque échantillon
+        en utilisant uniquement les labels de vérité terrain (ground truth).
+        """
+        data = []
+
+        # Itérer sur les indices des échantillons
+        num_samples = len(self.true_labels[TAXO_LEVELS[0]])  # Nombre d'échantillons
+        for i in range(num_samples):
+            row = {level: self.true_labels[level][i] for level in TAXO_LEVELS}  # Utiliser l'indice 'i'
+            data.append(row)
+        taxonomy_df = pd.DataFrame(data)
+        # print("before sorting \n", taxonomy_df)
+        taxonomy_df.sort_values(by=TAXO_LEVELS, inplace=True)
+        taxonomy_df = taxonomy_df.drop_duplicates().reset_index(drop=True)
+        # print("after sorting \n", taxonomy_df)
+        self.taxonomy_df = taxonomy_df
 
     def get_confusion_matrix(self, level):
         """
@@ -41,6 +61,9 @@ class ConfusionMatrixTracker:
         if level not in self.true_labels:
             raise ValueError(f"Niveau invalide: {level}")
 
+        if not hasattr(self, 'taxonomy_df'):
+            raise AttributeError("L'attribut 'taxonomy_df' not present , call before self.build_taxonomy_df.")
+
         y_true = self.true_labels[level]
         y_pred = self.pred_labels[level]
 
@@ -48,40 +71,48 @@ class ConfusionMatrixTracker:
         filtered_true = [label for label in y_true if label is not None]
         filtered_pred = [label for label in y_pred if label is not None]
 
-        # Liste des classes uniques sans None
-        classes = sorted(set(filtered_true + filtered_pred))
+        sorted_classes = self.taxonomy_df[level].drop_duplicates().tolist()
+        if not sorted_classes:
+            return pd.DataFrame()
 
-        if not classes:
-            return pd.DataFrame()  # Matrice vide si aucun taxon valide
+        matrix = confusion_matrix(filtered_true, filtered_pred, labels=sorted_classes)
 
-        # matrix = confusion_matrix(filtered_true, filtered_pred, labels=classes) # replace with
-        all_classes = sorted(set(self.true_labels[level]) | set(self.pred_labels[level]))
+        return pd.DataFrame(matrix, index=sorted_classes, columns=sorted_classes)
 
-        # Calculer la matrice de confusion avec toutes les classes connues
-        matrix = confusion_matrix(filtered_true, filtered_pred, labels=all_classes)
 
-        return pd.DataFrame(matrix, index=classes, columns=all_classes) # columns=all_classes)
-
-    def get_all_confusion_matrices(self):
+    def calculate_separator_indices(self, level_1='phylum', level_2='family'):
         """
-        Retourne un dictionnaire contenant les matrices de confusion pour tous les niveaux taxonomiques.
+        Calcule les indices où un changement du niveau level_1 (ex: phylum) se produit
+        en regardant l'ordre du niveau level_2 (ex: family).
+        Args:
+            level_1 (str): Niveau supérieur (ex: 'phylum')
+            level_2 (str): Niveau inférieur servant d'indexation (ex: 'family')
 
         Returns:
-            dict: {niveau: matrice de confusion sous forme de DataFrame}
-
+            separator_indices (list): Liste des indices où level_1 change selon level_2
         """
-        result = {level: self.get_confusion_matrix(level) for level in self.true_labels if self.true_labels[level]}
-        return result
+        if not hasattr(self, 'taxonomy_df'):
+            raise AttributeError("L'attribut 'taxonomy_df' not present , call before self.build_taxonomy_df")
+        unique_df = self.taxonomy_df.drop_duplicates(subset=[level_2])
+
+        # Trier le DataFrame selon le niveau inférieur
+        sorted_df = unique_df.sort_values(by=[level_2]).reset_index(drop=True)
+        separator_indices = []
+
+        previous_level_1_value = None
+        for i, row in sorted_df.iterrows():
+            current_level_1_value = row[level_1]
+            if previous_level_1_value is not None and current_level_1_value != previous_level_1_value:
+                separator_indices.append(i)  # Ajouter l'indice où level_1 change
+
+            previous_level_1_value = current_level_1_value
+
+        return separator_indices
 
 
 def compute_accuracy_from_conf_matrix_df(conf_mat_level):
-    # Somme des éléments de la diagonale (prédictions correctes)
     correct_predictions = np.diag(conf_mat_level).sum()
-
-    # Somme de tous les éléments de la matrice (total des prédictions)
     total_predictions = conf_mat_level.sum().sum()
-
-    # Calcul de l'accuracy
     accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0.0
-
     return accuracy
+
