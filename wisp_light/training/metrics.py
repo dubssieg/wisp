@@ -12,22 +12,23 @@ class ConfusionMatrixTracker:
         # Stocke les vraies et prédictions pour chaque niveau
         self.true_labels = defaultdict(list)
         self.pred_labels = defaultdict(list)
+        self.unknown_pred = "unknown"
 
 
     def update(self, true_labels, pred_labels):
         """
         Met à jour les listes de vraies étiquettes et de prédictions.
         Args:
-            true_labels (dict): {niveau: classe_vraie}
+            true_labels (dict): {niveau: classe_vraie}, !!! Aucun None dans tous les Niveaux
             pred_labels (dict): {niveau: classe_prédite}
         """
         for level in TAXO_LEVELS:
             true_value = true_labels.get(level)
-            pred_value = pred_labels.get(level)
+            assert true_value is not None, f"True label for level '{level}' is None. All labels {true_labels}"
+            pred_value = pred_labels.get(level, self.unknown_pred)  # Remplace None par "Unknown"
 
-            if true_value is not None and pred_value is not None:  # Exclure les None
-                self.true_labels[level].append(true_value)
-                self.pred_labels[level].append(pred_value)
+            self.true_labels[level].append(true_value)
+            self.pred_labels[level].append(pred_value)
 
     def build_taxonomy_df(self):
         """
@@ -58,26 +59,25 @@ class ConfusionMatrixTracker:
         Returns:
             pd.DataFrame: Matrice de confusion avec noms des classes.
         """
-        if level not in self.true_labels:
-            raise ValueError(f"Niveau invalide: {level}")
 
         if not hasattr(self, 'taxonomy_df'):
-            raise AttributeError("L'attribut 'taxonomy_df' not present , call before self.build_taxonomy_df.")
+            raise AttributeError("Attributes 'taxonomy_df' not present , call before self.build_taxonomy_df.")
 
-        y_true = self.true_labels[level]
-        y_pred = self.pred_labels[level]
-
-        # Filtrer les None
-        filtered_true = [label for label in y_true if label is not None]
-        filtered_pred = [label for label in y_pred if label is not None]
+        all_y_true = self.true_labels[level]
+        all_y_pred = self.pred_labels[level]
 
         sorted_classes = self.taxonomy_df[level].drop_duplicates().tolist()
+
+        if self.unknown_pred in all_y_pred:
+            sorted_classes.append(self.unknown_pred)
+
         if not sorted_classes:
             return pd.DataFrame()
 
-        matrix = confusion_matrix(filtered_true, filtered_pred, labels=sorted_classes)
+        matrix = confusion_matrix(all_y_true, all_y_pred, labels=sorted_classes)
+        confusion_df = pd.DataFrame(matrix, index=sorted_classes, columns=sorted_classes)
 
-        return pd.DataFrame(matrix, index=sorted_classes, columns=sorted_classes)
+        return confusion_df
 
 
     def calculate_separator_indices(self, level_1='phylum', level_2='family'):

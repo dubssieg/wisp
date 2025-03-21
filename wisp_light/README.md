@@ -107,6 +107,13 @@ To prevent ssh break, you can use tmux on genouest see https://help.genouest.org
 
 from compute  <node>  in genouest:
 
+>tmux
+
+>srun --pty --time=08:00:00 bash
+
+> . ~/envtaxo2/bin/activate
+
+
 >mlflow ui --port 8123 --backend-store-uri /projects/microtaxo/exp_refseq/mlruns
 
 from local laptop
