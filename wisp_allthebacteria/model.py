@@ -6,8 +6,9 @@ from sklearn.preprocessing import LabelEncoder
 import xgboost as xgb
 from utils import serialize, deserialize
 
-from dataset import Dataset
+from dataset import ByRankGenerator
 from api import API
+from database import Database
 
 LOG = logging.getLogger(__name__)
 
@@ -32,30 +33,25 @@ class XGBoostModel:
     def __init__(
         self,
         rank: str,
+        database: Database,
         params: dict | None = None,
-        dataset: Dataset | None = None,
         normalize: str | None = None,
         batch_size: int = 1_000_000,
         seed: int = 2025,
         api: API | None = None,
     ):
         self._params = params if params is not None else DEFAULT_PARAMETERS
-        self._dataset = dataset
         self._seed = seed
         self._rank = rank
         self._normalize = normalize
         self._batch_size = batch_size
         self._api = api
+        self._database = database
         self._model = None
         self._labels = None
         self._gen = None
         self._last_batch_id = None
         self._label_encoder = LabelEncoder()
-
-    def available_batches_count(self) -> int:
-        """How many batches are available"""
-        total_samples = self._dataset.total_samples()
-        return (total_samples + self._batch_size - 1) // self._batch_size
 
     def train(
         self,
@@ -65,7 +61,17 @@ class XGBoostModel:
         """Train a model"""
 
         LOG.debug("Training model...")
-        max_batch_count = self.available_batches_count()
+
+        # sample generator
+        self._gen = ByRankGenerator(
+            database=self._database,
+            api=self._api,
+            rank=self._rank,
+            batch_size=self._batch_size,
+            normalize=self._normalize,
+            seed=self._seed,
+        )
+        max_batch_count = self._gen.available_batches_count()
         if batch_count is None:
             batch_count = max_batch_count
 
@@ -74,16 +80,8 @@ class XGBoostModel:
                 f"not enough batches available: {batch_count} > {max_batch_count}"
             )
 
-        # sample generator
-        self._gen = self._dataset.by_rank_generator(
-            rank=self._rank,
-            batch_size=self._batch_size,
-            normalize=self._normalize,
-            seed=self._seed,
-        )
-
         # labels
-        self._labels = self._dataset.labels(self._rank)
+        self._labels = self._gen.labels(self._rank)
 
         self._label_encoder.fit(self._labels)
         # label_encoder.inverse_transform(encoded_labels)
@@ -94,11 +92,13 @@ class XGBoostModel:
             params["seed"] = self._seed
         params["num_class"] = len(self._labels)
 
+        self._gen.start()
+
         # model
         self._model = None
         for i in range(batch_count):
             self._last_batch_id = i
-            dtrain = next(self._gen)
+            dtrain = next(self._gen.get())
             LOG.debug(f"Train batch {i + 1} / {batch_count}")
 
             y = dtrain.get_label().astype(int)
@@ -200,3 +200,6 @@ class XGBoostModel:
             params_path.write_text(json.dumps(self._params, indent=4))
         else:
             raise ValueError("Model is not trained or loaded yet.")
+
+    def stop(self) -> None:
+        self._gen.stop()

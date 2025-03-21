@@ -1,8 +1,13 @@
 from collections import defaultdict
+import concurrent.futures
 from itertools import product
 import logging
+import queue
 import random
+import threading
+import time
 from typing import Generator
+import concurrent
 import numpy as np
 import xgboost as xgb
 from pathlib import Path
@@ -95,74 +100,213 @@ class Dataset:
         """All labels in this DB, for this rank"""
         return list(self._get_tax_ids_by_rank(rank).keys())
 
-    def by_rank_generator(
-        self, rank: str, batch_size: int, normalize: str | None = None, seed: int = 2025
-    ) -> Generator[xgb.DMatrix, None, None]:
-        LOG.debug(f"By rank generator for {rank=}, {batch_size=}, {normalize=}")
-        tax_ids_by_rank = self._get_tax_ids_by_rank(rank)
-        self.labels_ = list(tax_ids_by_rank.keys())
+    def _get_tax_ids_by_rank(self, rank: str) -> dict[int, list[int]]:
+        idx_key = (IDX_TID_BY_RANK, rank)
+        rank_mapping = self._db.get_index(idx_key)
+        if not rank_mapping:
+            rank_mapping = defaultdict(list)
+            for tax_id in self._db.get_tax_ids():
+                lineage_ex = self._api[tax_id].get("LineageEx", [])
+                for entry in lineage_ex:
+                    if entry["Rank"] == rank:
+                        rank_mapping[int(entry["TaxId"])].append(tax_id)
+                        break
+            rank_mapping = dict(rank_mapping)
+            self._db.set_index(idx_key, rank_mapping)
 
-        # total samples and weights for each rank_tax_id
-        rank_tax_ids = list(tax_ids_by_rank.keys())
-        db_info = self._db.get_info()
-        counts = [
-            sum(db_info["counters"][tax_id] for tax_id in tax_ids)
-            for tax_ids in tax_ids_by_rank.values()
-        ]
-        total_samples = sum(counts)
-        weights = [count / total_samples for count in counts]
+        return rank_mapping
 
-        # generator for each rank_tax_id
-        generators = {
-            rank_tax_id: self._db.sample_generator(tax_ids, seed=seed, target="counter")
-            for rank_tax_id, tax_ids in tax_ids_by_rank.items()
+
+class ByRankGenerator(Dataset):
+    def __init__(
+        self,
+        database: Database,
+        api: API,
+        rank: str,
+        batch_size: int,
+        normalize: str | None = None,
+        seed: int = 2025,
+    ):
+        super().__init__(database=database, api=api)
+        LOG.debug(f"ByRankGenerator for {rank=}, {batch_size=}, {normalize=}")
+        self._rank = rank
+        self._batch_size = batch_size
+        self._batch_count = 0
+        self._normalize = normalize
+        self._seed = seed
+        self._lock = threading.Lock()
+        self._tax_ids_by_rank = self._get_tax_ids_by_rank(rank)
+        self._rank_tids = list(self._tax_ids_by_rank.keys())
+        self._max_buffer_size = max(32, batch_size // len(self._rank_tids))
+        self._buffers = {rank_tid: queue.Queue() for rank_tid in self._rank_tids}
+        # locks = {rank_tid: threading.Lock() for rank_tid in self._rank_tids}
+        self._exhausted = {rank_tid: False for rank_tid in self._rank_tids}
+        self._filling = {rank_tid: False for rank_tid in self._rank_tids}
+        self._generators = {
+            rank_tid: self._db.sample_generator(
+                tax_ids, seed=self._seed, target="counter"
+            )
+            for rank_tid, tax_ids in self._tax_ids_by_rank.items()
         }
 
+        db_info = self._db.get_info()
+        self._counts = [
+            sum(db_info["counters"][tax_id] for tax_id in tax_ids)
+            for tax_ids in self._tax_ids_by_rank.values()
+        ]
+        self._total_samples = sum(self._counts)
+        self._weights = [count / self._total_samples for count in self._counts]
+
+        # start filling buffers
+        # self._fill_buffers_thread = threading.Thread(
+        #     target=self._fill_buffers, daemon=True
+        # )
+        # self._fill_buffers_thread.start()
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+        self._terminating = False
+
+    # TODO: stop
+    def start(self) -> None:
+        LOG.debug("Start filling buffers...")
+        self._start_filling_buffers()
+
+    def stop(self) -> None:
+        LOG.debug("Stopping threads")
+        self._terminating = True
+
+    def get(self) -> Generator[xgb.DMatrix, None, None]:
+
+        max_batch_count = self.available_batches_count()
         data_batch = []
         labels_batch = []
-        batch_count = 0
 
-        random_instance = random.Random(seed)
+        random_instance = random.Random(self._seed)
 
-        LOG.debug("By rank generator ready")
-        while generators:
-            # select a rank_tax_id based on the calculated weights
-            rank_tax_id = random_instance.choices(rank_tax_ids, weights=weights, k=1)[0]
-            generator = generators[rank_tax_id]
-
+        while not (
+            self._all_generator_done()
+            and self._all_buffers_done()
+            and self._terminating
+        ):
+            rank_tid = random_instance.choices(
+                self._rank_tids, weights=self._weights, k=1
+            )[0]
             try:
-                counter = next(generator)
-            except StopIteration:
-                # remove the generator if it's exhausted
-                LOG.debug(f"Generator for {rank_tax_id=} exhausted")
-                del generators[rank_tax_id]
-                rank_tax_ids.remove(rank_tax_id)
-                counts.pop(rank_tax_ids.index(rank_tax_id))
-                total_samples = sum(counts)
-                weights = [count / total_samples for count in counts]
-                continue
+                counter = self._buffers[rank_tid].get()
+            except queue.Empty:
+                if self._is_done(rank_tid):
+                    LOG.debug(f"{self._rank} {rank_tid} is DONE - Cleaning")
+                    self._remove(rank_tid)
 
             # prepare data and labels for DMatrix
-            row = self._counter_to_row(counter=counter, normalize=normalize)
+            self.tmp_log()  # TODO: remove
+            row = self._counter_to_row(counter=counter, normalize=self._normalize)
             data_batch.append(row)
-            labels_batch.append(rank_tax_id)
+            labels_batch.append(rank_tid)
 
             # yield a DMatrix if batch is filled
-            if len(data_batch) >= batch_size:
+            if len(data_batch) >= self._batch_size:
                 dmatrix = self._data2DMatrix(data_batch, labels_batch)
-                batch_count += 1
-                LOG.debug(f"Sending batch {batch_count} - {len(labels_batch)} samples")
+                self._batch_count += 1
+                LOG.debug(
+                    f"Sending batch {self._batch_count} / (max: {max_batch_count}) - {len(labels_batch)} samples"
+                )
                 yield dmatrix
                 data_batch = []
                 labels_batch = []
 
         # yield any remaining data as a final DMatrix
         if data_batch:
+            self._batch_count += 1
             dmatrix = self._data2DMatrix(data_batch, labels_batch)
             LOG.debug(
-                f"Sending (last) batch {batch_count} - {len(labels_batch)} samples"
+                f"Sending (last) batch {self._batch_count} - {len(labels_batch)} samples"
             )
             yield dmatrix
+
+        self._stop_filling_buffers()
+        # self._fill_buffers_thread.join()
+
+    def tmp_log(self):
+        buffer_info = {tid: q.qsize() for tid, q in self._buffers.items()}
+        LOG.debug(f"Buffers: {buffer_info}")
+
+    def available_batches_count(self) -> int:
+        """How many batches are available"""
+        total_samples = self.total_samples()
+        return (total_samples + self._batch_size - 1) // self._batch_size
+
+    def _fill_buffers(self):
+        """Thread worker dynamically picking the least filled buffer."""
+        while not self._all_generator_done() and not self._terminating:
+            rank_tid = self._select_next_buffer()
+            if rank_tid is None:
+                time.sleep(1)
+                continue
+
+            generator = self._generators[rank_tid]
+            try:
+                sample = next(generator)
+                self._buffers[rank_tid].put(sample)
+                self.tmp_log()  # TODO: remove
+            except StopIteration:
+                self._mark_exhausted(rank_tid)
+            self._stop_filling(rank_tid)
+
+    def _start_filling_buffers(self):
+        for _ in range(self._executor._max_workers):
+            self._executor.submit(self._fill_buffers)
+
+    def _stop_filling_buffers(self):
+        self._executor.shutdown(wait=True)
+
+    def _select_next_buffer(self) -> int | None:
+        with self._lock:
+            if rank_tid := min(
+                (
+                    rank_tid
+                    for rank_tid, q in self._buffers.items()
+                    if not self._filling[rank_tid] and q.qsize() < self._max_buffer_size
+                ),
+                key=lambda rank_tid: self._buffers[rank_tid].qsize(),
+                default=None,
+            ):
+                self._filling[rank_tid] = True
+                return rank_tid
+
+    def _all_generator_done(self) -> bool:
+        with self._lock:
+            return all(self._exhausted[rank_tid] for rank_tid in self._rank_tids)
+
+    def _all_buffers_done(self) -> bool:
+        with self._lock:
+            return all(
+                self._buffers[rank_tid].qsize() == 0 for rank_tid in self._rank_tids
+            )
+
+    def _is_done(self, rank_id: int) -> bool:
+        with self._lock:
+            return (
+                self._buffers[rank_id].qsize() == 0
+                and self._exhausted[rank_id]
+                and not self._filling[rank_id]
+            )
+
+    def _mark_exhausted(self, rank_tid: int):
+        LOG.debug(f"Generator for {rank_tid} is exhausted")
+        with self._lock:
+            self._exhausted[rank_tid] = True
+
+    def _stop_filling(self, rank_tid: int):
+        with self._lock:
+            self._filling[rank_tid] = True
+
+    def _remove(self, rank_tid: int):
+        with self._lock:
+            del self._generators[rank_tid]
+            self._rank_tids.remove(rank_tid)
+            self._counts.pop(self._rank_tids.index(rank_tid))
+            self._total_samples = sum(self._counts)
+            self._weights = [count / self._total_samples for count in self._counts]
 
     @staticmethod
     def serialize_dmatrix(dmatrix: xgb.DMatrix, file_path: str | Path) -> None:
@@ -192,22 +336,6 @@ class Dataset:
             key: (value - min_value) / (max_value - min_value)
             for key, value in count_dict.items()
         }
-
-    def _get_tax_ids_by_rank(self, rank: str) -> dict[int, list[int]]:
-        idx_key = (IDX_TID_BY_RANK, rank)
-        rank_mapping = self._db.get_index(idx_key)
-        if not rank_mapping:
-            rank_mapping = defaultdict(list)
-            for tax_id in self._db.get_tax_ids():
-                lineage_ex = self._api[tax_id].get("LineageEx", [])
-                for entry in lineage_ex:
-                    if entry["Rank"] == rank:
-                        rank_mapping[int(entry["TaxId"])].append(tax_id)
-                        break
-            rank_mapping = dict(rank_mapping)
-            self._db.set_index(idx_key, rank_mapping)
-
-        return rank_mapping
 
     def _counter_to_row(self, counter: dict, normalize: str) -> np.array:
         row = np.zeros(len(self._column_names))
