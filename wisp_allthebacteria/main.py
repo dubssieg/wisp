@@ -186,10 +186,10 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             api=api,
         )
 
-        xgb_model.train(2)
+        xgb_model.train(20)
 
         xgb_model.save(save_path)
-        xgb_model.evaluate(1)
+        xgb_model.evaluate(5)
         xgb_model.stop()
 
     # dgf = DMatrixGeneratorFactory(

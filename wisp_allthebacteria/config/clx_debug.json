@@ -28,7 +28,7 @@
         "scientific_name": true,
         "default_models_dir": "/data/microtaxo/models",
         "kfold": 3,
-        "batch_size": 100
+        "batch_size": 1000
     },
     "report":{
         "default_reports_dir": "/data/microtaxo/reports"

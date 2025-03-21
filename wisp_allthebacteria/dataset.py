@@ -139,7 +139,6 @@ class ByRankGenerator(Dataset):
         self._rank_tids = list(self._tax_ids_by_rank.keys())
         self._max_buffer_size = max(32, batch_size // len(self._rank_tids))
         self._buffers = {rank_tid: queue.Queue() for rank_tid in self._rank_tids}
-        # locks = {rank_tid: threading.Lock() for rank_tid in self._rank_tids}
         self._exhausted = {rank_tid: False for rank_tid in self._rank_tids}
         self._filling = {rank_tid: False for rank_tid in self._rank_tids}
         self._generators = {
@@ -162,10 +161,9 @@ class ByRankGenerator(Dataset):
         #     target=self._fill_buffers, daemon=True
         # )
         # self._fill_buffers_thread.start()
-        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         self._terminating = False
 
-    # TODO: stop
     def start(self) -> None:
         LOG.debug("Start filling buffers...")
         self._start_filling_buffers()
@@ -173,6 +171,7 @@ class ByRankGenerator(Dataset):
     def stop(self) -> None:
         LOG.debug("Stopping threads")
         self._terminating = True
+        self._executor.shutdown(wait=True)
 
     def get(self) -> Generator[xgb.DMatrix, None, None]:
 
@@ -198,7 +197,6 @@ class ByRankGenerator(Dataset):
                     self._remove(rank_tid)
 
             # prepare data and labels for DMatrix
-            self.tmp_log()  # TODO: remove
             row = self._counter_to_row(counter=counter, normalize=self._normalize)
             data_batch.append(row)
             labels_batch.append(rank_tid)
@@ -223,12 +221,13 @@ class ByRankGenerator(Dataset):
             )
             yield dmatrix
 
-        self._stop_filling_buffers()
         # self._fill_buffers_thread.join()
 
     def tmp_log(self):
-        buffer_info = {tid: q.qsize() for tid, q in self._buffers.items()}
-        LOG.debug(f"Buffers: {buffer_info}")
+        buffer_info = [
+            (self._buffers[tid].qsize(), self._filling[tid]) for tid in self._rank_tids
+        ]
+        LOG.debug(buffer_info)
 
     def available_batches_count(self) -> int:
         """How many batches are available"""
@@ -243,11 +242,10 @@ class ByRankGenerator(Dataset):
                 time.sleep(1)
                 continue
 
-            generator = self._generators[rank_tid]
             try:
-                sample = next(generator)
+                sample = next(self._generators[rank_tid])
                 self._buffers[rank_tid].put(sample)
-                self.tmp_log()  # TODO: remove
+                # self.tmp_log()  # TODO: remove
             except StopIteration:
                 self._mark_exhausted(rank_tid)
             self._stop_filling(rank_tid)
@@ -255,9 +253,6 @@ class ByRankGenerator(Dataset):
     def _start_filling_buffers(self):
         for _ in range(self._executor._max_workers):
             self._executor.submit(self._fill_buffers)
-
-    def _stop_filling_buffers(self):
-        self._executor.shutdown(wait=True)
 
     def _select_next_buffer(self) -> int | None:
         with self._lock:
@@ -283,12 +278,12 @@ class ByRankGenerator(Dataset):
                 self._buffers[rank_tid].qsize() == 0 for rank_tid in self._rank_tids
             )
 
-    def _is_done(self, rank_id: int) -> bool:
+    def _is_rank_done(self, rank_tid: int) -> bool:
         with self._lock:
             return (
-                self._buffers[rank_id].qsize() == 0
-                and self._exhausted[rank_id]
-                and not self._filling[rank_id]
+                self._buffers[rank_tid].qsize() == 0
+                and self._exhausted[rank_tid]
+                and not self._filling[rank_tid]
             )
 
     def _mark_exhausted(self, rank_tid: int):
@@ -298,7 +293,7 @@ class ByRankGenerator(Dataset):
 
     def _stop_filling(self, rank_tid: int):
         with self._lock:
-            self._filling[rank_tid] = True
+            self._filling[rank_tid] = False
 
     def _remove(self, rank_tid: int):
         with self._lock:

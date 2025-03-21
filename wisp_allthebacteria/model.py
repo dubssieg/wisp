@@ -119,7 +119,7 @@ class XGBoostModel:
         if self._model is None:
             raise ValueError("Model has not been trained yet.")
 
-        max_batch_count = self.available_batches_count()
+        max_batch_count = self._gen.available_batches_count()
         if self._last_batch_id + batch_count > max_batch_count:
             raise ValueError(
                 f"Not enough batches available for evaluation: "
@@ -133,7 +133,7 @@ class XGBoostModel:
         # evaluate
         for i in range(batch_count):
             self._last_batch_id += 1
-            dtest = next(self._gen)
+            dtest = next(self._gen.get())
             LOG.debug(
                 f"Evaluation batch {i + 1} / {batch_count} (total with training: {self._last_batch_id} / {max_batch_count})"
             )
