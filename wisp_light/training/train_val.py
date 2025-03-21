@@ -20,7 +20,7 @@ parser.add_argument("--exp_name", type=str, default="model_base_index", help="No
 parser.add_argument("--datadir", type=str, default="/projects/microtaxo/data/refseq_with_taxo_merged", help="Répertoire des données.")
 parser.add_argument("--params_file", type=str, default="params.yaml", help="Chemin du fichier de paramètres.")
 parser.add_argument("--exp_rootdir", type=str, default=os.path.abspath('../../exp/'), help="Répertoire racine des expériences.")
-parser.add_argument("--db_json", type=str, default=None, help="Fichier JSON de la base de données existante.")
+parser.add_argument("--db_json", type=str, default="", help="Fichier JSON de la base de données existante.")
 
 
 args = parser.parse_args()
@@ -31,6 +31,7 @@ args.index_csv = "../dataset/complete_refseq_referent_genome_with_taxo.tsv"
 # args.exp_rootdir = '/home/hcourtei/Projects/MicroTaxo/codes/exp_refseq' #
 args.datadir = '/projects/microtaxo/data/refseq3'
 args.exp_rootdir = '/projects/microtaxo/exp_refseq'
+args.db_json  = "/projects/microtaxo/exp_refseq/model_base_index_03_21_00_13/databases.json"
 
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
 if args.db_json:
@@ -57,7 +58,7 @@ with open(args.params_file, 'r') as file:
     check_parameters(params)
 
 params.update({'exp_name': args.exp_name,"day_month_min": day_month_min,
-               'exp_dir':exp_dir,'datadir':args.datadir })
+               'exp_dir':exp_dir,'datadir':args.datadir, 'db_json': args.db_json})
 
 params_copy_path = os.path.join(exp_dir, "params.yaml")
 with open(params_copy_path, 'w') as f:
