@@ -176,9 +176,15 @@ class Database:
             counters = {}
             for tax_id in tax_ids:
                 counters[tax_id] = self.count(tax_id)
+            total_samples = sum(counters.values())
 
             # path
-            info = {"tax_ids": tax_ids, "archives": archives, "counters": counters}
+            info = {
+                "tax_ids": tax_ids,
+                "archives": archives,
+                "counters": counters,
+                "total_samples": total_samples,
+            }
             LOG.debug("DB infos - DONE")
             self.set_index(IDX_DB_INFO, info)
 
@@ -206,7 +212,7 @@ class Database:
                 info_lines.append(line)
 
             info_lines.append("")
-            info_lines.append(f"Total: {space_format(sum(counters.values()))} samples")
+            info_lines.append(f"Total: {space_format(total_samples)} samples")
 
             info_lines.append("\n==== Archives pushed ====")
             info_lines.append(", ".join(sorted(archives)))

@@ -179,7 +179,7 @@ class Reader:
                         case 1:
                             tax_id = file_md[0]["TaxId"]
                         case _:
-                            tax_id = f"multiple-{'|'.join(m['TaxId'] if m else 'no-tax-id' for m in file_md)}"
+                            tax_id = f"multiple-{'|'.join(sorted(m['TaxId'] if m else 'no-tax-id' for m in file_md))}"
 
                     if return_db:
                         if tax_id not in merged_data:
