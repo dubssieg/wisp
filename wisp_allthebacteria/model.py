@@ -51,18 +51,20 @@ class XGBoostModel:
         self._api = api
         self._database = database
         self._generator_threads = generator_threads
-        self._save_path = Path(save_path).resolve()
+        self._save_path = save_path = Path(save_path).resolve()
         self._model = None
         self._labels = None
         self._gen = None
         self._last_batch_id = None
         self._max_batch_count = None
         self._label_encoder = LabelEncoder()
+        LOG.debug(
+            f"XGBoostModel({rank=}, {batch_size=}, {normalize=}, {seed=}, {generator_threads=}, {save_path=})"
+        )
 
     def train(
         self,
         batch_count: int | None = None,
-        eval_batch_count: int | None = None,
         num_boost_round: int = 100,
     ) -> None:
         """Train a model"""
@@ -128,37 +130,6 @@ class XGBoostModel:
     #     dtest_encoded = xgb.DMatrix(dtest.get_data(), label=y_true_encoded)
     #     y_pred_encoded = self._model.predict(dtest_encoded).astype(int)
 
-    def _store_batches(self, batch_count: int, storage_name: str):
-        storage_dir = self._save_path / "dmats" / storage_name
-        for i in range(batch_count):
-            dmat = self._get_next_batch()
-            dmat_path = storage_dir / f"{i+1:04}.dmat"
-            self._serialize_dmatrix(dmat, dmat_path)
-
-    def _stored_batches_generator(
-        self, storage_name: str
-    ) -> Generator[xgb.DMatrix, None, None]:
-        storage_dir = self._save_path / "dmats" / storage_name
-        if not storage_dir.is_dir():
-            raise NotADirectoryError(f"{storage_dir} is not a directory.")
-
-        for file_path in storage_dir.iterdir():
-            if file_path.is_file():
-                dmatrix = self._deserialize_dmatrix(file_path)
-                yield dmatrix
-
-    def _get_next_batch(self) -> xgb.DMatrix:
-        if self._last_batch_id is None:
-            self._last_batch_id = -1
-        self._last_batch_id += 1
-        try:
-            return next(self._gen.get())
-        except StopIteration:
-            LOG.exception(
-                f"No more batch available: {self._last_batch_id} / {self._max_batch_count}"
-            )
-            raise
-
     def evaluate(self, batch_count: int, use_stored_batches: str | None = None) -> dict:
         """Evaluate the model on the next available batches."""
 
@@ -179,7 +150,7 @@ class XGBoostModel:
 
         # evaluate
         for i in range(batch_count):
-            dtest = self._get_next_batch()
+            dtest = self._get_next_batch(storage_name="test")
             LOG.debug(
                 f"Evaluation batch {i + 1} / {batch_count} (total with training: {self._last_batch_id} / {max_batch_count})"
             )
@@ -219,13 +190,11 @@ class XGBoostModel:
         """Load model from file."""
         model_path = self._save_path / "model.bin"
         label_path = self._save_path / "labels.pkl"
+        label_encoder_path = self._save_path / "labels_encoder.pkl"
         params_path = self._save_path / "params.json"
-        if not model_path.is_file():
-            raise FileNotFoundError(f"Model file not found: {model_path}")
-        if not label_path.is_file():
-            raise FileNotFoundError(f"Label file not found: {label_path}")
-        if not params_path.is_file():
-            raise FileNotFoundError(f"Param file not found: {label_path}")
+        for f in (model_path, label_path, label_encoder_path, params_path):
+            if not f.is_file:
+                raise FileNotFoundError(f)
 
         self._model = xgb.Booster()
         self._model.load_model(str(model_path))
@@ -237,11 +206,13 @@ class XGBoostModel:
         self._save_path.mkdir(parents=True, exist_ok=True)
         model_path = self._save_path / "model.bin"
         label_path = self._save_path / "labels.pkl"
+        label_encoder_path = self._save_path / "labels_encoder.pkl"
         params_path = self._save_path / "params.json"
 
         if self._model is not None:
             self._model.save_model(str(model_path))
             serialize(self._labels, label_path)
+            serialize(self._labels_encoder, label_encoder_path)
             params_path.write_text(json.dumps(self._params, indent=4))
         else:
             raise ValueError("Model is not trained or loaded yet.")
@@ -261,3 +232,53 @@ class XGBoostModel:
         if not file_path.exists():
             raise FileNotFoundError(f"{file_path} DMatrix not found.")
         return xgb.DMatrix(file_path)
+
+    def _store_batches(
+        self, batch_count: int, storage_name: str, return_dmats: bool = False
+    ) -> list[xgb.DMatrix] | None:
+        storage_dir = self._save_path / "dmats" / storage_name
+        dmats = []
+        for i in range(batch_count):
+            dmat = self._get_next_batch()
+            dmat_path = storage_dir / f"{i+1:04}.dmat"
+
+            counter = 1
+            while dmat_path.exists():
+                # change name if needed
+                dmat_path = storage_dir / f"{i+1:04}_{counter:04}.dmat"
+                counter += 1
+
+            self._serialize_dmatrix(dmat, dmat_path)
+            if return_dmats:
+                dmats.append(dmat)
+        if return_dmats:
+            return dmats
+
+    def _stored_batches_generator(
+        self, storage_name: str
+    ) -> Generator[xgb.DMatrix, None, None]:
+        storage_dir = self._save_path / "dmats" / storage_name
+        if not storage_dir.is_dir():
+            raise NotADirectoryError(f"{storage_dir} is not a directory.")
+
+        for file_path in storage_dir.iterdir():
+            if file_path.is_file():
+                dmatrix = self._deserialize_dmatrix(file_path)
+                yield dmatrix
+
+    def _get_next_batch(self, storage_name: str | None = None) -> xgb.DMatrix:
+        if self._last_batch_id is None:
+            self._last_batch_id = -1
+        self._last_batch_id += 1
+        try:
+            if storage_name:
+                # store before returning
+                return self._store_batches(
+                    batch_count=1, storage_name=storage_name, return_dmats=True
+                )[0]
+            return next(self._gen.get())
+        except StopIteration:
+            LOG.exception(
+                f"No more batch available: {self._last_batch_id} / {self._max_batch_count}"
+            )
+            raise
