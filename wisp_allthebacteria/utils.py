@@ -206,17 +206,21 @@ def space_format(number: int):
     return f"{number:_}".replace("_", " ")
 
 
-class SystemStatsLogger:
-    def __init__(self, interval: float = 10.0, pid: int | None = None):
-        """Log CPU/RAM usage for current script"""
+class FunctionLogger:
+    def __init__(self, interval: float, func, *args, level=logging.DEBUG, **kwargs):
+        """Log the result of a function call at regular intervals."""
         self._interval = interval
-        self._pid = pid
+        self._func = func
+        self._args = args
+        self._kwargs = kwargs
+        self._level = level
         self._stop_event = threading.Event()
-        self._thread = threading.Thread(target=self._log_system_stats, daemon=True)
+        self._thread = threading.Thread(target=self._log_function_result, daemon=True)
 
-    def _log_system_stats(self):
+    def _log_function_result(self):
         while not self._stop_event.is_set():
-            LOG.debug(f"SYSTEM: {system_stats(pid=self._pid, as_str=True)}")
+            result = self._func(*self._args, **self._kwargs)
+            LOG.log(self._level, result)
             self._stop_event.wait(self._interval)
 
     def __enter__(self):
@@ -226,6 +230,14 @@ class SystemStatsLogger:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._stop_event.set()
         self._thread.join()
+
+
+class SystemStatsLogger(FunctionLogger):
+    def __init__(
+        self, interval: float = 60.0, pid: int | None = None, level=logging.DEBUG
+    ):
+        """Log CPU/RAM usage for current script using FunctionLogger."""
+        super().__init__(interval, system_stats, pid, as_str=True, level=level)
 
 
 def cleanup_zombie_processes(pid: int | None = None):

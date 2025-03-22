@@ -153,7 +153,7 @@ def load_config(json_file: Path | str):
 
 def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int | None):
     LOG.info("train_model")
-    with SystemStatsLogger(interval=30, pid=os.getpid()):
+    with SystemStatsLogger(interval=30):
         if rank not in RANKS:
             raise ValueError(f"Invalid rank {rank}")
 
@@ -178,20 +178,21 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             compressed=conf["db"]["compressed"],
         )
 
-        dataset = Dataset(database=database, api=api)
         xgb_model = XGBoostModel(
             rank=rank,
-            dataset=dataset,
-            batch_size=conf["model"]["batch_size"],
+            database=database,
             normalize=conf["model"]["normalize"],
+            batch_size=conf["model"]["batch_size"],
             api=api,
+            generator_threads=cpu_count(conf["model"]["generator_threads"]),
+            save_path=save_path,
         )
 
-        max_batches = xgb_model.available_batches_count()
-        xgb_model.train(1000)
+        xgb_model.train(20)
 
-        xgb_model.save(save_path)
-        xgb_model.evaluate(200)
+        # xgb_model.save(save_path)
+        xgb_model.evaluate(5)
+        xgb_model.stop()
 
     # dgf = DMatrixGeneratorFactory(
     #     database=db,
@@ -216,24 +217,24 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
     #     num_boost_round=conf["model"]["num_boost_round"],
     # )
     # train mode
-    if kfold is None:
-        if save_path is None:
-            save_path = (
-                Path(conf["model"]["default_models_dir"])
-                / get_current_datetime_string()
-            )
-        model.save(save_path)
-    # evaluate mode with kfold
-    else:
-        if save_path is None:
-            save_path = (
-                Path(conf["report"]["default_reports_dir"])
-                / get_current_datetime_string()
-            )
-    report_header = {"header": {"Rang": rank, "batch_size": batch_size}}
+    # if kfold is None:
+    #     if save_path is None:
+    #         save_path = (
+    #             Path(conf["model"]["default_models_dir"])
+    #             / get_current_datetime_string()
+    #         )
+    #     model.save(save_path)
+    # # evaluate mode with kfold
+    # else:
+    #     if save_path is None:
+    #         save_path = (
+    #             Path(conf["report"]["default_reports_dir"])
+    #             / get_current_datetime_string()
+    #         )
+    # report_header = {"header": {"Rang": rank, "batch_size": batch_size}}
 
-    model.save_report(dir_path=save_path, additional_data=report_header)
-    print(report)
+    # model.save_report(dir_path=save_path, additional_data=report_header)
+    # print(report)
 
 
 # def evaluate_model(conf: dict, nfolds: int, model_path: str|Path|None):
