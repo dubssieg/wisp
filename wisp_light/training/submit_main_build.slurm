@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1               # Nombre de tâches
 #SBATCH --cpus-per-task=16
 #SBATCH --time=2-00:00:00        # Durée maximale (2 jours)
-#SBATCH --mem=60G
+#SBATCH --mem=80G
 #SBATCH --mail-user=hermann.courteille@irisa.fr
 #SBATCH --mail-type=END,FAIL
 ##SBATCH --mem-per-cpu=20000	 # Mémoire par CPU
