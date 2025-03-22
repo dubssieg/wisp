@@ -10,7 +10,6 @@ from typing import Generator
 import concurrent
 import numpy as np
 import xgboost as xgb
-from pathlib import Path
 from database import Database
 from api import API
 from utils import hash, FunctionLogger
@@ -199,6 +198,7 @@ class ByRankGenerator(Dataset):
                     if self._is_done(rank_tid):
                         LOG.debug(f"{self._rank} {rank_tid} is DONE - Cleaning")
                         self._remove(rank_tid)
+                        continue
 
                 # prepare data and labels for DMatrix
                 row = self._counter_to_row(counter=counter, normalize=self._normalize)
@@ -212,9 +212,9 @@ class ByRankGenerator(Dataset):
                     LOG.debug(
                         f"Sending batch {self._batch_count} / (max: {self._max_batch_count}) - {len(self._labels_batch)} samples"
                     )
-                    yield dmatrix
                     self._data_batch = []
                     self._labels_batch = []
+                    yield dmatrix
 
             # yield any remaining data as a final DMatrix
             if self._data_batch:
