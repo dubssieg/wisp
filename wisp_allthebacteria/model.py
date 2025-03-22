@@ -39,6 +39,7 @@ class XGBoostModel:
         batch_size: int = 1_000_000,
         seed: int = 2025,
         api: API | None = None,
+        generator_threads: int = 10,
     ):
         self._params = params if params is not None else DEFAULT_PARAMETERS
         self._seed = seed
@@ -47,6 +48,7 @@ class XGBoostModel:
         self._batch_size = batch_size
         self._api = api
         self._database = database
+        self._generator_threads = generator_threads
         self._model = None
         self._labels = None
         self._gen = None
@@ -70,6 +72,7 @@ class XGBoostModel:
             batch_size=self._batch_size,
             normalize=self._normalize,
             seed=self._seed,
+            buffer_threads=self._generator_threads,
         )
         max_batch_count = self._gen.available_batches_count()
         if batch_count is None:

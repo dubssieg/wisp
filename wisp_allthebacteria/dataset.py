@@ -126,6 +126,7 @@ class ByRankGenerator(Dataset):
         batch_size: int,
         normalize: str | None = None,
         seed: int = 2025,
+        buffer_threads: int = 10,
     ):
         super().__init__(database=database, api=api)
         LOG.debug(f"ByRankGenerator for {rank=}, {batch_size=}, {normalize=}")
@@ -147,6 +148,8 @@ class ByRankGenerator(Dataset):
             )
             for rank_tid, tax_ids in self._tax_ids_by_rank.items()
         }
+        self._data_batch = []
+        self._labels_batch = []
 
         db_info = self._db.get_info()
         self._counts = [
@@ -155,13 +158,12 @@ class ByRankGenerator(Dataset):
         ]
         self._total_samples = sum(self._counts)
         self._weights = [count / self._total_samples for count in self._counts]
+        self._max_batch_count = self.available_batches_count()
 
         # start filling buffers
-        # self._fill_buffers_thread = threading.Thread(
-        #     target=self._fill_buffers, daemon=True
-        # )
-        # self._fill_buffers_thread.start()
-        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+        self._executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=buffer_threads
+        )
         self._terminating = False
 
     def start(self) -> None:
@@ -198,26 +200,26 @@ class ByRankGenerator(Dataset):
 
             # prepare data and labels for DMatrix
             row = self._counter_to_row(counter=counter, normalize=self._normalize)
-            data_batch.append(row)
-            labels_batch.append(rank_tid)
+            self._data_batch.append(row)
+            self._labels_batch.append(rank_tid)
 
             # yield a DMatrix if batch is filled
-            if len(data_batch) >= self._batch_size:
-                dmatrix = self._data2DMatrix(data_batch, labels_batch)
+            if len(self._data_batch) >= self._batch_size:
+                dmatrix = self._data2DMatrix(self._data_batch, self._labels_batch)
                 self._batch_count += 1
                 LOG.debug(
-                    f"Sending batch {self._batch_count} / (max: {max_batch_count}) - {len(labels_batch)} samples"
+                    f"Sending batch {self._batch_count} / (max: {self._max_batch_count}) - {len(self._labels_batch)} samples"
                 )
                 yield dmatrix
-                data_batch = []
-                labels_batch = []
+                self._data_batch = []
+                self._labels_batch = []
 
         # yield any remaining data as a final DMatrix
-        if data_batch:
+        if self._data_batch:
             self._batch_count += 1
-            dmatrix = self._data2DMatrix(data_batch, labels_batch)
+            dmatrix = self._data2DMatrix(self._data_batch, self._labels_batch)
             LOG.debug(
-                f"Sending (last) batch {self._batch_count} - {len(labels_batch)} samples"
+                f"Sending (last) batch {self._batch_count} - {len(self._labels_batch)} samples"
             )
             yield dmatrix
 

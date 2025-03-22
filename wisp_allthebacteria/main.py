@@ -12,7 +12,7 @@ from reader import Reader
 from api import API
 from model import XGBoostModel
 from database import Database, DatabaseBuilder, RANKS
-from dataset import ByRankGenerator
+from dataset import Dataset
 from utils import (
     SystemStatsLogger,
     format_duration,
@@ -153,7 +153,7 @@ def load_config(json_file: Path | str):
 
 def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int | None):
     LOG.info("train_model")
-    with SystemStatsLogger(interval=30, pid=os.getpid()):
+    with SystemStatsLogger(interval=30):
         if rank not in RANKS:
             raise ValueError(f"Invalid rank {rank}")
 
@@ -184,6 +184,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             normalize=conf["model"]["normalize"],
             batch_size=conf["model"]["batch_size"],
             api=api,
+            generator_threads=conf["model"]["generator_threads"],
         )
 
         xgb_model.train(20)
