@@ -323,19 +323,6 @@ class ByRankGenerator(Dataset):
             self._weights = [count / self._total_samples for count in self._counts]
 
     @staticmethod
-    def serialize_dmatrix(dmatrix: xgb.DMatrix, file_path: str | Path) -> None:
-        file_path = Path(file_path)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        dmatrix.save_binary(file_path)
-
-    @staticmethod
-    def deserialize_dmatrix(file_path: str | Path) -> xgb.DMatrix:
-        file_path = Path(file_path)
-        if not file_path.exists():
-            raise FileNotFoundError(f"{file_path} DMatrix not found.")
-        return xgb.DMatrix(file_path)
-
-    @staticmethod
     def _normalize_sum(count_dict: dict) -> dict:
         total_count = sum(count_dict.values())
         return {key: value / total_count for key, value in count_dict.items()}

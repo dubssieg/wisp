@@ -185,11 +185,12 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             batch_size=conf["model"]["batch_size"],
             api=api,
             generator_threads=cpu_count(conf["model"]["generator_threads"]),
+            save_path=save_path,
         )
 
         xgb_model.train(20)
 
-        xgb_model.save(save_path)
+        # xgb_model.save(save_path)
         xgb_model.evaluate(5)
         xgb_model.stop()
 
