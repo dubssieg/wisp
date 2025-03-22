@@ -13,7 +13,7 @@ import xgboost as xgb
 from pathlib import Path
 from database import Database
 from api import API
-from utils import hash
+from utils import hash, FunctionLogger
 
 LOG = logging.getLogger(__name__)
 
@@ -135,6 +135,7 @@ class ByRankGenerator(Dataset):
         self._batch_count = 0
         self._normalize = normalize
         self._seed = seed
+        self._buffer_threads = buffer_threads
         self._lock = threading.Lock()
         self._tax_ids_by_rank = self._get_tax_ids_by_rank(rank)
         self._rank_tids = list(self._tax_ids_by_rank.keys())
@@ -162,7 +163,7 @@ class ByRankGenerator(Dataset):
 
         # start filling buffers
         self._executor = concurrent.futures.ThreadPoolExecutor(
-            max_workers=buffer_threads
+            max_workers=self._buffer_threads
         )
         self._terminating = False
 
@@ -177,59 +178,75 @@ class ByRankGenerator(Dataset):
 
     def get(self) -> Generator[xgb.DMatrix, None, None]:
 
-        max_batch_count = self.available_batches_count()
-        data_batch = []
-        labels_batch = []
-
         random_instance = random.Random(self._seed)
 
-        while not (
-            self._all_generator_done()
-            and self._all_buffers_done()
-            and self._terminating
+        with (
+            FunctionLogger(30, self._batch_info),
+            FunctionLogger(30, self._buffers_info),
         ):
-            rank_tid = random_instance.choices(
-                self._rank_tids, weights=self._weights, k=1
-            )[0]
-            try:
-                counter = self._buffers[rank_tid].get()
-            except queue.Empty:
-                if self._is_done(rank_tid):
-                    LOG.debug(f"{self._rank} {rank_tid} is DONE - Cleaning")
-                    self._remove(rank_tid)
 
-            # prepare data and labels for DMatrix
-            row = self._counter_to_row(counter=counter, normalize=self._normalize)
-            self._data_batch.append(row)
-            self._labels_batch.append(rank_tid)
+            while not (
+                self._all_generator_done()
+                and self._all_buffers_done()
+                and self._terminating
+            ):
+                rank_tid = random_instance.choices(
+                    self._rank_tids, weights=self._weights, k=1
+                )[0]
+                try:
+                    counter = self._buffers[rank_tid].get()
+                except queue.Empty:
+                    if self._is_done(rank_tid):
+                        LOG.debug(f"{self._rank} {rank_tid} is DONE - Cleaning")
+                        self._remove(rank_tid)
 
-            # yield a DMatrix if batch is filled
-            if len(self._data_batch) >= self._batch_size:
-                dmatrix = self._data2DMatrix(self._data_batch, self._labels_batch)
+                # prepare data and labels for DMatrix
+                row = self._counter_to_row(counter=counter, normalize=self._normalize)
+                self._data_batch.append(row)
+                self._labels_batch.append(rank_tid)
+
+                # yield a DMatrix if batch is filled
+                if len(self._data_batch) >= self._batch_size:
+                    dmatrix = self._data2DMatrix(self._data_batch, self._labels_batch)
+                    self._batch_count += 1
+                    LOG.debug(
+                        f"Sending batch {self._batch_count} / (max: {self._max_batch_count}) - {len(self._labels_batch)} samples"
+                    )
+                    yield dmatrix
+                    self._data_batch = []
+                    self._labels_batch = []
+
+            # yield any remaining data as a final DMatrix
+            if self._data_batch:
                 self._batch_count += 1
+                dmatrix = self._data2DMatrix(self._data_batch, self._labels_batch)
                 LOG.debug(
-                    f"Sending batch {self._batch_count} / (max: {self._max_batch_count}) - {len(self._labels_batch)} samples"
+                    f"Sending (last) batch {self._batch_count} - {len(self._labels_batch)} samples"
                 )
                 yield dmatrix
-                self._data_batch = []
-                self._labels_batch = []
 
-        # yield any remaining data as a final DMatrix
-        if self._data_batch:
-            self._batch_count += 1
-            dmatrix = self._data2DMatrix(self._data_batch, self._labels_batch)
-            LOG.debug(
-                f"Sending (last) batch {self._batch_count} - {len(self._labels_batch)} samples"
-            )
-            yield dmatrix
+    def _buffers_info(self) -> str:
+        buffer_info = []
+        for tid in self._rank_tids:
+            qsize = str(self._buffers[tid].qsize())
+            filling = self._filling[tid]
+            exhausted = self._exhausted[tid]
 
-        # self._fill_buffers_thread.join()
+            if filling:
+                qsize = f"^{qsize}^"
+            elif exhausted:
+                qsize = f"[{qsize}]"
 
-    def tmp_log(self):
-        buffer_info = [
-            (self._buffers[tid].qsize(), self._filling[tid]) for tid in self._rank_tids
-        ]
-        LOG.debug(buffer_info)
+            buffer_info.append(qsize)
+
+        return (
+            f"BUFFERS (max: {self._max_buffer_size}, th: {self._buffer_threads}): "
+            + "|".join(buffer_info)
+        )
+
+    def _batch_info(self) -> None:
+        perc = 100 * len(self._labels_batch) / self._batch_size
+        return f"BATCH {self._batch_count + 1}: {len(self._labels_batch) / self._batch_size} ({perc:.1f} %)"
 
     def available_batches_count(self) -> int:
         """How many batches are available"""

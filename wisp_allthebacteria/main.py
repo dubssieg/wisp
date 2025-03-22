@@ -184,7 +184,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             normalize=conf["model"]["normalize"],
             batch_size=conf["model"]["batch_size"],
             api=api,
-            generator_threads=conf["model"]["generator_threads"],
+            generator_threads=cpu_count(conf["model"]["generator_threads"]),
         )
 
         xgb_model.train(20)

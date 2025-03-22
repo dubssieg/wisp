@@ -207,7 +207,7 @@ def space_format(number: int):
 
 
 class FunctionLogger:
-    def __init__(self, interval: float, func, *args, level=logging.INFO, **kwargs):
+    def __init__(self, interval: float, func, *args, level=logging.DEBUG, **kwargs):
         """Log the result of a function call at regular intervals."""
         self._interval = interval
         self._func = func
