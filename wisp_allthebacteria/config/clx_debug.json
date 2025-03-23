@@ -29,7 +29,11 @@
         "default_models_dir": "/data/microtaxo/models",
         "kfold": 3,
         "batch_size": 1000,
-        "generator_threads": "max_minus_2"
+        "generator_threads": 10,
+        "train_batch_count": 1000,
+        "test_batch_count": 4,
+        "eval_batch_count": 2,
+        "eval_patience": 5
     },
     "report":{
         "default_reports_dir": "/data/microtaxo/reports"

@@ -138,7 +138,7 @@ class ByRankGenerator(Dataset):
         self._lock = threading.Lock()
         self._tax_ids_by_rank = self._get_tax_ids_by_rank(rank)
         self._rank_tids = list(self._tax_ids_by_rank.keys())
-        self._max_buffer_size = max(32, batch_size // len(self._rank_tids))
+        self._max_buffer_size = max(32, 2 * batch_size // len(self._rank_tids))
         self._buffers = {rank_tid: queue.Queue() for rank_tid in self._rank_tids}
         self._exhausted = {rank_tid: False for rank_tid in self._rank_tids}
         self._filling = {rank_tid: False for rank_tid in self._rank_tids}

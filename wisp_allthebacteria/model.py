@@ -57,7 +57,9 @@ class XGBoostModel:
         self._gen = None
         self._last_batch_id = None
         self._max_batch_count = None
+        self._batch_reports = []
         self._label_encoder = LabelEncoder()
+
         LOG.debug(
             f"XGBoostModel({rank=}, {batch_size=}, {normalize=}, {seed=}, {generator_threads=}, {save_path=})"
         )
@@ -65,6 +67,8 @@ class XGBoostModel:
     def train(
         self,
         batch_count: int | None = None,
+        eval_batch_count: int | None = None,  # early stopping
+        eval_patience: int = 1,
         num_boost_round: int = 100,
     ) -> None:
         """Train a model"""
@@ -106,6 +110,14 @@ class XGBoostModel:
 
         self._gen.start()
 
+        # store eval batches
+        if eval_batch_count:
+            LOG.debug(
+                f"Generating and storing {eval_batch_count} evaluation batches..."
+            )
+            self._store_batches(batch_count=eval_batch_count, storage_name="eval")
+            LOG.debug(f"{eval_batch_count} evaluation batches stored")
+
         # model
         self._model = None
         for i in range(batch_count):
@@ -121,6 +133,31 @@ class XGBoostModel:
                 num_boost_round=num_boost_round,
                 xgb_model=self._model,
             )
+            if eval_batch_count:
+                report = self.evaluate(
+                    batch_count=eval_batch_count, use_stored_batches="eval"
+                )
+                score = report["score"]
+                LOG.debug(f"Evaluation score: {score:.3f}")
+                self.save(f"batch_models/{len(self._batch_reports)}")
+
+                prev_scores = [br["score"] for br in self._batch_reports]
+                self._batch_reports.append(report)
+
+                if len(self._batch_reports) >= eval_patience:
+                    patience_prev_scores = prev_scores[-eval_patience:]
+                    min_improvement = 0.001  # TODO: conf
+                    if score < all(
+                        prev_score > score + min_improvement
+                        for prev_score in patience_prev_scores
+                    ):
+                        LOG.info(
+                            f"Early stopping: no improvement in the last {eval_patience} evaluations"
+                        )
+
+                        break
+        # TODO: self._keep_best_models(eval_patience) -> dans if eval_batch_count
+        self._load_best_model()
         LOG.debug("Model trained")
 
     # def evaluate_dmatrix(self, dtest: xgb.DMatrix) -> dict:
@@ -148,9 +185,14 @@ class XGBoostModel:
         all_y_true_encoded = []
         all_y_pred_encoded = []
 
+        if use_stored_batches:
+            stored_batch_gen = self._stored_batches_generator(use_stored_batches)
         # evaluate
         for i in range(batch_count):
-            dtest = self._get_next_batch(storage_name="test")
+            if use_stored_batches:
+                dtest = next(stored_batch_gen)
+            else:
+                dtest = self._get_next_batch(storage_name="test")
             LOG.debug(
                 f"Evaluation batch {i + 1} / {batch_count} (total with training: {self._last_batch_id} / {max_batch_count})"
             )
@@ -182,16 +224,21 @@ class XGBoostModel:
             output_dict=True,
         )
         self._report["confusion_matrix"] = confusion_matrix(y_true, y_pred)
+        self._report["score"] = self._score(self._report)
 
         LOG.debug("Model evaluated")
         return self._report
 
-    def load(self) -> None:
+    def load(self, sub_dir: str | None = None) -> None:
         """Load model from file."""
-        model_path = self._save_path / "model.bin"
-        label_path = self._save_path / "labels.pkl"
-        label_encoder_path = self._save_path / "labels_encoder.pkl"
-        params_path = self._save_path / "params.json"
+        save_path = self._save_path
+        if sub_dir:
+            save_path /= sub_dir
+        LOG.debug(f"Loading model: {save_path}")
+        model_path = save_path / "model.bin"
+        label_path = save_path / "labels.pkl"
+        label_encoder_path = save_path / "labels_encoder.pkl"
+        params_path = save_path / "params.json"
         for f in (model_path, label_path, label_encoder_path, params_path):
             if not f.is_file:
                 raise FileNotFoundError(f)
@@ -199,20 +246,32 @@ class XGBoostModel:
         self._model = xgb.Booster()
         self._model.load_model(str(model_path))
         self._labels = deserialize(label_path)
+        self._label_encoder = deserialize(label_encoder_path)
         self._params = json.loads(params_path.read_text())
 
-    def save(self) -> None:
+    def _load_best_model(self) -> None:
+        LOG.debug("Loading best model...")
+        prev_scores = [br["score"] for br in self._batch_reports]
+        max_index, max_value = max(enumerate(prev_scores), key=lambda x: x[1])
+        LOG.debug(f"Loading best model: BATCH {max_index} => {max_value:.3f}")
+        self.load(f"batch_models/{max_index}")
+
+    def save(self, sub_dir: str | None = None) -> None:
         """Save model to directory."""
-        self._save_path.mkdir(parents=True, exist_ok=True)
-        model_path = self._save_path / "model.bin"
-        label_path = self._save_path / "labels.pkl"
-        label_encoder_path = self._save_path / "labels_encoder.pkl"
-        params_path = self._save_path / "params.json"
+        save_path = self._save_path
+        if sub_dir:
+            save_path /= sub_dir
+            LOG.debug(f"Saving model: {save_path}")
+        save_path.mkdir(parents=True, exist_ok=True)
+        model_path = save_path / "model.bin"
+        label_path = save_path / "labels.pkl"
+        label_encoder_path = save_path / "labels_encoder.pkl"
+        params_path = save_path / "params.json"
 
         if self._model is not None:
             self._model.save_model(str(model_path))
             serialize(self._labels, label_path)
-            serialize(self._labels_encoder, label_encoder_path)
+            serialize(self._label_encoder, label_encoder_path)
             params_path.write_text(json.dumps(self._params, indent=4))
         else:
             raise ValueError("Model is not trained or loaded yet.")
@@ -282,3 +341,25 @@ class XGBoostModel:
                 f"No more batch available: {self._last_batch_id} / {self._max_batch_count}"
             )
             raise
+
+    def _score(self, report: dict, lambda_penalty: float = 0.5) -> float:
+        """Custom metric: f1 avg, but add penalty according to rank position"""
+        f1_macro_avg = report["classification_report"]["macro avg"]["f1-score"]
+
+        f1_scores = [
+            v["f1-score"]
+            for k, v in report["classification_report"].items()
+            if k not in ["accuracy", "macro avg", "weighted avg"]
+        ]
+
+        # normalization
+        f1_min, f1_max = min(f1_scores), max(f1_scores)
+        if f1_max > f1_min:  # Éviter division par zéro
+            f1_normalized = [(f - f1_min) / (f1_max - f1_min) for f in f1_scores]
+        else:
+            f1_normalized = [1] * len(f1_scores)  # Cas où tous les F1 sont identiques
+
+        # apply penalty according to rank position
+        penalty = sum((1 - f) for f in f1_normalized) / len(f1_scores)
+
+        return f1_macro_avg - lambda_penalty * penalty
