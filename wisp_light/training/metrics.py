@@ -3,6 +3,8 @@ from sklearn.metrics import confusion_matrix
 import numpy as np
 import pandas as pd
 import sys
+import pickle
+
 sys.path.append('..')
 from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
@@ -27,6 +29,9 @@ class ConfusionMatrixTracker:
             assert true_value is not None, f"True label for level '{level}' is None. All labels {true_labels}"
             pred_value = pred_labels.get(level, self.unknown_pred)  # Remplace None par "Unknown"
 
+            if pred_value is None:
+                pred_value = self.unknown_pred  # Remplace explicitement les None
+
             self.true_labels[level].append(true_value)
             self.pred_labels[level].append(pred_value)
 
@@ -48,6 +53,8 @@ class ConfusionMatrixTracker:
         taxonomy_df = taxonomy_df.drop_duplicates().reset_index(drop=True)
         # print("after sorting \n", taxonomy_df)
         self.taxonomy_df = taxonomy_df
+        with open("conf_matrix_tracker.pkl", "wb") as f:
+            pickle.dump(self, f)
 
     def get_confusion_matrix(self, level):
         """
@@ -116,3 +123,12 @@ def compute_accuracy_from_conf_matrix_df(conf_mat_level):
     accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0.0
     return accuracy
 
+if __name__ == "__main__":
+    with open("conf_matrix_tracker.pkl", "rb") as f:
+        tracker = pickle.load(f)
+
+    # Tu peux maintenant utiliser toutes les méthodes et attributs :
+    print(tracker.taxonomy_df)  # Voir le DataFrame taxonomique
+    print(tracker.get_confusion_matrix("phylum"))  # Voir la matrice de confusion du niveau "phylum"
+    print(tracker.true_labels["phylum"][:5])  # Voir quelques labels
+    print(tracker.pred_labels["phylum"][:5])  # Voir quelques prédictions
