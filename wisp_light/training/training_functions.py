@@ -169,7 +169,7 @@ def log_val_metrics(metrics, val_dir, logger):
     logger.info("=" * 60)
     logger.info("VALIDATION metrics")
     metrics.build_taxonomy_df()
-    level_sep = 'phylum'
+    LEVEL_MARKER = 'phylum'
 
     for id_level, level in enumerate(TAXO_LEVELS):
         conf_mat_level = metrics.get_confusion_matrix(level)
@@ -187,8 +187,12 @@ def log_val_metrics(metrics, val_dir, logger):
         conf_mat_level.to_csv(file_csv, sep=';', index=True)
         mlflow.log_artifact(file_csv)
 
-        separator_indices = metrics.calculate_separator_indices(level_1=level_sep, level_2=level)
         plot_path = file_csv.replace(".csv", ".png")
+        if level != LEVEL_MARKER:
+            separator_indices = metrics.calculate_separator_indices(level_marker=LEVEL_MARKER, level_index=level)
+        else:
+            separator_indices = None
+
         plot_conf_mat(conf_mat_level, level, separator_indices, filename=plot_path)
         mlflow.log_artifact(plot_path)
 

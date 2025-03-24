@@ -5,6 +5,7 @@ import pandas as pd
 import sys
 import pickle
 
+
 sys.path.append('..')
 from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
@@ -87,7 +88,7 @@ class ConfusionMatrixTracker:
         return confusion_df
 
 
-    def calculate_separator_indices(self, level_1='phylum', level_2='family'):
+    def calculate_separator_indices(self, level_marker='phylum', level_index='family'):
         """
         Calcule les indices où un changement du niveau level_1 (ex: phylum) se produit
         en regardant l'ordre du niveau level_2 (ex: family).
@@ -100,15 +101,17 @@ class ConfusionMatrixTracker:
         """
         if not hasattr(self, 'taxonomy_df'):
             raise AttributeError("L'attribut 'taxonomy_df' not present , call before self.build_taxonomy_df")
-        unique_df = self.taxonomy_df.drop_duplicates(subset=[level_2])
+        # unique_df = self.taxonomy_df.drop_duplicates(subset=[level_2])
+        #
+        # # Trier le DataFrame selon le niveau inférieur
 
-        # Trier le DataFrame selon le niveau inférieur
-        sorted_df = unique_df.sort_values(by=[level_2]).reset_index(drop=True)
+        # sorted_df = unique_df.sort_values(by=[level_2]).reset_index(drop=True)
+        unique_df = self.taxonomy_df.drop_duplicates(subset=[level_index]).reset_index()
         separator_indices = []
 
         previous_level_1_value = None
-        for i, row in sorted_df.iterrows():
-            current_level_1_value = row[level_1]
+        for i, row in unique_df.iterrows():
+            current_level_1_value = row[level_marker]
             if previous_level_1_value is not None and current_level_1_value != previous_level_1_value:
                 separator_indices.append(i)  # Ajouter l'indice où level_1 change
 
@@ -124,11 +127,22 @@ def compute_accuracy_from_conf_matrix_df(conf_mat_level):
     return accuracy
 
 if __name__ == "__main__":
+    from wisp.wisp_light.visu.plots_tools import plot_conf_mat
+
     with open("conf_matrix_tracker.pkl", "rb") as f:
         tracker = pickle.load(f)
 
     # Tu peux maintenant utiliser toutes les méthodes et attributs :
-    print(tracker.taxonomy_df)  # Voir le DataFrame taxonomique
-    print(tracker.get_confusion_matrix("phylum"))  # Voir la matrice de confusion du niveau "phylum"
-    print(tracker.true_labels["phylum"][:5])  # Voir quelques labels
-    print(tracker.pred_labels["phylum"][:5])  # Voir quelques prédictions
+    print(tracker.taxonomy_df.to_markdown())  # Voir le DataFrame taxonomique
+    for level in  ['phylum', 'class', 'order', 'family']:
+        level_marker = 'phylum'
+        conf_mat_level = tracker.get_confusion_matrix(level)
+        print(conf_mat_level)  # Voir la matrice de confusion du niveau "phylum"
+        # print(tracker.true_labels["phylum"][:5])  # Voir quelques labels
+        # print(tracker.pred_labels["phylum"][:5])  # Voir quelques prédictions
+        if level != level_marker:
+            separator_indices = tracker.calculate_separator_indices(level_marker=level_marker, level_index=level)
+        else:
+            separator_indices = None
+        print(separator_indices)
+        plot_conf_mat(conf_mat_level, level, separator_indices, filename=None)

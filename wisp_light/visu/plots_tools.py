@@ -2,9 +2,10 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import matplotlib.patches as patches
 
-
-def plot_conf_mat(conf_mat,  level, separator_indices,  filename=None):
+def plot_conf_mat(conf_mat,  level, separator_indices=None,  filename=None):
+    min_square = 2
     fig, ax = plt.subplots(figsize=(8, 6))
     # Déterminer si on doit afficher les labels
     show_label = len(conf_mat) <= 15
@@ -23,11 +24,32 @@ def plot_conf_mat(conf_mat,  level, separator_indices,  filename=None):
         cax = ax.imshow(conf_mat, cmap=cmap, norm=norm, interpolation="nearest")    # Ajout des titres
         plt.colorbar(cax, ax=ax)
 
-    for idx in separator_indices:
-        if not show_label:
-            idx -= 0.5
-        ax.axvline(x=idx, color='red', linewidth=2, linestyle='--')  # Ligne verticale rouge
-        ax.axhline(y=idx, color='red', linewidth=2, linestyle='--')  # Ligne horiz
+    if separator_indices is not None and len(separator_indices) > 1:
+
+        for i in range(len(separator_indices) - 1):
+            start = separator_indices[i]
+            end = separator_indices[i + 1]
+            if end - start > min_square:  # ⚠️ Éviter les rectangles si l'écart est de 1
+                if not show_label:
+                    start -= 0.5
+                    end -= 0.5
+                rect = patches.Rectangle(
+                    (start, start),  # Coordonnées du coin supérieur gauche
+                    end - start,  # Largeur
+                    end - start,  # Hauteur
+                    linewidth=1,
+                    edgecolor='red',
+                    facecolor='none',
+                    linestyle="--"
+                )
+                ax.add_patch(rect)  # Ajouter le rectangle au plot
+    #
+    # if separator_indices is not None:
+    #     for idx in separator_indices:
+    #         if not show_label:
+    #             idx -= 0.5
+    #         ax.axvline(x=idx, color='red', linewidth=1, linestyle='--')  # Ligne verticale rouge
+    #         ax.axhline(y=idx, color='red', linewidth=1, linestyle='--')  # Ligne horiz
 
     plt.title(title)
     plt.xlabel("Prédit")
