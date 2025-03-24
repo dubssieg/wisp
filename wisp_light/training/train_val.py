@@ -27,8 +27,9 @@ args = parser.parse_args()
 
 args.index_csv = "../dataset/complete_refseq_referent_genome_with_taxo.tsv"
 
-# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1"
+# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq3"
 # args.exp_rootdir = '/home/hcourtei/Projects/MicroTaxo/codes/exp_refseq' #
+# args.db_json = '/home/hcourtei/Projects/MicroTaxo/codes/exp_refseq/model_base_index_03_24_15_06/databases.json'
 args.datadir = '/projects/microtaxo/data/refseq3'
 args.exp_rootdir = '/projects/microtaxo/exp_refseq'
 args.db_json  = "/projects/microtaxo/exp_refseq/model_base_index_03_21_00_13/databases.json"
@@ -76,7 +77,7 @@ with mlflow.start_run():
     # dataset = BacteriaDataset(args.datadir, logger)
     # dataset.filter_family_by_min_species(min_family_threshold=params['min_family_threshold'],
     #                                      max_family_repr=params['max_family_repr'])
-    dataset = RefSeqDataset(args.index_csv, args.datadir, logger, cut=None)
+    dataset = RefSeqDataset(args.index_csv, args.datadir, logger, cut=2000)
 
     train_dataset, val_dataset = dataset.split(test_size=params['test_size'], random_state=params['random_state'],
                                                family_strat=params['family_strat'])
