@@ -99,19 +99,33 @@ class Dataset:
         """All labels in this DB, for this rank"""
         return list(self._get_tax_ids_by_rank(rank).keys())
 
-    def _get_tax_ids_by_rank(self, rank: str) -> dict[int, list[int]]:
+    def _get_tax_ids_by_rank(
+        self, rank: str, min_samples: int | None = None
+    ) -> dict[int, list[int]]:
         idx_key = (IDX_TID_BY_RANK, rank)
         rank_mapping = self._db.get_index(idx_key)
+
         if not rank_mapping:
             rank_mapping = defaultdict(list)
             for tax_id in self._db.get_tax_ids():
-                lineage_ex = self._api[tax_id].get("LineageEx", [])
-                for entry in lineage_ex:
+                for entry in self._api[tax_id].get("LineageEx", []):
                     if entry["Rank"] == rank:
                         rank_mapping[int(entry["TaxId"])].append(tax_id)
                         break
             rank_mapping = dict(rank_mapping)
             self._db.set_index(idx_key, rank_mapping)
+
+        if min_samples:
+            rm_len = len(rank_mapping)
+            db_info = self._db.get_info()
+            rank_mapping = {
+                key: tax_ids
+                for key, tax_ids in rank_mapping.items()
+                if sum(db_info["counters"].get(tax_id, 0) for tax_id in tax_ids)
+                >= min_samples
+            }
+            if removed := rm_len - len(rank_mapping):
+                LOG.info(f"{removed} {rank}(s) removed (samples < {min_samples})")
 
         return rank_mapping
 
@@ -128,6 +142,7 @@ class ByRankGenerator(Dataset):
         buffer_threads: int = 10,
         sample_balance_factor: float = 0.0,
         batch_balance_factor: float = 0.0,
+        min_samples_by_class: int | None = None,
     ):
         super().__init__(database=database, api=api)
         LOG.debug(f"ByRankGenerator for {rank=}, {batch_size=}, {normalize=}")
@@ -140,7 +155,9 @@ class ByRankGenerator(Dataset):
         self._sample_balance_factor = sample_balance_factor
         self._batch_balance_factor = batch_balance_factor
         self._lock = threading.Lock()
-        self._tax_ids_by_rank = self._get_tax_ids_by_rank(rank)
+        self._tax_ids_by_rank = self._get_tax_ids_by_rank(
+            rank, min_samples=min_samples_by_class
+        )
         self._rank_tids = list(self._tax_ids_by_rank.keys())
         self._max_buffer_size = max(32, 2 * batch_size // len(self._rank_tids))
         self._buffers = {rank_tid: queue.Queue() for rank_tid in self._rank_tids}
