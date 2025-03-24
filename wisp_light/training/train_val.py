@@ -16,7 +16,7 @@ from wisp.wisp_light.dataset.refSeqDataset import RefSeqDataset
 # from wisp.wisp_light.dataset.bactero_set import BacteriaDataset
 
 parser = argparse.ArgumentParser(description="Script d'entraînement pour le modèle bactérien.")
-parser.add_argument("--exp_name", type=str, default="model_base_index", help="Nom de l'expérience.")
+parser.add_argument("--exp_name", type=str, default="model_base_testval", help="Nom de l'expérience.")
 parser.add_argument("--datadir", type=str, default="/projects/microtaxo/data/refseq_with_taxo_merged", help="Répertoire des données.")
 parser.add_argument("--params_file", type=str, default="params.yaml", help="Chemin du fichier de paramètres.")
 parser.add_argument("--exp_rootdir", type=str, default=os.path.abspath('../../exp/'), help="Répertoire racine des expériences.")
