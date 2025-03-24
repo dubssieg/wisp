@@ -12,7 +12,7 @@ import numpy as np
 import xgboost as xgb
 from database import Database
 from api import API
-from utils import hash, FunctionLogger, get_weights
+from utils import hash, FunctionLogger, get_weights, sample_count_estimation
 
 LOG = logging.getLogger(__name__)
 
@@ -253,10 +253,12 @@ class ByRankGenerator(Dataset):
         perc = 100 * len(self._labels_batch) / self._batch_size
         return f"BATCH {self._batch_count + 1}: {len(self._labels_batch)} / {self._batch_size} ({perc:.1f} %)"
 
+    def get_sample_count_estimation(self) -> int:
+        return sample_count_estimation(self._counts, self._batch_balance_factor)
+
     def estimated_batches_count(self) -> int:
         """How many batches should be available"""
-
-        total_samples = self.total_samples()
+        total_samples = self.get_sample_count_estimation()
         return (total_samples + self._batch_size - 1) // self._batch_size
 
     def _fill_buffers(self):
@@ -270,7 +272,6 @@ class ByRankGenerator(Dataset):
             try:
                 sample = next(self._generators[rank_tid])
                 self._buffers[rank_tid].put(sample)
-                # self.tmp_log()  # TODO: remove
             except StopIteration:
                 self._mark_exhausted(rank_tid)
             self._stop_filling(rank_tid)

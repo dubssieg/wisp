@@ -85,11 +85,13 @@ class XGBoostModel:
             sample_balance_factor=self._sample_balance_factor,
             batch_balance_factor=self._batch_balance_factor,
         )
+        self._gen.start()
 
         self._max_batch_count = self._gen.estimated_batches_count()
         if self._train_batch_count is None:
-            self._train_batch_count = (
-                self._max_batch_count - self._test_batch_count - self._eval_batch_count
+            self._train_batch_count = max(
+                1,
+                self._max_batch_count - self._test_batch_count - self._eval_batch_count,
             )
 
         needed_batches = (
@@ -127,6 +129,8 @@ class XGBoostModel:
     ) -> None:
         """Train a model"""
 
+        self._store_eval_and_test_batches()
+
         LOG.debug("Training model...")
 
         # labels
@@ -138,8 +142,6 @@ class XGBoostModel:
         if "seed" not in params:
             params["seed"] = self._seed
         params["num_class"] = len(self._labels)
-
-        self._gen.start()
 
         # model
         self._model = None
@@ -157,9 +159,7 @@ class XGBoostModel:
                 xgb_model=self._model,
             )
             if self._eval_batch_count:
-                report = self.evaluate(
-                    batch_count=self._eval_batch_count, use_stored_batches=EVAL_STORAGE
-                )
+                report = self.evaluate(storage_name=EVAL_STORAGE)
                 score = report["score"]
                 LOG.debug(f"Evaluation score: {score:.3f}")
                 self.save(f"batch_models/{len(self._batch_reports)}")
@@ -183,11 +183,12 @@ class XGBoostModel:
                         )
 
                         break
-        # TODO: self._keep_best_models(eval_patience) -> dans if eval_batch_count
         self._load_best_model()
         LOG.debug("Model trained")
 
-    def evaluate(self) -> dict:
+    def evaluate(
+        self, batches: list[xgb.DMatrix] | None = None, storage_name: str | None = None
+    ) -> dict:
         """Evaluate the model on the next available batches."""
 
         LOG.debug("Evaluating model...")
@@ -198,10 +199,17 @@ class XGBoostModel:
         all_y_true_encoded = []
         all_y_pred_encoded = []
 
-        test_gen = self._stored_batches_generator(TEST_STORAGE)
+        if batches:
+            if isinstance(batches, xgb.DMatrix):
+                batches = [batches]
+            batch_iterator = iter(batches)
+        else:
+            if storage_name is None:
+                storage_name = TEST_STORAGE
+            batch_iterator = self._stored_batches_generator(storage_name)
+
         # evaluate
-        for i in range(self._test_batch_count):
-            dtest = next(test_gen)
+        for i, dtest in enumerate(batch_iterator):
             LOG.debug(f"Evaluation batch {i + 1} / {self._test_batch_count})")
 
             y_true = dtest.get_label().astype(int)

@@ -153,12 +153,13 @@ class Database:
                     case _:
                         raise ValueError(f"{target=}")
             except StopIteration:
-                LOG.debug(f"Generator for tax_id={tax_id[index]} exhausted")
+                LOG.debug(f"Generator for {tax_id=} exhausted")
                 iterators.pop(index)
                 tax_ids.pop(index)
                 counts.pop(index)
                 # Recalculate weights after removing an exhausted tax_id
                 weights = get_weights(counts, balance_factor)
+        LOG.debug("Sample generator exhausted")
 
     def get_tax_ids(self) -> list:
         """Get available tax_ids - TODO: in MD DB"""

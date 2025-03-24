@@ -178,6 +178,10 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             compressed=conf["db"]["compressed"],
         )
 
+        train_batch_count = conf["model"]["train_batch_count"]
+        if train_batch_count == "max":
+            train_batch_count = None
+
         xgb_model = XGBoostModel(
             rank=rank,
             database=database,
@@ -188,7 +192,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             save_path=save_path,
             sample_balance_factor=conf["model"]["sample_balance_factor"],
             batch_balance_factor=conf["model"]["batch_balance_factor"],
-            train_batch_count=conf["model"]["train_batch_count"],
+            train_batch_count=train_batch_count,
             eval_batch_count=conf["model"]["eval_batch_count"],
             test_batch_count=conf["model"]["test_batch_count"],
         )

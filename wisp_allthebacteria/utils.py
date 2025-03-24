@@ -274,6 +274,8 @@ def get_weights(counts: list[int], balance_factor: float) -> list[float]:
     - balancing_factor=0.0 -> original distribution"
     - balancing_factor=1.0 -> balanced distribution"
     """
+    if not counts:
+        return []
     total_samples = sum(counts)
     if balance_factor == 0:
         return [count / total_samples for count in counts]
