@@ -36,7 +36,8 @@
         "eval_patience": 10,
         "sample_balance_factor": 0.1,
         "batch_balance_factor": 0.5,
-        "min_samples_by_class": 1000
+        "min_samples_by_class": 1000,
+        "max_buffer_total_size": 100000 
     },
     "report":{
         "default_reports_dir": "/data/microtaxo/reports"

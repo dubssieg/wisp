@@ -51,6 +51,7 @@ class XGBoostModel:
         sample_balance_factor: float = 0.0,
         batch_balance_factor: float = 0.0,
         min_samples_by_class: int = 1,
+        max_buffer_total_size: int | None = None,
     ):
         LOG.debug(f"XGBoostModel({locals()})")
         self._params = params if params is not None else DEFAULT_PARAMETERS
@@ -86,6 +87,7 @@ class XGBoostModel:
             sample_balance_factor=self._sample_balance_factor,
             batch_balance_factor=self._batch_balance_factor,
             min_samples_by_class=min_samples_by_class,
+            max_buffer_total_size=max_buffer_total_size,
         )
         self._gen.start()
 

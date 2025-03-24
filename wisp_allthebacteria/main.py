@@ -196,6 +196,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             eval_batch_count=conf["model"]["eval_batch_count"],
             test_batch_count=conf["model"]["test_batch_count"],
             min_samples_by_class=conf["model"]["min_samples_by_class"],
+            max_buffer_total_size=conf["model"]["max_buffer_total_size"],
         )
 
         xgb_model.train(

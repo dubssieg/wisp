@@ -143,6 +143,7 @@ class ByRankGenerator(Dataset):
         sample_balance_factor: float = 0.0,
         batch_balance_factor: float = 0.0,
         min_samples_by_class: int | None = None,
+        max_buffer_total_size: int | None = None,
     ):
         super().__init__(database=database, api=api)
         LOG.debug(f"ByRankGenerator for {rank=}, {batch_size=}, {normalize=}")
@@ -159,7 +160,11 @@ class ByRankGenerator(Dataset):
             rank, min_samples=min_samples_by_class
         )
         self._rank_tids = list(self._tax_ids_by_rank.keys())
-        self._max_buffer_size = max(32, 2 * batch_size // len(self._rank_tids))
+
+        self._max_buffer_size = min(
+            batch_size, int(max_buffer_total_size / len(self._rank_tids))
+        )
+
         self._buffers = {rank_tid: queue.Queue() for rank_tid in self._rank_tids}
         self._exhausted = {rank_tid: False for rank_tid in self._rank_tids}
         self._filling = {rank_tid: False for rank_tid in self._rank_tids}
