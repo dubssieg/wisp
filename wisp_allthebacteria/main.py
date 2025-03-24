@@ -178,6 +178,10 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             compressed=conf["db"]["compressed"],
         )
 
+        train_batch_count = conf["model"]["train_batch_count"]
+        if train_batch_count == "max":
+            train_batch_count = None
+
         xgb_model = XGBoostModel(
             rank=rank,
             database=database,
@@ -186,12 +190,18 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             api=api,
             generator_threads=cpu_count(conf["model"]["generator_threads"]),
             save_path=save_path,
+            sample_balance_factor=conf["model"]["sample_balance_factor"],
+            batch_balance_factor=conf["model"]["batch_balance_factor"],
+            train_batch_count=train_batch_count,
+            eval_batch_count=conf["model"]["eval_batch_count"],
+            test_batch_count=conf["model"]["test_batch_count"],
         )
 
-        xgb_model.train(20)
+        xgb_model.train(
+            eval_patience=conf["model"]["eval_patience"],
+        )
 
-        # xgb_model.save(save_path)
-        xgb_model.evaluate(5)
+        xgb_model.evaluate()
         xgb_model.stop()
 
     # dgf = DMatrixGeneratorFactory(

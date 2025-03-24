@@ -269,6 +269,35 @@ def hash(data: Any) -> str:
     return hasher.hexdigest()
 
 
+def get_weights(counts: list[int], balance_factor: float) -> list[float]:
+    """Balancing sample generator.
+    - balancing_factor=0.0 -> original distribution"
+    - balancing_factor=1.0 -> balanced distribution"
+    """
+    if not counts:
+        return []
+    total_samples = sum(counts)
+    if balance_factor == 0:
+        return [count / total_samples for count in counts]
+    else:
+        uniform_weight = 1 / len(counts)
+        return [
+            (1 - balance_factor) * (count / total_samples)
+            + balance_factor * uniform_weight
+            for count in counts
+        ]
+
+
+def sample_count_estimation(counts: list[int], balance_factor: float) -> int:
+    "On average, how many samples can we expect?"
+    weights = get_weights(counts, balance_factor)
+    weighted_samples = [
+        count / weight if weight > 0 else float("inf")
+        for count, weight in zip(counts, weights)
+    ]
+    return int(min(weighted_samples))
+
+
 if __name__ == "__main__":
     print(system_stats())
     print(system_stats(as_str=True))

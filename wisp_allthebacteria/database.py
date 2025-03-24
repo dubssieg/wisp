@@ -9,7 +9,7 @@ from typing import Any, Generator, Literal
 
 from diskcache import FanoutCache
 from reader import Reader
-from utils import decompress, space_format
+from utils import decompress, space_format, get_weights, sample_count_estimation
 
 LOG = logging.getLogger(__name__)
 
@@ -98,11 +98,21 @@ class Database:
             )
         return sample_ids
 
+    def get_sample_count_estimation(
+        self, tax_ids: int | list[int], balance_factor: float = 0.0
+    ) -> int:
+        if isinstance(tax_ids, int):
+            tax_ids = [tax_ids]
+        db_info = self.get_info()
+        counts = [db_info["counters"][tax_id] for tax_id in tax_ids]
+        return sample_count_estimation(counts, balance_factor)
+
     def sample_generator(
         self,
         tax_ids: int | list[int],
         seed: int = 2025,
         target: Literal["counter", "source", "sample_id"] = "counter",
+        balance_factor: float = 0.0,
     ) -> Generator[tuple[int, int], None, None]:
         """Generator version of tax_ids_to_sample_ids, with proportional sampling."""
         if isinstance(tax_ids, int):
@@ -112,8 +122,7 @@ class Database:
         LOG.debug(f"Initializing sample generator using {len(tax_ids)} tax_ids")
         db_info = self.get_info()
         counts = [db_info["counters"][tax_id] for tax_id in tax_ids]
-        total_samples = sum(counts)
-        weights = [count / total_samples for count in counts]
+        weights = get_weights(counts, balance_factor)
 
         # initialize a list of iterators for each tax_id with random order
         iterators = [
@@ -144,13 +153,13 @@ class Database:
                     case _:
                         raise ValueError(f"{target=}")
             except StopIteration:
-                LOG.debug(f"Generator for tax_id={tax_id[index]} exhausted")
+                LOG.debug(f"Generator for {tax_id=} exhausted")
                 iterators.pop(index)
                 tax_ids.pop(index)
                 counts.pop(index)
                 # Recalculate weights after removing an exhausted tax_id
-                total_samples = sum(counts)
-                weights = [count / total_samples for count in counts]
+                weights = get_weights(counts, balance_factor)
+        LOG.debug("Sample generator exhausted")
 
     def get_tax_ids(self) -> list:
         """Get available tax_ids - TODO: in MD DB"""

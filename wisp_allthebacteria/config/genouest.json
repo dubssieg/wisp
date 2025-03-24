@@ -29,7 +29,13 @@
         "default_models_dir": "/projects/microtaxo/exp_allthebacteria/models",
         "kfold": 5,
         "batch_size": 1000000,
-        "generator_threads": "max_minus_2"
+        "generator_threads": "max_minus_2",
+        "train_batch_count": "max",
+        "test_batch_count": 4,
+        "eval_batch_count": 2,
+        "eval_patience": 5,
+        "sample_balance_factor": 0.1,
+        "batch_balance_factor": 0.8
     },
     "report":{
         "default_reports_dir": "/projects/microtaxo/exp_allthebacteria/reports"

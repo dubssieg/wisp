@@ -12,7 +12,7 @@ import numpy as np
 import xgboost as xgb
 from database import Database
 from api import API
-from utils import hash, FunctionLogger
+from utils import hash, FunctionLogger, get_weights, sample_count_estimation
 
 LOG = logging.getLogger(__name__)
 
@@ -126,6 +126,8 @@ class ByRankGenerator(Dataset):
         normalize: str | None = None,
         seed: int = 2025,
         buffer_threads: int = 10,
+        sample_balance_factor: float = 0.0,
+        batch_balance_factor: float = 0.0,
     ):
         super().__init__(database=database, api=api)
         LOG.debug(f"ByRankGenerator for {rank=}, {batch_size=}, {normalize=}")
@@ -135,30 +137,33 @@ class ByRankGenerator(Dataset):
         self._normalize = normalize
         self._seed = seed
         self._buffer_threads = buffer_threads
+        self._sample_balance_factor = sample_balance_factor
+        self._batch_balance_factor = batch_balance_factor
         self._lock = threading.Lock()
         self._tax_ids_by_rank = self._get_tax_ids_by_rank(rank)
         self._rank_tids = list(self._tax_ids_by_rank.keys())
-        self._max_buffer_size = max(32, batch_size // len(self._rank_tids))
+        self._max_buffer_size = max(32, 2 * batch_size // len(self._rank_tids))
         self._buffers = {rank_tid: queue.Queue() for rank_tid in self._rank_tids}
         self._exhausted = {rank_tid: False for rank_tid in self._rank_tids}
         self._filling = {rank_tid: False for rank_tid in self._rank_tids}
         self._generators = {
             rank_tid: self._db.sample_generator(
-                tax_ids, seed=self._seed, target="counter"
+                tax_ids,
+                seed=self._seed,
+                target="counter",
+                balance_factor=self._sample_balance_factor,
             )
             for rank_tid, tax_ids in self._tax_ids_by_rank.items()
         }
         self._data_batch = []
         self._labels_batch = []
 
-        db_info = self._db.get_info()
         self._counts = [
-            sum(db_info["counters"][tax_id] for tax_id in tax_ids)
+            self._db.get_sample_count_estimation(tax_ids, self._sample_balance_factor)
             for tax_ids in self._tax_ids_by_rank.values()
         ]
-        self._total_samples = sum(self._counts)
-        self._weights = [count / self._total_samples for count in self._counts]
-        self._max_batch_count = self.available_batches_count()
+        self._weights = get_weights(self._counts, self._batch_balance_factor)
+        self._max_batch_count = self.estimated_batches_count()
 
         # start filling buffers
         self._executor = concurrent.futures.ThreadPoolExecutor(
@@ -246,11 +251,14 @@ class ByRankGenerator(Dataset):
 
     def _batch_info(self) -> None:
         perc = 100 * len(self._labels_batch) / self._batch_size
-        return f"BATCH {self._batch_count + 1}: {len(self._labels_batch) / self._batch_size} ({perc:.1f} %)"
+        return f"BATCH {self._batch_count + 1}: {len(self._labels_batch)} / {self._batch_size} ({perc:.1f} %)"
 
-    def available_batches_count(self) -> int:
-        """How many batches are available"""
-        total_samples = self.total_samples()
+    def get_sample_count_estimation(self) -> int:
+        return sample_count_estimation(self._counts, self._batch_balance_factor)
+
+    def estimated_batches_count(self) -> int:
+        """How many batches should be available"""
+        total_samples = self.get_sample_count_estimation()
         return (total_samples + self._batch_size - 1) // self._batch_size
 
     def _fill_buffers(self):
@@ -264,7 +272,6 @@ class ByRankGenerator(Dataset):
             try:
                 sample = next(self._generators[rank_tid])
                 self._buffers[rank_tid].put(sample)
-                # self.tmp_log()  # TODO: remove
             except StopIteration:
                 self._mark_exhausted(rank_tid)
             self._stop_filling(rank_tid)
@@ -279,7 +286,9 @@ class ByRankGenerator(Dataset):
                 (
                     rank_tid
                     for rank_tid, q in self._buffers.items()
-                    if not self._filling[rank_tid] and q.qsize() < self._max_buffer_size
+                    if not self._filling[rank_tid]
+                    and not self._exhausted[rank_tid]
+                    and q.qsize() < self._max_buffer_size
                 ),
                 key=lambda rank_tid: self._buffers[rank_tid].qsize(),
                 default=None,
@@ -319,8 +328,7 @@ class ByRankGenerator(Dataset):
             del self._generators[rank_tid]
             self._rank_tids.remove(rank_tid)
             self._counts.pop(self._rank_tids.index(rank_tid))
-            self._total_samples = sum(self._counts)
-            self._weights = [count / self._total_samples for count in self._counts]
+            self._weights = get_weights(self._counts, self._batch_balance_factor)
 
     @staticmethod
     def _normalize_sum(count_dict: dict) -> dict:
