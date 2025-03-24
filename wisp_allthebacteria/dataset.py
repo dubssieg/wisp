@@ -286,7 +286,9 @@ class ByRankGenerator(Dataset):
                 (
                     rank_tid
                     for rank_tid, q in self._buffers.items()
-                    if not self._filling[rank_tid] and q.qsize() < self._max_buffer_size
+                    if not self._filling[rank_tid]
+                    and not self._exhausted[rank_tid]
+                    and q.qsize() < self._max_buffer_size
                 ),
                 key=lambda rank_tid: self._buffers[rank_tid].qsize(),
                 default=None,
