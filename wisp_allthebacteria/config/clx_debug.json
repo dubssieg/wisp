@@ -28,14 +28,14 @@
         "scientific_name": true,
         "default_models_dir": "/data/microtaxo/models",
         "kfold": 3,
-        "batch_size": 10000,
+        "batch_size": 1000,
         "generator_threads": 10,
-        "train_batch_count": 2000,
-        "test_batch_count": 1,
-        "eval_batch_count": 1,
-        "eval_patience": 5,
-        "sample_balance_factor": 0.3,
-        "batch_balance_factor": 0.8
+        "train_batch_count": 20000,
+        "test_batch_count": 5,
+        "eval_batch_count": 2,
+        "eval_patience": 10,
+        "sample_balance_factor": 0.1,
+        "batch_balance_factor": 1
     },
     "report":{
         "default_reports_dir": "/data/microtaxo/reports"

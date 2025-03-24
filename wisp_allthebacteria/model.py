@@ -29,6 +29,9 @@ DEFAULT_PARAMETERS = {
     "alpha": 0.5,  # L1 (Lasso) regularization to encourage sparsity
 }
 
+EVAL_STORAGE = "eval"
+TEST_STORAGE = "test"
+
 
 class XGBoostModel:
     def __init__(
@@ -36,16 +39,23 @@ class XGBoostModel:
         rank: str,
         database: Database,
         save_path: str | Path,
+        batch_size: int,
+        test_batch_count: int,
+        train_batch_count: int | None = None,  # None = max
+        eval_batch_count: int = 0,
         params: dict | None = None,
         normalize: str | None = None,
-        batch_size: int = 1_000_000,
         seed: int = 2025,
         api: API | None = None,
         generator_threads: int = 10,
         sample_balance_factor: float = 0.0,
         batch_balance_factor: float = 0.0,
     ):
+        LOG.debug(f"XGBoostModel({locals()})")
         self._params = params if params is not None else DEFAULT_PARAMETERS
+        self._train_batch_count = train_batch_count
+        self._test_batch_count = test_batch_count
+        self._eval_batch_count = eval_batch_count
         self._seed = seed
         self._rank = rank
         self._normalize = normalize
@@ -57,27 +67,11 @@ class XGBoostModel:
         self._batch_balance_factor = batch_balance_factor
         self._save_path = save_path = Path(save_path).resolve()
         self._model = None
-        self._labels = None
         self._gen = None
         self._last_batch_id = None
         self._max_batch_count = None
         self._batch_reports = []
         self._label_encoder = LabelEncoder()
-
-        LOG.debug(
-            f"XGBoostModel({rank=}, {batch_size=}, {normalize=}, {seed=}, {generator_threads=}, {save_path=}, {sample_balance_factor=}, {batch_balance_factor=})"
-        )
-
-    def train(
-        self,
-        batch_count: int | None = None,
-        eval_batch_count: int | None = None,  # early stopping
-        eval_patience: int = 1,
-        num_boost_round: int = 100,
-    ) -> None:
-        """Train a model"""
-
-        LOG.debug("Training model...")
 
         # sample generator
         self._gen = ByRankGenerator(
@@ -91,18 +85,52 @@ class XGBoostModel:
             sample_balance_factor=self._sample_balance_factor,
             batch_balance_factor=self._batch_balance_factor,
         )
-        self._max_batch_count = self._gen.estimated_batches_count()
-        if batch_count is None:
-            batch_count = self._max_batch_count
 
-        if batch_count > self._max_batch_count:
-            raise ValueError(
-                f"not enough batches available: {batch_count} > {self._max_batch_count}"
+        self._max_batch_count = self._gen.estimated_batches_count()
+        if self._train_batch_count is None:
+            self._train_batch_count = (
+                self._max_batch_count - self._test_batch_count - self._eval_batch_count
             )
+
+        needed_batches = (
+            self._train_batch_count + self._eval_batch_count + self._test_batch_count
+        )
+        if needed_batches > self._max_batch_count:
+            raise ValueError(
+                f"not enough batches available: {needed_batches} > {self._max_batch_count}"
+            )
+
+        LOG.info(
+            f"XGBoostModel batches (size: {self._batch_size}): max: {self._max_batch_count}, train: {self._train_batch_count}, eval: {self._eval_batch_count}, test: {self._test_batch_count}"
+        )
+
+    def _store_eval_and_test_batches(self) -> None:
+        # store eval batches
+        if self._eval_batch_count:
+            LOG.debug(
+                f"Generating and storing {self._eval_batch_count} eval batches..."
+            )
+            self._store_batches(
+                batch_count=self._eval_batch_count, storage_name=EVAL_STORAGE
+            )
+            LOG.debug(f"{self._eval_batch_count} eval batches stored")
+        LOG.debug(f"Generating and storing {self._test_batch_count} test batches...")
+        self._store_batches(
+            batch_count=self._test_batch_count, storage_name=TEST_STORAGE
+        )
+        LOG.debug(f"{self._test_batch_count} test batches stored")
+
+    def train(
+        self,
+        eval_patience: int = 1,
+        num_boost_round: int = 100,
+    ) -> None:
+        """Train a model"""
+
+        LOG.debug("Training model...")
 
         # labels
         self._labels = self._gen.labels(self._rank)
-
         self._label_encoder.fit(self._labels)
 
         # params
@@ -113,19 +141,11 @@ class XGBoostModel:
 
         self._gen.start()
 
-        # store eval batches
-        if eval_batch_count:
-            LOG.debug(
-                f"Generating and storing {eval_batch_count} evaluation batches..."
-            )
-            self._store_batches(batch_count=eval_batch_count, storage_name="eval")
-            LOG.debug(f"{eval_batch_count} evaluation batches stored")
-
         # model
         self._model = None
-        for i in range(batch_count):
+        for i in range(self._train_batch_count):
             dtrain = self._get_next_batch()
-            LOG.debug(f"Train batch {i + 1} / {batch_count}")
+            LOG.debug(f"Train batch {i + 1} / {self._train_batch_count}")
 
             y = dtrain.get_label().astype(int)
             y_encoded = self._label_encoder.transform(y)
@@ -136,9 +156,9 @@ class XGBoostModel:
                 num_boost_round=num_boost_round,
                 xgb_model=self._model,
             )
-            if eval_batch_count:
+            if self._eval_batch_count:
                 report = self.evaluate(
-                    batch_count=eval_batch_count, use_stored_batches="eval"
+                    batch_count=self._eval_batch_count, use_stored_batches=EVAL_STORAGE
                 )
                 score = report["score"]
                 LOG.debug(f"Evaluation score: {score:.3f}")
@@ -167,35 +187,22 @@ class XGBoostModel:
         self._load_best_model()
         LOG.debug("Model trained")
 
-    def evaluate(self, batch_count: int, use_stored_batches: str | None = None) -> dict:
+    def evaluate(self) -> dict:
         """Evaluate the model on the next available batches."""
 
         LOG.debug("Evaluating model...")
         if self._model is None:
             raise ValueError("Model has not been trained yet.")
 
-        max_batch_count = self._gen.estimated_batches_count()
-        if self._last_batch_id + batch_count > max_batch_count:
-            raise ValueError(
-                f"Not enough batches available for evaluation: "
-                f"{self._last_batch_id + batch_count} > {max_batch_count}"
-            )
-
         self._report = {}
         all_y_true_encoded = []
         all_y_pred_encoded = []
 
-        if use_stored_batches:
-            stored_batch_gen = self._stored_batches_generator(use_stored_batches)
+        test_gen = self._stored_batches_generator(TEST_STORAGE)
         # evaluate
-        for i in range(batch_count):
-            if use_stored_batches:
-                dtest = next(stored_batch_gen)
-            else:
-                dtest = self._get_next_batch(storage_name="test")
-            LOG.debug(
-                f"Evaluation batch {i + 1} / {batch_count} (total with training: {self._last_batch_id} / {max_batch_count})"
-            )
+        for i in range(self._test_batch_count):
+            dtest = next(test_gen)
+            LOG.debug(f"Evaluation batch {i + 1} / {self._test_batch_count})")
 
             y_true = dtest.get_label().astype(int)
             y_true_encoded = self._label_encoder.transform(y_true)
@@ -207,6 +214,7 @@ class XGBoostModel:
 
         y_true = self._label_encoder.inverse_transform(all_y_true_encoded)
         y_pred = self._label_encoder.inverse_transform(all_y_pred_encoded)
+
         # scientific names
         if self._api:
             sn_map = {
@@ -338,7 +346,7 @@ class XGBoostModel:
             return next(self._gen.get())
         except StopIteration:
             LOG.exception(
-                f"No more batch available: {self._last_batch_id} / {self._max_batch_count}"
+                f"No more batch available: {self._last_batch_id + 1} / {self._max_batch_count}"
             )
             raise
 

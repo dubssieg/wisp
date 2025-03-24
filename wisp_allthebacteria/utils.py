@@ -270,7 +270,7 @@ def hash(data: Any) -> str:
 
 
 def get_weights(counts: list[int], balance_factor: float) -> list[float]:
-    """ "Balancing sample generator.""
+    """Balancing sample generator.
     - balancing_factor=0.0 -> original distribution"
     - balancing_factor=1.0 -> balanced distribution"
     """

@@ -188,16 +188,16 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             save_path=save_path,
             sample_balance_factor=conf["model"]["sample_balance_factor"],
             batch_balance_factor=conf["model"]["batch_balance_factor"],
+            train_batch_count=conf["model"]["train_batch_count"],
+            eval_batch_count=conf["model"]["eval_batch_count"],
+            test_batch_count=conf["model"]["test_batch_count"],
         )
 
         xgb_model.train(
-            batch_count=conf["model"]["train_batch_count"],
-            eval_batch_count=conf["model"]["eval_batch_count"],
             eval_patience=conf["model"]["eval_patience"],
         )
 
-        # xgb_model.save(save_path)
-        xgb_model.evaluate(conf["model"]["test_batch_count"])
+        xgb_model.evaluate()
         xgb_model.stop()
 
     # dgf = DMatrixGeneratorFactory(
