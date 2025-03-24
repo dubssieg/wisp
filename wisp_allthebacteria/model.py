@@ -50,6 +50,7 @@ class XGBoostModel:
         generator_threads: int = 10,
         sample_balance_factor: float = 0.0,
         batch_balance_factor: float = 0.0,
+        min_samples_by_class: int = 1,
     ):
         LOG.debug(f"XGBoostModel({locals()})")
         self._params = params if params is not None else DEFAULT_PARAMETERS
@@ -84,6 +85,7 @@ class XGBoostModel:
             buffer_threads=self._generator_threads,
             sample_balance_factor=self._sample_balance_factor,
             batch_balance_factor=self._batch_balance_factor,
+            min_samples_by_class=min_samples_by_class,
         )
         self._gen.start()
 

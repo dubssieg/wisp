@@ -195,13 +195,14 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             train_batch_count=train_batch_count,
             eval_batch_count=conf["model"]["eval_batch_count"],
             test_batch_count=conf["model"]["test_batch_count"],
+            min_samples_by_class=conf["model"]["min_samples_by_class"],
         )
 
         xgb_model.train(
             eval_patience=conf["model"]["eval_patience"],
         )
 
-        xgb_model.evaluate()
+        report = xgb_model.evaluate()
         xgb_model.stop()
 
     # dgf = DMatrixGeneratorFactory(
