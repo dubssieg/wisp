@@ -42,6 +42,8 @@ class XGBoostModel:
         seed: int = 2025,
         api: API | None = None,
         generator_threads: int = 10,
+        sample_balance_factor: float = 0.0,
+        batch_balance_factor: float = 0.0,
     ):
         self._params = params if params is not None else DEFAULT_PARAMETERS
         self._seed = seed
@@ -51,6 +53,8 @@ class XGBoostModel:
         self._api = api
         self._database = database
         self._generator_threads = generator_threads
+        self._sample_balance_factor = sample_balance_factor
+        self._batch_balance_factor = batch_balance_factor
         self._save_path = save_path = Path(save_path).resolve()
         self._model = None
         self._labels = None
@@ -61,7 +65,7 @@ class XGBoostModel:
         self._label_encoder = LabelEncoder()
 
         LOG.debug(
-            f"XGBoostModel({rank=}, {batch_size=}, {normalize=}, {seed=}, {generator_threads=}, {save_path=})"
+            f"XGBoostModel({rank=}, {batch_size=}, {normalize=}, {seed=}, {generator_threads=}, {save_path=}, {sample_balance_factor=}, {batch_balance_factor=})"
         )
 
     def train(
@@ -84,10 +88,10 @@ class XGBoostModel:
             normalize=self._normalize,
             seed=self._seed,
             buffer_threads=self._generator_threads,
+            sample_balance_factor=self._sample_balance_factor,
+            batch_balance_factor=self._batch_balance_factor,
         )
-        self._max_batch_count = (
-            self._gen.available_batches_count()
-        )  # TODO: rework after balancing options
+        self._max_batch_count = self._gen.estimated_batches_count()
         if batch_count is None:
             batch_count = self._max_batch_count
 
@@ -100,7 +104,6 @@ class XGBoostModel:
         self._labels = self._gen.labels(self._rank)
 
         self._label_encoder.fit(self._labels)
-        # label_encoder.inverse_transform(encoded_labels)
 
         # params
         params = self._params.copy()
@@ -142,6 +145,10 @@ class XGBoostModel:
                 self.save(f"batch_models/{len(self._batch_reports)}")
 
                 prev_scores = [br["score"] for br in self._batch_reports]
+                prev_scores_str = ", ".join(f"{ps:.2f}" for ps in prev_scores)
+                LOG.debug(
+                    f"Batch score: {score:.2f}, previous scores: {prev_scores_str}"
+                )
                 self._batch_reports.append(report)
 
                 if len(self._batch_reports) >= eval_patience:
@@ -160,13 +167,6 @@ class XGBoostModel:
         self._load_best_model()
         LOG.debug("Model trained")
 
-    # def evaluate_dmatrix(self, dtest: xgb.DMatrix) -> dict:
-
-    #     y_true = dtest.get_label().astype(int)
-    #     y_true_encoded = self._label_encoder.transform(y_true)
-    #     dtest_encoded = xgb.DMatrix(dtest.get_data(), label=y_true_encoded)
-    #     y_pred_encoded = self._model.predict(dtest_encoded).astype(int)
-
     def evaluate(self, batch_count: int, use_stored_batches: str | None = None) -> dict:
         """Evaluate the model on the next available batches."""
 
@@ -174,7 +174,7 @@ class XGBoostModel:
         if self._model is None:
             raise ValueError("Model has not been trained yet.")
 
-        max_batch_count = self._gen.available_batches_count()
+        max_batch_count = self._gen.estimated_batches_count()
         if self._last_batch_id + batch_count > max_batch_count:
             raise ValueError(
                 f"Not enough batches available for evaluation: "

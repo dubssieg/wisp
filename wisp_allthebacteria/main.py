@@ -186,6 +186,8 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             api=api,
             generator_threads=cpu_count(conf["model"]["generator_threads"]),
             save_path=save_path,
+            sample_balance_factor=conf["model"]["sample_balance_factor"],
+            batch_balance_factor=conf["model"]["batch_balance_factor"],
         )
 
         xgb_model.train(

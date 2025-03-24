@@ -33,7 +33,9 @@
         "train_batch_count": 100,
         "test_batch_count": 4,
         "eval_batch_count": 2,
-        "eval_patience": 5     
+        "eval_patience": 5,
+        "sample_balance_factor": 0.3,
+        "batch_balance_factor": 0.8
     },
     "report":{
         "default_reports_dir": "/projects/microtaxo/exp_allthebacteria/reports"
