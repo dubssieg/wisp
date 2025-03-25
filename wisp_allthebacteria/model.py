@@ -342,36 +342,6 @@ class XGBoostModel:
         report_lines.append(f"Seed: {self._seed}")
         report_lines.append("")
 
-        report_lines.append(f"\n=== {self._rank} Data ===")
-        tid_report = self._get_tax_id_report()
-
-        non_skipped_ranks = [info for info in tid_report if not info["skipped"]]
-        skipped_ranks = [info for info in tid_report if info["skipped"]]
-
-        for info in non_skipped_ranks:
-            rank_name = info["name"]
-            rank_tid = info["tax_id"]
-            report_lines.append(
-                f"{self._rank}: {rank_name} [{rank_tid}] (Total count: {info['count']})"
-            )
-            report_lines.extend(
-                f"  - {tax_info['name']} [{tax_id}] (count: {tax_info['count']})"
-                for tax_id, tax_info in info["tax_ids"].items()
-            )
-
-        if skipped_ranks:
-            report_lines.append("\nSkipped Ranks:")
-            for info in skipped_ranks:
-                rank_name = info["name"]
-                rank_tid = info["tax_id"]
-                report_lines.append(
-                    f"Rank: {rank_name} [{rank_tid}] (Total count: {info['count']})"
-                )
-                report_lines.extend(
-                    f"  - {tax_info['name']} [{tax_id}] (count: {tax_info['count']})"
-                    for tax_id, tax_info in info["tax_ids"].items()
-                )
-
         report_lines.append("\n=== Classification Report ===")
         for label, metrics in report["evaluation"]["classification_report"].items():
             if isinstance(metrics, dict):
@@ -394,6 +364,41 @@ class XGBoostModel:
 
         report_file = report_dir / "report.txt"
         report_file.write_text(report_str, encoding="utf-8")
+
+        # tax_id report in as separate file
+        tid_report = self._get_tax_id_report()
+        tid_report_lines = []
+
+        non_skipped_ranks = [info for info in tid_report if not info["skipped"]]
+        skipped_ranks = [info for info in tid_report if info["skipped"]]
+
+        for info in non_skipped_ranks:
+            rank_name = info["name"]
+            rank_tid = info["tax_id"]
+            tid_report_lines.append(
+                f"{self._rank}: {rank_name} [{rank_tid}] (Total count: {info['count']})"
+            )
+            tid_report_lines.extend(
+                f"  - {tax_info['name']} [{tax_id}] (count: {tax_info['count']})"
+                for tax_id, tax_info in info["tax_ids"].items()
+            )
+
+        if skipped_ranks:
+            tid_report_lines.append("\nSkipped Ranks:")
+            for info in skipped_ranks:
+                rank_name = info["name"]
+                rank_tid = info["tax_id"]
+                tid_report_lines.append(
+                    f"Rank: {rank_name} [{rank_tid}] (Total count: {info['count']})"
+                )
+                tid_report_lines.extend(
+                    f"  - {tax_info['name']} [{tax_id}] (count: {tax_info['count']})"
+                    for tax_id, tax_info in info["tax_ids"].items()
+                )
+
+        tid_report_str = "\n".join(tid_report_lines)
+        tid_report_file = report_dir / "tax_report.txt"
+        tid_report_file.write_text(tid_report_str, encoding="utf-8")
 
     def _get_tax_id_report(self) -> list[dict]:
         tid_by_rank = self._gen._get_tax_ids_by_rank(self._rank)
