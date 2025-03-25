@@ -125,7 +125,7 @@ class Dataset:
                 >= min_samples
             }
             if removed := rm_len - len(rank_mapping):
-                LOG.info(f"{removed} {rank}(s) removed (samples < {min_samples})")
+                LOG.debug(f"{removed} {rank}(s) removed (samples < {min_samples})")
 
         return rank_mapping
 

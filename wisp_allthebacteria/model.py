@@ -10,7 +10,7 @@ import seaborn as sns
 import numpy as np
 import xgboost as xgb
 from datetime import datetime
-from utils import serialize, deserialize, format_duration, format_size
+from utils import serialize, deserialize, format_duration
 
 from dataset import ByRankGenerator
 from api import API
@@ -342,6 +342,36 @@ class XGBoostModel:
         report_lines.append(f"Seed: {self._seed}")
         report_lines.append("")
 
+        report_lines.append(f"\n=== {self._rank} Data ===")
+        tid_report = self._get_tax_id_report()
+
+        non_skipped_ranks = [info for info in tid_report if not info["skipped"]]
+        skipped_ranks = [info for info in tid_report if info["skipped"]]
+
+        for info in non_skipped_ranks:
+            rank_name = info["name"]
+            rank_tid = info["tax_id"]
+            report_lines.append(
+                f"{self._rank}: {rank_name} [{rank_tid}] (Total count: {info['count']})"
+            )
+            report_lines.extend(
+                f"  - {tax_info['name']} [{tax_id}] (count: {tax_info['count']})"
+                for tax_id, tax_info in info["tax_ids"].items()
+            )
+
+        if skipped_ranks:
+            report_lines.append("\nSkipped Ranks:")
+            for info in skipped_ranks:
+                rank_name = info["name"]
+                rank_tid = info["tax_id"]
+                report_lines.append(
+                    f"Rank: {rank_name} [{rank_tid}] (Total count: {info['count']})"
+                )
+                report_lines.extend(
+                    f"  - {tax_info['name']} [{tax_id}] (count: {tax_info['count']})"
+                    for tax_id, tax_info in info["tax_ids"].items()
+                )
+
         report_lines.append("\n=== Classification Report ===")
         for label, metrics in report["evaluation"]["classification_report"].items():
             if isinstance(metrics, dict):
@@ -364,6 +394,35 @@ class XGBoostModel:
 
         report_file = report_dir / "report.txt"
         report_file.write_text(report_str, encoding="utf-8")
+
+    def _get_tax_id_report(self) -> list[dict]:
+        tid_by_rank = self._gen._get_tax_ids_by_rank(self._rank)
+        gen_tid_by_rank = self._gen._tax_ids_by_rank
+        db_info = self._database.get_info()
+        report = []
+
+        for rank_tid, tax_ids in tid_by_rank.items():
+            rank_report = {
+                "name": self._api[rank_tid].get("ScientificName"),
+                "tax_id": rank_tid,
+                "skipped": rank_tid not in gen_tid_by_rank,
+            }
+
+            tax_ids_report = {}
+            for tax_id in tax_ids:
+                tax_ids_report[tax_id] = {
+                    "name": self._api[tax_id].get("ScientificName", "Unknown"),
+                    "count": db_info["counters"].get(tax_id, 0),
+                    "tax_id": tax_id,
+                }
+
+            rank_report["tax_ids"] = tax_ids_report
+            rank_report["count"] = sum(
+                tax_id["count"] for tax_id in tax_ids_report.values()
+            )
+            report.append(rank_report)
+
+        return report
 
     def load(self, sub_dir: str | None = None) -> None:
         """Load model from file."""
