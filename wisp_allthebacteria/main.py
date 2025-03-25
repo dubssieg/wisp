@@ -182,10 +182,13 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
         if train_batch_count == "max":
             train_batch_count = None
 
+        normalize = conf["model"]["normalize"]
+        if not normalize:
+            normalize = None
         xgb_model = XGBoostModel(
             rank=rank,
             database=database,
-            normalize=conf["model"]["normalize"],
+            normalize=normalize,
             batch_size=conf["model"]["batch_size"],
             api=api,
             generator_threads=cpu_count(conf["model"]["generator_threads"]),
@@ -203,7 +206,8 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             eval_patience=conf["model"]["eval_patience"],
         )
 
-        report = xgb_model.evaluate()
+        xgb_model.evaluate()
+        xgb_model.generate_report()
         xgb_model.stop()
 
     # dgf = DMatrixGeneratorFactory(

@@ -97,7 +97,7 @@ class XGBoostModel:
         self._gen.start()
 
         # labels
-        self._labels = self._gen.labels(self._rank, min_samples=min_samples_by_class_)
+        self._labels = self._gen.labels(self._rank, min_samples=min_samples_by_class)
         self._label_encoder = LabelEncoder()
         self._label_encoder.fit(self._labels)
 
@@ -273,8 +273,6 @@ class XGBoostModel:
         y_pred = self._label_encoder.inverse_transform(all_y_pred_encoded)
 
         # scientific names
-
-        labels_ordered = list(self._sn_map.values())
         y_true = [self._sn_map[tax_id] for tax_id in y_true]
         y_pred = [self._sn_map[tax_id] for tax_id in y_pred]
 
@@ -304,19 +302,22 @@ class XGBoostModel:
         report = self._report
         dt_format = "%Y-%m-%d %H:%M:%S"
 
+        report_dir = self._save_path / "report"
+        report_dir.mkdir(parents=True, exist_ok=True)
+
         # basic
         report_lines.append("=== Training / Evaluation Report ===")
         report_lines.append(f"Rank: {self._rank}")
         report_lines.append(f"Start Date: {report['start_dt'].strftime(dt_format)}")
         report_lines.append(f"End Date: {report['end_dt'].strftime(dt_format)}")
-        report_lines.append(
-            f"Total Duration: {format_duration(report['total_duration'])}"
-        )
+        total_duration_s = (report["end_dt"] - report["start_dt"]).total_seconds()
+        report_lines.append(f"Total Duration: {format_duration(total_duration_s)}")
         report_lines.append("")
 
         report_lines.append("\n=== Parameters ===")
         report_lines.append(f"Database: {self._database.get_db_path()}")
         report_lines.append(f"Boosting rounds: {report['num_boost_round']}")
+        report_lines.append("Parameters:")
         report_lines.append(json.dumps(report["params"], indent=4))
         report_lines.append("")
 
@@ -335,8 +336,8 @@ class XGBoostModel:
             f"Training Batches: {train_batches} (max: {self._train_batch_count})"
         )
 
-        report_lines.append(f"Evaluation Batche(s): {self._eval_batch_count}")
-        report_lines.append(f"Test Batche(s): {self._test_batch_count}")
+        report_lines.append(f"Evaluation Batches: {self._eval_batch_count}")
+        report_lines.append(f"Test Batches: {self._test_batch_count}")
         report_lines.append(f"Normalization: {self._normalize}")
         report_lines.append(f"Seed: {self._seed}")
         report_lines.append("")
@@ -354,6 +355,15 @@ class XGBoostModel:
         report_lines.append(
             self._confusion_matrix_to_ascii(report["evaluation"]["confusion_matrix"])
         )
+        self._plot_and_save_confusion_matrix(
+            report["evaluation"]["confusion_matrix"],
+            report_dir / "confusion_matrix.png",
+        )
+
+        report_str = "\n".join(report_lines)
+
+        report_file = report_dir / "report.txt"
+        report_file.write_text(report_str, encoding="utf-8")
 
     def load(self, sub_dir: str | None = None) -> None:
         """Load model from file."""
@@ -491,21 +501,24 @@ class XGBoostModel:
         return f1_macro_avg - lambda_penalty * penalty
 
     def _confusion_matrix_to_ascii(self, conf_matrix: list) -> str:
-        max_label_length = max(len(label) for label in self._labels)
+        sorted_labels = sorted(self._sn_map.values())
+        max_label_length = max(len(label) for label in sorted_labels)
         header = f"{'':>{max_label_length+2}} " + " ".join(
-            f"{label:>{max_label_length}}" for label in self._labels
+            f"{label:>{max_label_length}}" for label in sorted_labels
         )
         lines = [header]
 
-        for i, label in enumerate(self._labels):
+        for i, label in enumerate(sorted_labels):
             line = f"{label:{max_label_length}}: " + " ".join(
                 f"{conf_matrix[i, j]:{max_label_length}}"
-                for j in range(len(self._labels))
+                for j in range(len(sorted_labels))
             )
             lines.append(line)
         return "\n".join(lines)
 
-    def _plot_and_save_confusion_matrix(self, conf_matrix: list) -> None:
+    def _plot_and_save_confusion_matrix(
+        self, conf_matrix: list, file_path: Path
+    ) -> None:
         sorted_labels = sorted(self._sn_map.values())
         _, ax = plt.subplots(figsize=(10, 7))
         sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues", ax=ax, cbar=False)
@@ -520,5 +533,5 @@ class XGBoostModel:
         ax.set_yticklabels(sorted_labels, rotation=0)
 
         plt.tight_layout()
-        plt.savefig(self._save_path / "confusion_matrix.png")
+        plt.savefig(file_path)
         plt.close()

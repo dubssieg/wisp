@@ -23,7 +23,7 @@
     },
     "model":{
         "gpu": false,
-        "normalize": "min_max",
+        "normalize": false,
         "num_boost_round":10,
         "scientific_name": true,
         "default_models_dir": "/data/microtaxo/models",
