@@ -11,7 +11,7 @@ from Bio import SeqIO
 import mlflow
 
 from functools import partial
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
 from create_model import make_model
 from create_prediction import prediction
 from utils import  extract_majority_classification, setup_logger
@@ -100,17 +100,21 @@ def validate(val_dataset, exp_dir, params, logger, max_workers=4, save_raw_pred=
 
     model_dir = os.path.join(exp_dir,"model")
     process_genome_partial = partial(process_genome, phylo_tree=phylo_tree, model_dir=model_dir,
-                                     params=params, val_dir=val_dir, logger=logger, metrics=metrics,
+                                     params=params, val_dir=val_dir, logger=logger,
                                      save_raw_pred=save_raw_pred)
 
-
+    all_metrics_samples = []  # Liste pour stocker les métriques de chaque échantillon
     # Parallelize across genomes
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
         # Submit the processing of each genome as a task to the executor
         futures = [executor.submit(process_genome_partial, sample) for sample in val_dataset]
 
         for future in tqdm(as_completed(futures), total=len(futures), desc="Predicting Genomes", disable=not sys.stdout.isatty()):
-            future.result()  #Handle exceptions by raising them if any
+            metrics_sample = future.result()  #Handle exceptions by raising them if any
+            all_metrics_samples.extend(metrics_sample)
+
+    for true_labels, pred_labels in all_metrics_samples:
+        metrics.update(true_labels=true_labels, pred_labels=pred_labels)
 
     log_val_metrics(metrics, val_dir, logger)
     validation_time = round((time.time() - start_validation))
@@ -118,8 +122,9 @@ def validate(val_dataset, exp_dir, params, logger, max_workers=4, save_raw_pred=
     mlflow.log_metric("validation_time", validation_time)
 
 
-def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, metrics, save_raw_pred):
+def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, save_raw_pred):
     genome, gt_taxons = sample
+    metrics_sample = []
     # base_name = os.path.basename(genome).split('.')[0]
     # taxons = base_name.split('_')
     logger.debug('-' * 60)
@@ -143,7 +148,7 @@ def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, metri
         try:
             result =  partial_pred(seq_id, seq_data)
             pred_taxons = extract_majority_classification(result)
-            metrics.update(true_labels=gt_taxons, pred_labels=pred_taxons)
+            metrics_sample.append((gt_taxons, pred_taxons))
 
             if gt_taxons['phylum'] != pred_taxons['phylum']:
                 logger.debug("ERROR phylum")
@@ -162,6 +167,8 @@ def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, metri
         for_report = {seq_id: result for (seq_id, _), result in zip(sequences, prediction_results)}
         with open(report_path, 'w', encoding='utf-8') as jwriter:
             json.dump(for_report, jwriter)
+
+    return metrics_sample
 
 
 def log_val_metrics(metrics, val_dir, logger):
