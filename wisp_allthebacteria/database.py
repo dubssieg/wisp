@@ -6,6 +6,7 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Generator, Literal
+from tqdm.auto import tqdm
 
 from diskcache import FanoutCache
 from reader import Reader
@@ -183,7 +184,7 @@ class Database:
 
             # counters for each tax_id
             counters = {}
-            for tax_id in tax_ids:
+            for tax_id in tqdm(tax_ids, desc="Counting samples..."):
                 counters[tax_id] = self.count(tax_id)
             total_samples = sum(counters.values())
 
@@ -202,10 +203,13 @@ class Database:
             info_lines.append("\n=== Paths/Config ===")
             info_lines.append(f"Current base path: {self.get_db_path()}")
             info_lines.append("\n=== Sequences ===")
-            info_lines.append(f"{len(tax_ids)} tax_ids -> [tax_id] sample_count:")
+            info_lines.append(
+                f"{len(info['tax_ids'])} tax_ids -> [tax_id] sample_count:"
+            )
             items_per_line = 5
             counters_str = {
-                tax_id: space_format(num) for tax_id, num in sorted(counters.items())
+                tax_id: space_format(num)
+                for tax_id, num in sorted(info["counters"].items())
             }
             sorted_items = sorted(counters_str.items())
             max_tax_id_len = max(len(str(tax_id)) for tax_id, _ in sorted_items)
@@ -221,10 +225,10 @@ class Database:
                 info_lines.append(line)
 
             info_lines.append("")
-            info_lines.append(f"Total: {space_format(total_samples)} samples")
+            info_lines.append(f"Total: {space_format(info['total_samples'])} samples")
 
             info_lines.append("\n==== Archives pushed ====")
-            info_lines.append(", ".join(sorted(archives)))
+            info_lines.append(", ".join(sorted(info["archives"])))
 
             return "\n".join(info_lines)
 
