@@ -95,9 +95,9 @@ class Dataset:
         db_info = self._db.get_info()
         return db_info["total_samples"]
 
-    def labels(self, rank: str) -> list[str]:
+    def labels(self, rank: str, min_samples: int | None = None) -> list[str]:
         """All labels in this DB, for this rank"""
-        return list(self._get_tax_ids_by_rank(rank).keys())
+        return list(self._get_tax_ids_by_rank(rank, min_samples=min_samples).keys())
 
     def _get_tax_ids_by_rank(
         self, rank: str, min_samples: int | None = None

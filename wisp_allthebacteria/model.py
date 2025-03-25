@@ -1,11 +1,16 @@
 import json
 import logging
 from pathlib import Path
+import time
 from typing import Generator
+from matplotlib import pyplot as plt
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.preprocessing import LabelEncoder
+import seaborn as sns
+import numpy as np
 import xgboost as xgb
-from utils import serialize, deserialize
+from datetime import datetime
+from utils import serialize, deserialize, format_duration, format_size
 
 from dataset import ByRankGenerator
 from api import API
@@ -72,8 +77,8 @@ class XGBoostModel:
         self._gen = None
         self._last_batch_id = None
         self._max_batch_count = None
-        self._batch_reports = []
-        self._label_encoder = LabelEncoder()
+        self._report = None  # full report
+        self._batch_reports = []  # patience
 
         # sample generator
         self._gen = ByRankGenerator(
@@ -91,6 +96,16 @@ class XGBoostModel:
         )
         self._gen.start()
 
+        # labels
+        self._labels = self._gen.labels(self._rank, min_samples=min_samples_by_class_)
+        self._label_encoder = LabelEncoder()
+        self._label_encoder.fit(self._labels)
+
+        self._sn_map = {
+            tax_id: self._api[tax_id]["ScientificName"] for tax_id in self._labels
+        }
+
+        # batches
         self._max_batch_count = self._gen.estimated_batches_count()
         if self._train_batch_count is None:
             self._train_batch_count = max(
@@ -136,10 +151,8 @@ class XGBoostModel:
         self._store_eval_and_test_batches()
 
         LOG.debug("Training model...")
-
-        # labels
-        self._labels = self._gen.labels(self._rank)
-        self._label_encoder.fit(self._labels)
+        self._report = {}
+        self._report["start_dt"] = datetime.now()
 
         # params
         params = self._params.copy()
@@ -147,22 +160,43 @@ class XGBoostModel:
             params["seed"] = self._seed
         params["num_class"] = len(self._labels)
 
+        self._report["params"] = params
+        self._report["train"] = {"total_duration": 0, "batches": []}
+        self._report["num_boost_round"] = num_boost_round
+        start_total_time = time.time()
+
         # model
         self._model = None
         for i in range(self._train_batch_count):
+            start_batch_time = time.time()
+            batch_report = {
+                "batch_duration": 0,
+                "get_batch_duration": 0,
+                "train_duration": 0,
+                "eval_duration": 0,
+                "report": None,
+                "eval_score": None,
+            }
+
             dtrain = self._get_next_batch()
+
             LOG.debug(f"Train batch {i + 1} / {self._train_batch_count}")
 
             y = dtrain.get_label().astype(int)
             y_encoded = self._label_encoder.transform(y)
             dtrain_encoded = xgb.DMatrix(dtrain.get_data(), label=y_encoded)
+            batch_report["get_batch_duration"] = time.time() - start_batch_time
+            start_train_time = time.time()
             self._model = xgb.train(
                 params,
                 dtrain_encoded,
                 num_boost_round=num_boost_round,
                 xgb_model=self._model,
             )
+            batch_report["train_duration"] = time.time() - start_train_time
+
             if self._eval_batch_count:
+                start_eval_time = time.time()
                 report = self.evaluate(storage_name=EVAL_STORAGE)
                 score = report["score"]
                 LOG.debug(f"Evaluation score: {score:.3f}")
@@ -175,6 +209,14 @@ class XGBoostModel:
                 )
                 self._batch_reports.append(report)
 
+                batch_report.update(
+                    {
+                        "eval_duration": time.time() - start_eval_time,
+                        "report": report,
+                        "eval_score": score,
+                    }
+                )
+
                 if len(self._batch_reports) >= eval_patience:
                     patience_prev_scores = prev_scores[-eval_patience:]
                     min_improvement = 0.001  # TODO: conf
@@ -185,9 +227,12 @@ class XGBoostModel:
                         LOG.info(
                             f"Early stopping: no improvement in the last {eval_patience} evaluations"
                         )
-
                         break
+
+            self._report["train"]["batches"].append(batch_report)
+
         self._load_best_model()
+        self._report["train"]["total_duration"] = time.time() - start_total_time
         LOG.debug("Model trained")
 
     def evaluate(
@@ -199,9 +244,9 @@ class XGBoostModel:
         if self._model is None:
             raise ValueError("Model has not been trained yet.")
 
-        self._report = {}
         all_y_true_encoded = []
         all_y_pred_encoded = []
+        report = {}
 
         if batches:
             if isinstance(batches, xgb.DMatrix):
@@ -228,26 +273,87 @@ class XGBoostModel:
         y_pred = self._label_encoder.inverse_transform(all_y_pred_encoded)
 
         # scientific names
-        if self._api:
-            sn_map = {
-                tax_id: self._api[tax_id]["ScientificName"] for tax_id in self._labels
-            }
-            y_true = [sn_map[tax_id] for tax_id in y_true]
-            y_pred = [sn_map[tax_id] for tax_id in y_pred]
+
+        labels_ordered = list(self._sn_map.values())
+        y_true = [self._sn_map[tax_id] for tax_id in y_true]
+        y_pred = [self._sn_map[tax_id] for tax_id in y_pred]
 
         LOG.debug("Model evaluated, getting report...")
 
         # generate classification report and confusion matrix
-        self._report["classification_report"] = classification_report(
+        sorted_labels = sorted(self._sn_map.values())
+        report["classification_report"] = classification_report(
             y_true,
             y_pred,
+            labels=sorted_labels,
             output_dict=True,
         )
-        self._report["confusion_matrix"] = confusion_matrix(y_true, y_pred)
-        self._report["score"] = self._score(self._report)
+        report["confusion_matrix"] = confusion_matrix(
+            y_true, y_pred, labels=sorted_labels
+        )
+        report["score"] = self._score(report)
 
         LOG.debug("Model evaluated")
-        return self._report
+        if storage_name == TEST_STORAGE:
+            self._report["evaluation"] = report
+            self._report["end_dt"] = datetime.now()
+        return report
+
+    def generate_report(self):
+        report_lines = []
+        report = self._report
+        dt_format = "%Y-%m-%d %H:%M:%S"
+
+        # basic
+        report_lines.append("=== Training / Evaluation Report ===")
+        report_lines.append(f"Rank: {self._rank}")
+        report_lines.append(f"Start Date: {report['start_dt'].strftime(dt_format)}")
+        report_lines.append(f"End Date: {report['end_dt'].strftime(dt_format)}")
+        report_lines.append(
+            f"Total Duration: {format_duration(report['total_duration'])}"
+        )
+        report_lines.append("")
+
+        report_lines.append("\n=== Parameters ===")
+        report_lines.append(f"Database: {self._database.get_db_path()}")
+        report_lines.append(f"Boosting rounds: {report['num_boost_round']}")
+        report_lines.append(json.dumps(report["params"], indent=4))
+        report_lines.append("")
+
+        # training
+        report_lines.append("\n=== Training Data ===")
+        report_lines.append(f"Samples per Batch: {self._batch_size}")
+        report_lines.append(f"Sample balance factor: {self._sample_balance_factor}")
+        report_lines.append(f"Batch balance factor: {self._batch_balance_factor}")
+        report_lines.append(f"Min samples per class: {self._batch_balance_factor}")
+        report_lines.append(f"Available Batches: {self._max_batch_count}")
+        report_lines.append(f"Actually used Batches: {self._last_batch_id + 1}")
+        train_batches = (
+            self._last_batch_id + 1 - self._eval_batch_count - self._test_batch_count
+        )
+        report_lines.append(
+            f"Training Batches: {train_batches} (max: {self._train_batch_count})"
+        )
+
+        report_lines.append(f"Evaluation Batche(s): {self._eval_batch_count}")
+        report_lines.append(f"Test Batche(s): {self._test_batch_count}")
+        report_lines.append(f"Normalization: {self._normalize}")
+        report_lines.append(f"Seed: {self._seed}")
+        report_lines.append("")
+
+        report_lines.append("\n=== Classification Report ===")
+        for label, metrics in report["evaluation"]["classification_report"].items():
+            if isinstance(metrics, dict):
+                report_lines.append(f"Label : {label}")
+                for metric_name, value in metrics.items():
+                    report_lines.append(f"  {metric_name} : {value:.4f}")
+            else:
+                report_lines.append(f"{label} : {metrics:.4f}")
+
+        report_lines.append("\n=== Confusion Matrix ===")
+        report_lines.append(
+            self._confusion_matrix_to_ascii(report["evaluation"]["confusion_matrix"])
+        )
 
     def load(self, sub_dir: str | None = None) -> None:
         """Load model from file."""
@@ -383,3 +489,36 @@ class XGBoostModel:
         penalty = sum((1 - f) for f in f1_normalized) / len(f1_scores)
 
         return f1_macro_avg - lambda_penalty * penalty
+
+    def _confusion_matrix_to_ascii(self, conf_matrix: list) -> str:
+        max_label_length = max(len(label) for label in self._labels)
+        header = f"{'':>{max_label_length+2}} " + " ".join(
+            f"{label:>{max_label_length}}" for label in self._labels
+        )
+        lines = [header]
+
+        for i, label in enumerate(self._labels):
+            line = f"{label:{max_label_length}}: " + " ".join(
+                f"{conf_matrix[i, j]:{max_label_length}}"
+                for j in range(len(self._labels))
+            )
+            lines.append(line)
+        return "\n".join(lines)
+
+    def _plot_and_save_confusion_matrix(self, conf_matrix: list) -> None:
+        sorted_labels = sorted(self._sn_map.values())
+        _, ax = plt.subplots(figsize=(10, 7))
+        sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues", ax=ax, cbar=False)
+
+        ax.set_xlabel("Predicted Labels")
+        ax.set_ylabel("True Labels")
+        ax.set_title("Confusion Matrix")
+
+        ax.set_xticks(np.arange(len(sorted_labels)) + 0.5)
+        ax.set_yticks(np.arange(len(sorted_labels)) + 0.5)
+        ax.set_xticklabels(sorted_labels, rotation=45, ha="right")
+        ax.set_yticklabels(sorted_labels, rotation=0)
+
+        plt.tight_layout()
+        plt.savefig(self._save_path / "confusion_matrix.png")
+        plt.close()
