@@ -406,7 +406,7 @@ class Reader:
         sequences = []
         with open(file_path, "r") as handle:
             for record in SeqIO.parse(handle, "fasta"):
-                if ".contig" in record.id:
+                if "." in record.id:  # .contig or .something_else
                     r_id, r_contig = record.id.split(".")[:2]
                 else:
                     r_id, r_contig = record.id, ""

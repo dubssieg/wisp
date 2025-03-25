@@ -22,9 +22,10 @@ class Metadata:
         return self._md
 
     def __getitem__(self, seq_id: str) -> dict:
-        """Example: SAMD00013333 or SAMD00013333.contig0000"""
-        if ".contig" in seq_id:
-            seq_id = seq_id.split(".contig")[0]
+        """Example: SAMD00013333 or SAMD00013333.contig0000
+        Unusual exemple: SAMEA3924086.NODE_1_length_606878_cov_39.021295_pilon"""
+        if "." in seq_id:
+            seq_id = seq_id.split(".")[0]
         data = self.md[seq_id]
         if not data:
             return []
