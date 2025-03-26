@@ -357,8 +357,8 @@ class ByRankGenerator(Dataset):
     def _remove(self, rank_tid: int):
         with self._lock:
             del self._generators[rank_tid]
-            self._rank_tids.remove(rank_tid)
             self._counts.pop(self._rank_tids.index(rank_tid))
+            self._rank_tids.remove(rank_tid)
             self._weights = get_weights(self._counts, self._batch_balance_factor)
 
     @staticmethod

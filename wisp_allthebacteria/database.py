@@ -227,7 +227,7 @@ class Database:
             info_lines.append("")
             info_lines.append(f"Total: {space_format(info['total_samples'])} samples")
 
-            info_lines.append("\n==== Archives pushed ====")
+            info_lines.append(f"\n==== Archives pushed ({len(info['archives'])}) ====")
             info_lines.append(", ".join(sorted(info["archives"])))
 
             return "\n".join(info_lines)
