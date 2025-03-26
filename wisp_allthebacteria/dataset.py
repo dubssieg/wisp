@@ -205,6 +205,7 @@ class ByRankGenerator(Dataset):
     def get(self) -> Generator[xgb.DMatrix, None, None]:
 
         random_instance = random.Random(self._seed)
+        force_next_rank_tid = None
 
         with (
             FunctionLogger(30, self._batch_info),
@@ -216,16 +217,24 @@ class ByRankGenerator(Dataset):
                 and self._all_buffers_done()
                 and self._terminating
             ):
-                rank_tid = random_instance.choices(
-                    self._rank_tids, weights=self._weights, k=1
-                )[0]
+                if force_next_rank_tid is None:
+                    rank_tid = random_instance.choices(
+                        self._rank_tids, weights=self._weights, k=1
+                    )[0]
+                else:
+                    rank_tid = force_next_rank_tid
+                    force_next_rank_tid = None
                 try:
-                    counter = self._buffers[rank_tid].get()
+                    counter = self._buffers[rank_tid].get(timeout=1)
                 except queue.Empty:
-                    if self._is_done(rank_tid):
+                    if self._is_rank_done(rank_tid):
                         LOG.debug(f"{self._rank} {rank_tid} is DONE - Cleaning")
                         self._remove(rank_tid)
-                        continue
+                    else:
+                        LOG.debug(f"Empty buffer for {rank_tid}, wait and retry...")
+                        time.sleep(5)
+                        force_next_rank_tid = rank_tid
+                    continue
 
                 # prepare data and labels for DMatrix
                 row = self._counter_to_row(counter=counter, normalize=self._normalize)
@@ -254,7 +263,7 @@ class ByRankGenerator(Dataset):
 
     def _buffers_info(self) -> str:
         buffer_info = []
-        for tid in self._rank_tids:
+        for tid in self._tax_ids_by_rank.keys():
             qsize = str(self._buffers[tid].qsize())
             filling = self._filling[tid]
             exhausted = self._exhausted[tid]

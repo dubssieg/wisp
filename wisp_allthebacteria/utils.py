@@ -168,7 +168,8 @@ def config_logger(
     if not logger.hasHandlers():
         logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter(
-            "%(asctime)s :: %(levelname)s :: %(name)s.%(funcName)s[%(lineno)s] :: %(process)d :: %(message)s"
+            # "%(asctime)s :: %(levelname)s :: %(name)s.%(funcName)s[%(lineno)s] :: %(process)d :: %(message)s"
+            "%(asctime)s :: %(levelname)s :: %(name)s.%(funcName)s[%(lineno)s] :: %(message)s"
         )
 
         # terminal config

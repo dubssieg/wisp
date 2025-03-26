@@ -11,6 +11,7 @@ import numpy as np
 import xgboost as xgb
 from datetime import datetime
 from utils import serialize, deserialize, format_duration
+from tqdm.auto import tqdm
 
 from dataset import ByRankGenerator
 from api import API
@@ -168,7 +169,7 @@ class XGBoostModel:
 
         # model
         self._model = None
-        for i in range(self._train_batch_count):
+        for i in tqdm(range(self._train_batch_count), desc="Training..."):
             start_batch_time = time.time()
             batch_report = {
                 "batch_duration": 0,
