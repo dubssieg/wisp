@@ -163,7 +163,7 @@ class Database:
         LOG.debug("Sample generator exhausted")
 
     def get_tax_ids(self) -> list:
-        """Get available tax_ids - TODO: in MD DB"""
+        """Get available tax_ids"""
         counters_dir = self.get_db_path() / "counter"
         return [
             int(dir.name)

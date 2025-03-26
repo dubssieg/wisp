@@ -117,6 +117,7 @@ class XGBoostModel:
             self._train_batch_count + self._eval_batch_count + self._test_batch_count
         )
         if needed_batches > self._max_batch_count:
+            self._gen.stop()
             raise ValueError(
                 f"not enough batches available: {needed_batches} > {self._max_batch_count}"
             )
@@ -441,6 +442,7 @@ class XGBoostModel:
         params_path = save_path / "params.json"
         for f in (model_path, label_path, label_encoder_path, params_path):
             if not f.is_file:
+                self._gen.stop()
                 raise FileNotFoundError(f)
 
         self._model = xgb.Booster()
