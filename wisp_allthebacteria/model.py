@@ -73,6 +73,7 @@ class XGBoostModel:
         self._generator_threads = generator_threads
         self._sample_balance_factor = sample_balance_factor
         self._batch_balance_factor = batch_balance_factor
+        self._min_samples_by_class = min_samples_by_class
         self._save_path = save_path = Path(save_path).resolve()
         self._model = None
         self._gen = None
@@ -328,7 +329,7 @@ class XGBoostModel:
         report_lines.append(f"Samples per Batch: {self._batch_size}")
         report_lines.append(f"Sample balance factor: {self._sample_balance_factor}")
         report_lines.append(f"Batch balance factor: {self._batch_balance_factor}")
-        report_lines.append(f"Min samples per class: {self._batch_balance_factor}")
+        report_lines.append(f"Min samples per class: {self._min_samples_by_class}")
         report_lines.append(f"Available Batches: {self._max_batch_count}")
         report_lines.append(f"Actually used Batches: {self._last_batch_id + 1}")
         train_batches = (
