@@ -1,16 +1,21 @@
-from datetime import datetime
+import concurrent.futures
 import hashlib
 import logging
-from logging.handlers import RotatingFileHandler
 import os
-from pathlib import Path
 import pickle
 import threading
-from typing import Any
-import concurrent.futures
 import zlib
+from datetime import datetime
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from typing import Any, Literal
+
+import lz4.frame
+import msgpack
 import numpy as np
 import psutil
+import pympler
+import pympler.asizeof
 from tqdm.auto import tqdm
 
 LOG = logging.getLogger(__name__)
@@ -132,17 +137,32 @@ def cpu_count(needed: str | int = 8) -> int:
         raise RuntimeError(f"Cannot get cpu count with: {needed}")
 
 
-def compress(data: Any, as_list: bool = False) -> str | list[str]:
+def compress(
+    data: Any, as_list: bool = False, mode: Literal["zlib", "msgpack"] = "msgpack"
+) -> bytes | list[bytes]:
     if as_list:
-        return [compress(i) for i in data]
-    return zlib.compress(pickle.dumps(data))
-
-
-def decompress(data: str | list[str], as_list: bool = False) -> Any:
-    if as_list:
-        return [decompress(i) for i in data]
+        return [compress(i, as_list=False, mode=mode) for i in data]
+    if mode == "zlib":
+        return zlib.compress(pickle.dumps(data))
+    elif mode == "msgpack":
+        return lz4.frame.compress(msgpack.packb(data, use_bin_type=True))
     else:
+        raise ValueError(mode)
+
+
+def decompress(
+    data: bytes | list[bytes],
+    as_list: bool = False,
+    mode: Literal["zlib", "msgpack"] = "msgpack",
+) -> Any:
+    if as_list:
+        return [decompress(i, as_list=False, mode=mode) for i in data]
+    if mode == "zlib":
         return pickle.loads(zlib.decompress(data))
+    elif mode == "msgpack":
+        return msgpack.unpackb(lz4.frame.decompress(data), raw=False)
+    else:
+        raise ValueError(mode)
 
 
 class BrokenProcessPoolFilter(logging.Filter):
@@ -297,6 +317,12 @@ def sample_count_estimation(counts: list[int], balance_factor: float) -> int:
         for count, weight in zip(counts, weights)
     ]
     return int(min(weighted_samples))
+
+
+def sizeof(obj: Any, detail: bool = False) -> int | str:
+    if detail:
+        return pympler.asizeof.asized(obj, detail=1).format()
+    return pympler.asizeof.asizeof(obj)
 
 
 if __name__ == "__main__":
