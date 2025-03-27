@@ -14,7 +14,7 @@ from utils import serialize, deserialize, format_duration
 from tqdm.auto import tqdm
 
 from dataset import ByRankGenerator
-from api import API
+from taxdb import TaxDB
 from database import Database
 
 LOG = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ class XGBoostModel:
         params: dict | None = None,
         normalize: str | None = None,
         seed: int = 2025,
-        api: API | None = None,
+        taxdb: TaxDB | None = None,
         generator_threads: int = 10,
         sample_balance_factor: float = 0.0,
         batch_balance_factor: float = 0.0,
@@ -68,7 +68,7 @@ class XGBoostModel:
         self._rank = rank
         self._normalize = normalize
         self._batch_size = batch_size
-        self._api = api
+        self._taxdb = taxdb
         self._database = database
         self._generator_threads = generator_threads
         self._sample_balance_factor = sample_balance_factor
@@ -85,7 +85,7 @@ class XGBoostModel:
         # sample generator
         self._gen = ByRankGenerator(
             database=self._database,
-            api=self._api,
+            taxdb=self._taxdb,
             rank=self._rank,
             batch_size=self._batch_size,
             normalize=self._normalize,
@@ -104,7 +104,7 @@ class XGBoostModel:
         self._label_encoder.fit(self._labels)
 
         self._sn_map = {
-            tax_id: self._api[tax_id]["ScientificName"] for tax_id in self._labels
+            tax_id: self._taxdb[tax_id]["ScientificName"] for tax_id in self._labels
         }
 
         # batches
@@ -411,7 +411,7 @@ class XGBoostModel:
 
         for rank_tid, tax_ids in tid_by_rank.items():
             rank_report = {
-                "name": self._api[rank_tid].get("ScientificName"),
+                "name": self._taxdb[rank_tid].get("ScientificName"),
                 "tax_id": rank_tid,
                 "skipped": rank_tid not in gen_tid_by_rank,
             }
@@ -419,7 +419,7 @@ class XGBoostModel:
             tax_ids_report = {}
             for tax_id in tax_ids:
                 tax_ids_report[tax_id] = {
-                    "name": self._api[tax_id].get("ScientificName", "Unknown"),
+                    "name": self._taxdb[tax_id].get("ScientificName", "Unknown"),
                     "count": db_info["counters"].get(tax_id, 0),
                     "tax_id": tax_id,
                 }

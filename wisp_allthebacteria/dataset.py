@@ -11,7 +11,7 @@ import concurrent
 import numpy as np
 import xgboost as xgb
 from database import Database
-from api import API
+from taxdb import TaxDB
 from utils import hash, FunctionLogger, get_weights, sample_count_estimation
 
 LOG = logging.getLogger(__name__)
@@ -21,10 +21,10 @@ IDX_TID_BY_RANK = "_tid_by_rank_"
 
 
 class Dataset:
-    def __init__(self, database: Database, api: API):
+    def __init__(self, database: Database, taxdb: TaxDB):
         LOG.debug(f"Database({locals()})")
         self._db = database
-        self._api = api
+        self._taxdb = taxdb
 
         self._column_names = ["".join(p) for p in product("ATGC", repeat=4)]
         self._column_index = {
@@ -53,7 +53,7 @@ class Dataset:
                 db_info = self._db.get_info()
                 # get sample count and additional information
                 sample_count = db_info["counters"][tax_id]
-                tax_info = self._api[tax_id]
+                tax_info = self._taxdb[tax_id]
                 scientific_name = tax_info.get("ScientificName", "Unknown")
                 rank = tax_info.get("Rank", "Unknown")
                 division = tax_info.get("Division", "Unknown")
@@ -108,7 +108,7 @@ class Dataset:
         if not rank_mapping:
             rank_mapping = defaultdict(list)
             for tax_id in self._db.get_tax_ids():
-                for entry in self._api[tax_id].get("LineageEx", []):
+                for entry in self._taxdb[tax_id].get("LineageEx", []):
                     if entry["Rank"] == rank:
                         rank_mapping[int(entry["TaxId"])].append(tax_id)
                         break
@@ -134,7 +134,7 @@ class ByRankGenerator(Dataset):
     def __init__(
         self,
         database: Database,
-        api: API,
+        taxdb: TaxDB,
         rank: str,
         batch_size: int,
         normalize: str | None = None,
@@ -145,7 +145,7 @@ class ByRankGenerator(Dataset):
         min_samples_by_class: int | None = None,
         max_buffer_total_size: int | None = None,
     ):
-        super().__init__(database=database, api=api)
+        super().__init__(database=database, taxdb=taxdb)
         LOG.debug(f"ByRankGenerator for {rank=}, {batch_size=}, {normalize=}")
         self._rank = rank
         self._batch_size = batch_size

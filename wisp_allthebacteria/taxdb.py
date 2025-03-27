@@ -10,18 +10,18 @@ from pathlib import Path
 LOG = logging.getLogger(__name__)
 
 
-class API:
+class TaxDB:
     def __init__(
         self,
-        api_cache_dir: str | Path,
+        cache_dir: str | Path,
         email: str,
         can_download: bool = True,
         preload: bool = False,
     ):
-        LOG.debug(f"API({locals()})")
+        LOG.debug(f"TaxDB({locals()})")
         self._can_download = can_download
         self._preload = preload
-        self._cache_dir = Path(api_cache_dir).resolve()
+        self._cache_dir = Path(cache_dir).resolve()
         self._cache = Cache(self._cache_dir)
         self._tax_id_errors_ = set()
         Entrez.email = email

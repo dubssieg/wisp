@@ -1,17 +1,17 @@
 import logging
 import pandas as pd
-from api import API
+from taxdb import TaxDB
 from pathlib import Path
 
 LOG = logging.getLogger(__name__)
 
 
 class Metadata:
-    def __init__(self, csv_path: str | Path, api: API, start_loaded: bool = False):
+    def __init__(self, csv_path: str | Path, taxdb: TaxDB, start_loaded: bool = False):
         LOG.debug(f"Metadata({locals()})")
         self._csv_path = Path(csv_path)
         self._md = None
-        self._api = api
+        self._taxdb = taxdb
         if start_loaded:
             self.md
 
@@ -31,7 +31,7 @@ class Metadata:
             return []
 
         if not isinstance(data[0], dict):
-            data = [self._api[d] for d in data]
+            data = [self._taxdb[d] for d in data]
             self._md[seq_id] = data
         return data
 
@@ -43,6 +43,6 @@ class Metadata:
             self._csv_path, sep="\t", usecols=columns, dtype=dtype_specification
         )
         return {
-            seq_id: API.clean_tax_id(tax_id)
+            seq_id: TaxDB.clean_tax_id(tax_id)
             for seq_id, tax_id in zip(df[columns[0]], df[columns[1]])
         }

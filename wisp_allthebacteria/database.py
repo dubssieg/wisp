@@ -18,7 +18,6 @@ DB_TYPE = Literal["counter", "index", "md"]
 LAST_VALID_IDS = "_last_valid_ids_"
 CURRENT_TRANSACTION = "_current_transaction_"
 ARCHIVES = "_archives_"
-# COMMON = "_common_"
 
 RANKS = [
     "no rank",

@@ -9,7 +9,7 @@ import argparse
 from tqdm.auto import tqdm
 from metadata import Metadata
 from fastakmer import FastaKmer
-from api import API
+from taxdb import TaxDB
 from model import XGBoostModel
 from database import Database, DatabaseBuilder, RANKS
 from dataset import Dataset
@@ -37,13 +37,13 @@ def create_db(conf: dict):
 
         archives = list(input_path.glob("*.xz"))
 
-        api = API(
-            api_cache_dir=conf["api"]["cache_dir"],
-            email=conf["api"]["email"],
-            can_download=conf["api"]["can_download"],
+        taxdb = TaxDB(
+            cache_dir=conf["taxdb"]["cache_dir"],
+            email=conf["taxdb"]["email"],
+            can_download=conf["taxdb"]["can_download"],
             preload=False,
         )
-        md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
+        md = Metadata(csv_path=metadata_path, taxdb=taxdb, start_loaded=True)
         num_workers = cpu_count(conf["db"]["create_db_workers"])
         num_threads = cpu_count(conf["db"]["db_insert_threads"])
         LOG.info(
@@ -162,10 +162,10 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
                 / get_current_datetime_string()
             )
 
-        api = API(
-            api_cache_dir=conf["api"]["cache_dir"],
-            email=conf["api"]["email"],
-            can_download=conf["api"]["can_download"],
+        taxdb = TaxDB(
+            cache_dir=conf["taxdb"]["cache_dir"],
+            email=conf["taxdb"]["email"],
+            can_download=conf["taxdb"]["can_download"],
         )
         database = Database(
             kmer_sizes=conf["db"]["kmer_sizes"],
@@ -189,7 +189,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             database=database,
             normalize=normalize,
             batch_size=conf["model"]["batch_size"],
-            api=api,
+            taxdb=taxdb,
             generator_threads=cpu_count(conf["model"]["generator_threads"]),
             save_path=save_path,
             sample_balance_factor=conf["model"]["sample_balance_factor"],
@@ -209,67 +209,12 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
         xgb_model.generate_report()
         xgb_model.stop()
 
-    # dgf = DMatrixGeneratorFactory(
-    #     database=db,
-    #     rank=rank,
-    #     normalize=conf["model"]["normalize"],
-    #     sample_limit_by_tax_id=None,
-    #     batch_size=batch_size,
-    #     max_samples=conf["model"]["max_samples"],
-    # )
-    # dmat = db.make_dmatrix(
-    #     rank=rank,
-    #     normalize=conf["model"]["normalize"],
-    # )
-    # tax_id_classes = db.get_tax_id_classes(rank)
 
-    # report = model.train(
-    #     # dtrain=dmat_generator,
-    #     # dtrain_factory=dgf,
-    #     dtrain=dmat,
-    #     tax_id_classes=tax_id_classes,
-    #     kfold=kfold,
-    #     num_boost_round=conf["model"]["num_boost_round"],
-    # )
-    # train mode
-    # if kfold is None:
-    #     if save_path is None:
-    #         save_path = (
-    #             Path(conf["model"]["default_models_dir"])
-    #             / get_current_datetime_string()
-    #         )
-    #     model.save(save_path)
-    # # evaluate mode with kfold
-    # else:
-    #     if save_path is None:
-    #         save_path = (
-    #             Path(conf["report"]["default_reports_dir"])
-    #             / get_current_datetime_string()
-    #         )
-    # report_header = {"header": {"Rang": rank, "batch_size": batch_size}}
-
-    # model.save_report(dir_path=save_path, additional_data=report_header)
-    # print(report)
-
-
-# def evaluate_model(conf: dict, nfolds: int, model_path: str|Path|None):
-#     if model_path is None:
-#             raise ValueError("Need --load-model argument")
-
-#     api = API(
-#         api_cache_dir=Path(conf["api"]["cache_dir"]),
-#         email=conf["api"]["email"],
-#         can_download=conf["api"]["can_download"],
-#     )
-#     model = XGBoostModel(api=api, use_gpu=conf["model"]["gpu"])
-#     model.load(model_path)
-
-
-def populate_api_cache(conf: dict):
-    LOG.info("populate_api_cache")
-    API(
-        api_cache_dir=Path(conf["api"]["cache_dir"]),
-        email=conf["api"]["email"],
+def populate_taxdb(conf: dict):
+    LOG.info("populate_taxdb_cache")
+    TaxDB(
+        cache_dir=Path(conf["taxdb"]["cache_dir"]),
+        email=conf["taxdb"]["email"],
         can_download=True,
     ).populate_api_cache(
         metadata_csv_path=Path(conf["allthebacteria"]["metadata_dir"])
@@ -277,19 +222,19 @@ def populate_api_cache(conf: dict):
     )
 
 
-def export_api_cache(conf: dict):
+def export_taxdb(conf: dict):
     LOG.info("export_apt_cache")
-    API(
-        api_cache_dir=Path(conf["api"]["cache_dir"]),
+    TaxDB(
+        cache_dir=Path(conf["taxdb"]["cache_dir"]),
         email="",
         can_download=False,
     ).export_db()
 
 
-def import_apt_cache(conf: dict):
+def import_taxdb_cache(conf: dict):
     LOG.info("import_apt_cache")
-    API(
-        api_cache_dir=Path(conf["api"]["cache_dir"]),
+    TaxDB(
+        cache_dir=Path(conf["taxdb"]["cache_dir"]),
         email="",
         can_download=False,
     ).import_db()
@@ -299,10 +244,10 @@ def debug(conf):
     """debugging, ignore it"""
     LOG.info("debug")
 
-    api = API(
-        api_cache_dir=conf["api"]["cache_dir"],
-        email=conf["api"]["email"],
-        can_download=conf["api"]["can_download"],
+    taxdb = TaxDB(
+        cache_dir=conf["taxdb"]["cache_dir"],
+        email=conf["taxdb"]["email"],
+        can_download=conf["taxdb"]["can_download"],
         preload=False,
     )
 
@@ -316,68 +261,9 @@ def debug(conf):
         compression=conf["db"]["compression"],
     )
 
-    ds = Dataset(database=db, api=api)
+    ds = Dataset(database=db, taxdb=taxdb)
     for batch in ds.by_rank_generator("phylum", batch_size=100, normalize=None):
         print(batch)
-
-    # tids = ds._get_tax_ids_by_rank("phylum")
-    # res = {}
-    # for rank_tax_id, tax_ids in tids.items():
-    #     sids = list(db.tax_ids_to_sample_ids_generator(tax_ids))
-    #     res[rank_tax_id] = sids
-    # print({k: len(v) for k, v in res.items()})
-
-    # for rank_tax_id, tax_ids in tids.items():
-    #     res[rank_tax_id] = ds.analyse(tax_ids)
-
-    # print(res)
-
-    # ds.by_rank_generator("phylum")
-
-    # print(db.get_info(as_str=True))
-    # tids = ds._get_tax_ids_by_rank("phylum")
-    # res = dict()
-    # for rank_tax_id, tax_ids in tids.items():
-    #     sids = list(db.tax_ids_to_sample_ids_generator(tax_ids))
-    #     res[rank_tax_id] = sids
-
-    # print({k: len(v) for k, v in res.items()})
-
-    # pass
-
-    # mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
-
-    # api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
-    # db = Database("/data/microtaxo/db_full_4", api)
-    # db.index_by_rank("phylum")
-    # matgen = db.make_dmatrix(rank="phylum", normalize="min_max", batch_size=100)
-    # tax_id_classes = db.get_tax_id_classes("phylum")
-    # model = XGBoostModel(api=api, use_gpu=False)
-    # res = model.train(matgen, kfold=None, tax_id_classes=tax_id_classes)
-
-    # report_header = {
-    #     "header": {
-    #         "Rang": "phylum",
-    #     }
-    # }
-    # model.save_report(
-    #     dir_path="wisp_allthebacteria/out/report1", additional_data=report_header
-    # )
-    # print(res)
-
-    # db = Database("/data/microtaxo/db_full_4", api)
-    # mat = db.make_dmatrix("phylum", sample_limit_by_tax_id=None, normalize="min_max")
-    # db.serialize_dmatrix(mat, "wisp_allthebacteria/out/mat2.pkl")
-    # print((mat.num_row(), mat.num_col()))
-
-    # api.export()
-    # print(db.get_tax_ids_by_rank("phylum"))
-    # data = db._get_tax_id_data(222)
-
-    # writer = Writer(path="/data/microtaxo/db_full_4")
-    # with open("/data/microtaxo/merged_data.pkl", "rb") as file:
-    #     merged_data = pickle.load(file)
-    # writer.save_data(merged_data)
 
 
 if __name__ == "__main__":
@@ -413,19 +299,19 @@ if __name__ == "__main__":
     parser.add_argument("--train", action="store_true", help="Train a model")
 
     parser.add_argument(
-        "--populate-api-cache",
+        "--populate-taxdb",
         action="store_true",
-        help="get most of needed data from Entry (but you should use import/export api-cache instead)",
+        help="get most of needed data from Entrez",
     )
     parser.add_argument(
-        "--import-api-cache",
+        "--import-taxdb-cache",
         action="store_true",
-        help="pickle api cache to out/cache_dump.pkl",
+        help="pickle taxdb cache to out/cache_dump.pkl",
     )
     parser.add_argument(
-        "--export-api-cache",
+        "--export-taxdb-cache",
         action="store_true",
-        help="unpickle api cache from out/cache_dump.pkl",
+        help="unpickle taxdb cache from out/cache_dump.pkl",
     )
 
     parser.add_argument(
@@ -481,14 +367,14 @@ if __name__ == "__main__":
         debug(conf)
         sys.exit("debug")
 
-    if args.populate_api_cache:
-        populate_api_cache(conf)
+    if args.populate_taxdb_cache:
+        populate_taxdb(conf)
 
-    if args.export_api_cache:
-        export_api_cache(conf)
+    if args.export_taxdb_cache:
+        export_taxdb(conf)
 
-    if args.import_api_cache:
-        import_apt_cache(conf)
+    if args.import_taxdb_cache:
+        import_taxdb_cache(conf)
 
     if args.create_db:
         create_db(conf)
