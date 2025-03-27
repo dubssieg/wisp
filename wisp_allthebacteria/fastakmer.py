@@ -16,6 +16,7 @@ import concurrent
 from loky import get_reusable_executor
 from metadata import Metadata
 from utils import format_size, cleanup_zombie_processes, compress
+from taxdb import TaxDB
 
 LOG = logging.getLogger(__name__)
 
@@ -23,10 +24,11 @@ NO_TAX_ID = "no-tax-id"
 
 
 class FastaKmer:
-    def __init__(self, metadata: Metadata, num_workers: int):
+    def __init__(self, metadata: Metadata, num_workers: int, taxdb: TaxDB):
         LOG.debug(f"FastaKmer({locals()})")
         self._md = metadata
         self._num_workers = num_workers
+        self._taxdb = taxdb
 
     def _process_archive_workers(
         self,
@@ -134,17 +136,22 @@ class FastaKmer:
         for result in dry_results:
             for file_id, counter_list in result.items():
                 md = self._md[file_id]
-                if len(md) == 1:
-                    tax_id = md[0].get("TaxId", "NO_TAX_ID")
-                    for counter in counter_list:
-                        file_name = counter["md"]["file_name"]
-                        tax_id_to_file_ids[tax_id][(file_id, file_name)] += 1
+                tax_id = self._taxdb.clean_tax_id(md.get("TaxId", None))
+                for counter in counter_list:
+                    file_name = counter["md"]["file_name"]
+                    tax_id_to_file_ids[tax_id][(file_id, file_name)] += 1
+
+        files_to_process = defaultdict(int)
+        files_to_skip = defaultdict(int)
 
         for tax_id, file_id_counts in tax_id_to_file_ids.items():
+            tax_id = self._md.clean_tax_id(tax_id)
             current_count = current_counts.get(tax_id, 0)
             remaining_counters = max_counts - current_count
 
             if remaining_counters <= 0:
+                for (file_id, file_name), count in file_id_counts.items():
+                    files_to_skip[file_name] += count
                 continue
 
             total_count = sum(file_id_counts.values())
@@ -161,8 +168,23 @@ class FastaKmer:
                 an[file_name][file_id] = max_insertable_tax_ids
                 remaining_counters -= max_insertable_tax_ids
 
+                if max_insertable_tax_ids > 0:
+                    files_to_process[file_name] += max_insertable_tax_ids
+                else:
+                    files_to_skip[file_name] += count
+
                 if remaining_counters <= 0:
                     break
+
+        if files_to_process:
+            LOG.debug("Files to process:")
+            for file_name, sample_count in files_to_process.items():
+                LOG.debug(f"- {file_name}: {sample_count} samples")
+
+        if files_to_skip:
+            LOG.debug("Files to skip due to insufficient samples or limits:")
+            for file_name, sample_count in files_to_skip.items():
+                LOG.debug(f"- {file_name}: {sample_count} samples")
 
         return dict(an)
 

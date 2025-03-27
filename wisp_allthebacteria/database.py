@@ -19,32 +19,6 @@ LAST_VALID_IDS = "_last_valid_ids_"
 CURRENT_TRANSACTION = "_current_transaction_"
 ARCHIVES = "_archives_"
 
-RANKS = [
-    "no rank",
-    "superkingdom",
-    "kingdom",
-    "clade",
-    "phylum",
-    "class",
-    "subclass",
-    "order",
-    "suborder",
-    "family",
-    "subfamily",
-    "tribe",
-    "genus",
-    "subgenus",
-    "species",
-    "species group",
-    "subspecies",
-    "species subgroup",
-    "strain",
-    # ?
-    "biotype",
-    "pathogroup",
-    "serogroup",
-    "serotype",
-]
 
 IDX_DB_INFO = "_idx_db_info_"
 

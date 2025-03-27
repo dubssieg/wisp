@@ -9,9 +9,9 @@ import argparse
 from tqdm.auto import tqdm
 from metadata import Metadata
 from fastakmer import FastaKmer
-from taxdb import TaxDB
+from taxdb import TaxDB, RANKS
 from model import XGBoostModel
-from database import Database, DatabaseBuilder, RANKS
+from database import Database, DatabaseBuilder
 from dataset import Dataset
 from utils import (
     SystemStatsLogger,
@@ -56,7 +56,7 @@ def create_db(conf: dict):
             full=conf["db"]["full"],
             dbs_path=output_path,
             fanout_shards=conf["db"]["fanout_shards"],
-            fasta_kmer=FastaKmer(md, num_workers=num_workers),
+            fasta_kmer=FastaKmer(md, num_workers=num_workers, taxdb=taxdb),
             fasta_batch_size=conf["db"]["fasta_batch_size"],
             insert_threads=num_threads,
             compression=conf["db"]["compression"],

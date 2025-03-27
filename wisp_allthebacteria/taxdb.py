@@ -1,5 +1,7 @@
+from collections import defaultdict
 import logging
 import pickle
+from typing import Any
 import pandas as pd
 from tqdm.auto import tqdm
 from Bio import Entrez
@@ -8,6 +10,37 @@ from urllib.error import HTTPError
 from pathlib import Path
 
 LOG = logging.getLogger(__name__)
+
+BACTERIA = 2  # root tax_id
+
+RANKS = [
+    "no rank",
+    "cellular root",
+    "domain",
+    "superkingdom",
+    "kingdom",
+    "clade",
+    "phylum",
+    "class",
+    "subclass",
+    "order",
+    "suborder",
+    "family",
+    "subfamily",
+    "tribe",
+    "genus",
+    "subgenus",
+    "species",
+    "species group",
+    "subspecies",
+    "species subgroup",
+    "strain",
+    # ?
+    "biotype",
+    "pathogroup",
+    "serogroup",
+    "serotype",
+]
 
 
 class TaxDB:
@@ -71,22 +104,6 @@ class TaxDB:
 
         return unique_tax_ids, list(extra_tax_ids), list(errors)
 
-    @staticmethod
-    def clean_tax_id(tax_id) -> list:
-        if pd.isna(tax_id):
-            return []
-
-        if "," in str(tax_id):
-            try:
-                return [int(num) for num in tax_id.split(",")]
-            except ValueError:
-                return []
-
-        try:
-            return [int(float(tax_id))]
-        except ValueError:
-            return []
-
     def clean_cache(self) -> list:
         """Clean the cache by removing entries with non-integer keys or empty values."""
         keys_to_delete = []
@@ -126,7 +143,6 @@ class TaxDB:
         tax_id = self.clean_tax_id(tax_id)
         if not tax_id:
             return None
-        tax_id = tax_id[0]
 
         # hit cache
         if tax_id in self._cache:
@@ -141,3 +157,53 @@ class TaxDB:
         except HTTPError:
             LOG.exception("Could not get API data")
             return None
+
+    def clean_tax_id(self, tax_id: Any) -> int:
+        """Clean and normalize tax_id - find closest parent if needed"""
+
+        # Clean the tax_id
+        if not tax_id or pd.isna(tax_id):
+            return BACTERIA
+
+        if "," in str(tax_id):
+            try:
+                tids = [int(num) for num in tax_id.split(",")]
+            except ValueError:
+                return BACTERIA
+
+        else:
+            try:
+                tids = [int(float(tax_id))]
+            except ValueError:
+                return BACTERIA
+
+        if len(tids) == 1:
+            return tids[0]
+
+        # closest common parent tax_id
+        lineage_map = defaultdict(lambda: (set(), None))
+
+        for tid in tids:
+            record = self[tid]
+            lineage = [
+                (entry["TaxId"], entry["Rank"]) for entry in record.get("LineageEx", [])
+            ]
+            if lineage:
+                for ancestor_id, rank in lineage:
+                    rank_index = RANKS.index(rank)
+                    existing_rank_index = lineage_map[ancestor_id][1]
+                    if existing_rank_index is None or rank_index > existing_rank_index:
+                        lineage_map[ancestor_id] = (
+                            lineage_map[ancestor_id][0],
+                            rank_index,
+                        )
+                    lineage_map[ancestor_id][0].add(tid)
+
+        common_ancestor = None
+        highest_rank_index = -1
+        for ancestor, (tids_set, rank_index) in lineage_map.items():
+            if len(tids_set) == len(tids) and rank_index > highest_rank_index:
+                common_ancestor = ancestor
+                highest_rank_index = rank_index
+
+        return int(common_ancestor) if common_ancestor else BACTERIA

@@ -323,8 +323,3 @@ def sizeof(obj: Any, detail: bool = False) -> int | str:
     if detail:
         return pympler.asizeof.asized(obj, detail=1).format()
     return pympler.asizeof.asizeof(obj)
-
-
-if __name__ == "__main__":
-    print(system_stats())
-    print(system_stats(as_str=True))

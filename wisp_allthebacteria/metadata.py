@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 import pandas as pd
 from taxdb import TaxDB
 from pathlib import Path
@@ -21,6 +22,10 @@ class Metadata:
             self._md = self._load()
         return self._md
 
+    def clean_tax_id(self, tax_id: Any) -> int:
+        """Expose TaxDB clean_tax_id"""
+        return self._taxdb.clean_tax_id(tax_id)
+
     def __getitem__(self, seq_id: str) -> dict:
         """Example: SAMD00013333 or SAMD00013333.contig0000
         Unusual exemple: SAMEA3924086.NODE_1_length_606878_cov_39.021295_pilon"""
@@ -30,8 +35,8 @@ class Metadata:
         if not data:
             return []
 
-        if not isinstance(data[0], dict):
-            data = [self._taxdb[d] for d in data]
+        if not isinstance(data, dict):
+            data = self._taxdb[data]
             self._md[seq_id] = data
         return data
 
@@ -43,6 +48,6 @@ class Metadata:
             self._csv_path, sep="\t", usecols=columns, dtype=dtype_specification
         )
         return {
-            seq_id: TaxDB.clean_tax_id(tax_id)
+            seq_id: self.clean_tax_id(tax_id)
             for seq_id, tax_id in zip(df[columns[0]], df[columns[1]])
         }
