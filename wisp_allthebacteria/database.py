@@ -396,14 +396,14 @@ class DatabaseBuilder(Database):
         # warning, tax_id is a str
         merged_data = data["merged_data"]
         LOG.debug(
-            f"Adding counters & sources to DB for {len(merged_data)} tax_id(s): {self.get_db_path()}"
+            f"Adding counters to DB for {len(merged_data)} species(s): {self.get_db_path()}"
         )
 
         last_valid_ids = {}
         insert_counter = 0
         is_db = data["tmp_dir"] is not None
 
-        # 1 - update counters & sources
+        # 1 - update counters
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self._insert_threads
         ) as executor:
@@ -421,9 +421,7 @@ class DatabaseBuilder(Database):
                     insert_counter += 1
                     LOG.debug(f"DB insertions: {insert_counter} / {len(merged_data)}")
                 except Exception:
-                    LOG.exception(
-                        f"Pushing counters & sources to DB for tax_id {tax_id}"
-                    )
+                    LOG.exception(f"Pushing counters to DB for tax_id {tax_id}")
                     raise
 
         LOG.debug("All counters & sources added - ending transaction")
@@ -462,48 +460,37 @@ class DatabaseBuilder(Database):
         LOG.debug(f"Processing tax_id: {tax_id}")
         tax_id = self._parse_tax_id(tax_id)
         last_valid_id = self._get_last_valid_id(tax_id)
-        counters = tdata["counters"]
-        sources = tdata["sources"]
-        counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-        source_db = self._get_db(db_type="source", tax_id=tax_id)
+        dst_db = self._get_db(db_type="counter", tax_id=tax_id)
 
         if is_db:
-            merged_data_last_id = tdata["last_id"]
+            src_db = tdata["db"]
+            src_last_id = tdata["last_id"]
             LOG.debug(
-                f"Starting DB transactions with {merged_data_last_id} counters & sources for tax_id {tax_id}"
+                f"Starting DB transactions with {src_last_id} counters for specie {tax_id}"
             )
 
-            with counter_db.transact():
-                for j in range(merged_data_last_id):
-                    counter_db[last_valid_id + j + 1] = counters[j]
-            with source_db.transact():
-                for j in range(merged_data_last_id):
-                    source_db[last_valid_id + j + 1] = sources[j]
+            with dst_db.transact():
+                for j in range(src_last_id):
+                    dst_db[last_valid_id + j + 1] = src_db[j]
 
-            new_last_valid_id = last_valid_id + merged_data_last_id
+            new_last_valid_id = last_valid_id + src_last_id
 
         else:
             batch_counters = {
-                last_valid_id + j + 1: counter for j, counter in enumerate(counters)
-            }
-            batch_sources = {
-                last_valid_id + j + 1: source for j, source in enumerate(sources)
+                last_valid_id + j + 1: counter for j, counter in enumerate(tdata)
             }
 
             LOG.debug(
-                f"Starting DB transactions with {len(batch_counters)} counters & sources for tax_id {tax_id}"
+                f"Starting DB transactions with {len(batch_counters)} counters for specie {tax_id}"
             )
 
-            with counter_db.transact():
+            with dst_db.transact():
                 for current_id, counter in batch_counters.items():
-                    counter_db[current_id] = counter
-            with source_db.transact():
-                for current_id, source in batch_sources.items():
-                    source_db[current_id] = source
+                    dst_db[current_id] = counter
 
             new_last_valid_id = last_valid_id + len(batch_counters)
 
-        LOG.debug(f"Finished tax_id: {tax_id}")
+        LOG.debug(f"Finished specie: {tax_id}")
         return tax_id, new_last_valid_id
 
     def _set_last_valid_id(self, tax_id: int, last_valid_id: int) -> None:
