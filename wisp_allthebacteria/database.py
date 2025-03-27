@@ -362,13 +362,13 @@ class DatabaseBuilder(Database):
             del md_db[CURRENT_TRANSACTION]
             LOG.warning("Database cleaned")
 
-    def push_file(self, file_path: str | Path):
+    def push_archive(self, archive_path: str | Path):
         """Add content."""
-        file_path = Path(file_path).resolve()
+        file_path = Path(archive_path).resolve()
         LOG.info(f"Pushing file: {file_path.name}")
 
-        data = self._reader.process_file(
-            file_path=file_path,
+        data = self._reader.process_archive(
+            archive_path=archive_path,
             kmer_sizes=self._kmer_sizes,
             window_size=self._window_size,
             step=self._step,

@@ -97,7 +97,7 @@ def create_db(conf: dict):
                         LOG.warning(f"{archive_path.name} already in DB, skipping.")
                     else:
 
-                        db.push_file(archive_path)
+                        db.push_archive(archive_path)
                         gc.collect()
 
                     complete.add(archive_str)

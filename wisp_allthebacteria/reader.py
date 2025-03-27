@@ -28,42 +28,6 @@ class Reader:
         self._md = metadata
         self._num_workers = num_workers
 
-    def process_file(
-        self,
-        file_path: str | Path,
-        kmer_sizes: list[int],
-        window_size: int,
-        step: int,
-        full: bool = False,
-        batch_size: int | None = None,
-        compression: str | None = None,
-        merged_data_as_db: bool = False,
-    ) -> dict:
-        """Just call process_archive of process_fasta, based on file suffix."""
-        file_path = Path(file_path).resolve()
-        suffix = file_path.suffix
-        if suffix == ".xz":
-            return self.process_archive(
-                file_path,
-                kmer_sizes=kmer_sizes,
-                window_size=window_size,
-                step=step,
-                full=full,
-                batch_size=batch_size,
-                compression=compression,
-                return_db=merged_data_as_db,
-            )
-        elif suffix == ".fa":
-            return self.process_fasta(
-                file_path,
-                kmer_sizes=kmer_sizes,
-                window_size=window_size,
-                step=step,
-                full=full,
-                compression=compression,
-            )
-        LOG.debug(f"processed file: {file_path}")
-
     def process_archive(
         self,
         archive_path: Path | str,
