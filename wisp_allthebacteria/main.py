@@ -61,7 +61,7 @@ def create_db(conf: dict):
             reader=reader,
             fasta_batch_size=conf["db"]["fasta_batch_size"],
             insert_threads=num_threads,
-            compressed=conf["db"]["compressed"],
+            compression=conf["db"]["compression"],
             merged_data_as_db=conf["db"]["merged_data_as_db"],
         )
 
@@ -138,7 +138,7 @@ def db_info(conf: dict):
         step=conf["db"]["step"],
         full=conf["db"]["full"],
         dbs_path=conf["db"]["path"],
-        compressed=conf["db"]["compressed"],
+        compression=conf["db"]["compression"],
         fanout_shards=conf["db"]["fanout_shards"],
     )
 
@@ -175,7 +175,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             full=conf["db"]["full"],
             dbs_path=conf["db"]["path"],
             fanout_shards=conf["db"]["fanout_shards"],
-            compressed=conf["db"]["compressed"],
+            compression=conf["db"]["compression"],
         )
 
         train_batch_count = conf["model"]["train_batch_count"]
@@ -314,7 +314,7 @@ def debug(conf):
         full=conf["db"]["full"],
         dbs_path=conf["db"]["path"],
         fanout_shards=conf["db"]["fanout_shards"],
-        compressed=conf["db"]["compressed"],
+        compression=conf["db"]["compression"],
     )
 
     ds = Dataset(database=db, api=api)

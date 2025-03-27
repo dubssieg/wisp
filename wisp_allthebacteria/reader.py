@@ -36,7 +36,7 @@ class Reader:
         step: int,
         full: bool = False,
         batch_size: int | None = None,
-        compressed: bool = False,
+        compression: str | None = None,
         merged_data_as_db: bool = False,
     ) -> dict:
         """Just call process_archive of process_fasta, based on file suffix."""
@@ -50,7 +50,7 @@ class Reader:
                 step=step,
                 full=full,
                 batch_size=batch_size,
-                compressed=compressed,
+                compression=compression,
                 return_db=merged_data_as_db,
             )
         elif suffix == ".fa":
@@ -60,7 +60,7 @@ class Reader:
                 window_size=window_size,
                 step=step,
                 full=full,
-                compressed=compressed,
+                compression=compression,
             )
         LOG.debug(f"processed file: {file_path}")
 
@@ -72,7 +72,7 @@ class Reader:
         step: int,
         full: bool = False,
         batch_size: int = None,
-        compressed: int = False,
+        compression: str | None = None,
         return_db: bool = True,
     ):
         """Extract and process an archive."""
@@ -118,7 +118,7 @@ class Reader:
                             window_size=window_size,
                             step=step,
                             full=full,
-                            compressed=compressed,
+                            compression=compression,
                         ): file_path
                         for file_path in batch
                     }
@@ -232,7 +232,7 @@ class Reader:
         window_size: int,
         step: int,
         full: bool,
-        compressed: bool,
+        compression: str | None,
     ) -> dict:
         """Simpler Fasta counting method, hopefully less bugged"""
         file_path = Path(file_path).resolve()
@@ -265,9 +265,11 @@ class Reader:
 
             source = {"id": sequence["id"], "contig": sequence["contig"]}
             source_id_to_data.setdefault(source["id"], {"counters": [], "sources": []})
-            if compressed:
-                kmer_counts_as_list = compress(kmer_counts_as_list, as_list=True)
-                source = compress(source)
+            if compression:
+                kmer_counts_as_list = compress(
+                    kmer_counts_as_list, as_list=True, format=compression
+                )
+                source = compress(source, format=compression)
             source_id_to_data[sequence["id"]]["counters"].extend(kmer_counts_as_list)
             source_id_to_data[sequence["id"]]["sources"].extend(
                 [source] * len(kmer_counts_as_list)

@@ -59,7 +59,7 @@ class Database:
         full: bool,
         dbs_path: str | Path,
         fanout_shards: int,
-        compressed: bool,
+        compression: str | None | bool,
     ):
         LOG.debug(f"Database({locals()})")
         self._dbs_path = Path(dbs_path).resolve()
@@ -67,7 +67,7 @@ class Database:
         self._step = step
         self._full = full
         self._fanout_shards = fanout_shards
-        self._compressed = compressed
+        self._compression = compression if compression else None
         if isinstance(kmer_sizes, int):
             kmer_sizes = [kmer_sizes]
         self._kmer_sizes = sorted(kmer_sizes)
@@ -77,8 +77,8 @@ class Database:
     ) -> dict | None:
         db = self._get_db(db_type=target, tax_id=tax_id)
         data = db.get(num, None)
-        if data and self._compressed:
-            return decompress(data)
+        if data and self._compression:
+            return decompress(data, format=self._compression)
         return data
 
     def count(self, tax_ids: int | list[int]) -> int:
@@ -302,8 +302,8 @@ class Database:
         else:
             dir_name += f"__wsz_{self._window_size}__stp_{self._step}"
 
-        if self._compressed:
-            dir_name += "__comp"
+        if self._compression:
+            dir_name += f"__comp_{self._compression}"
 
         dir_name += f"__shd_{self._fanout_shards}"
 
@@ -321,7 +321,7 @@ class DatabaseBuilder(Database):
         fanout_shards: int,
         reader: Reader,
         insert_threads: int,
-        compressed: bool,
+        compression: str | bool | None,
         fasta_batch_size: int | None = None,
         merged_data_as_db: bool = False,
     ):
@@ -333,7 +333,7 @@ class DatabaseBuilder(Database):
             full=full,
             fanout_shards=fanout_shards,
             dbs_path=dbs_path,
-            compressed=compressed,
+            compression=compression,
         )
         self._reader = reader
         self._fasta_batch_size = fasta_batch_size
@@ -379,7 +379,7 @@ class DatabaseBuilder(Database):
             step=self._step,
             full=self._full,
             batch_size=self._fasta_batch_size,
-            compressed=self._compressed,
+            compression=self._compression,
             merged_data_as_db=self._merged_data_as_db,
         )
 

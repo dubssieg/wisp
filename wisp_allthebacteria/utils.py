@@ -138,31 +138,31 @@ def cpu_count(needed: str | int = 8) -> int:
 
 
 def compress(
-    data: Any, as_list: bool = False, mode: Literal["zlib", "msgpack"] = "msgpack"
+    data: Any, as_list: bool = False, format: Literal["zlib", "msgpack"] = "msgpack"
 ) -> bytes | list[bytes]:
     if as_list:
-        return [compress(i, as_list=False, mode=mode) for i in data]
-    if mode == "zlib":
+        return [compress(i, as_list=False, format=format) for i in data]
+    if format == "zlib":
         return zlib.compress(pickle.dumps(data))
-    elif mode == "msgpack":
+    elif format == "msgpack":
         return lz4.frame.compress(msgpack.packb(data, use_bin_type=True))
     else:
-        raise ValueError(mode)
+        raise ValueError(format)
 
 
 def decompress(
     data: bytes | list[bytes],
     as_list: bool = False,
-    mode: Literal["zlib", "msgpack"] = "msgpack",
+    format: Literal["zlib", "msgpack"] = "msgpack",
 ) -> Any:
     if as_list:
-        return [decompress(i, as_list=False, mode=mode) for i in data]
-    if mode == "zlib":
+        return [decompress(i, as_list=False, format=format) for i in data]
+    if format == "zlib":
         return pickle.loads(zlib.decompress(data))
-    elif mode == "msgpack":
+    elif format == "msgpack":
         return msgpack.unpackb(lz4.frame.decompress(data), raw=False)
     else:
-        raise ValueError(mode)
+        raise ValueError(format)
 
 
 class BrokenProcessPoolFilter(logging.Filter):
