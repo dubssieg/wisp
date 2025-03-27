@@ -390,7 +390,7 @@ if __name__ == "__main__":
             python main.py --create-db
 
         Create a database (local machine/debug)
-            python main.py -- create-db --json="wisp_allthebacteria/config/clx_debug.json"
+            python main.py -- create-db --conf="config/clx_debug.json"
 
         Train a model for phylum classification
             python main.py --train-model --rank="phylum"
@@ -404,7 +404,7 @@ if __name__ == "__main__":
         """,
     )
     parser.add_argument(
-        "--json",
+        "--conf",
         type=str,
         help="Path to the JSON file containing script configuration",
         default=Path(__file__).resolve().parent / "config/genouest.json",
@@ -473,7 +473,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    conf = load_config(Path(args.json))
+    conf = load_config(Path(args.conf))
 
     config_logger(**conf["log"])
 
