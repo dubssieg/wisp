@@ -53,7 +53,7 @@ IDX_DB_INFO = "_idx_db_info_"
 class Database:
     def __init__(
         self,
-        kmer_size: int,
+        kmer_sizes: int | list[int],
         window_size: int,
         step: int,
         full: bool,
@@ -63,12 +63,14 @@ class Database:
     ):
         LOG.debug(f"Database({locals()})")
         self._dbs_path = Path(dbs_path).resolve()
-        self._kmer_size = kmer_size
         self._window_size = window_size
         self._step = step
         self._full = full
         self._fanout_shards = fanout_shards
         self._compressed = compressed
+        if isinstance(kmer_sizes, int):
+            kmer_sizes = [kmer_sizes]
+        self._kmer_sizes = sorted(kmer_sizes)
 
     def get_data(
         self, tax_id: int, num: int, target: Literal["counter", "source"] = "counter"
@@ -294,17 +296,16 @@ class Database:
         return FanoutCache(path, size_limit=sys.maxsize, shards=self._fanout_shards)
 
     def get_db_path(self):
-
-        dir_name = f"km_{self._kmer_size}"
+        dir_name = f"kmr_{'_'.join(map(str, self._kmer_sizes))}"
         if self._full:
             dir_name += "__full"
         else:
-            dir_name += f"__ws_{self._window_size}__st_{self._step}"
+            dir_name += f"__wsz_{self._window_size}__stp_{self._step}"
 
         if self._compressed:
             dir_name += "__comp"
 
-        dir_name += f"__sh_{self._fanout_shards}"
+        dir_name += f"__shd_{self._fanout_shards}"
 
         return self._dbs_path / dir_name
 
@@ -312,7 +313,7 @@ class Database:
 class DatabaseBuilder(Database):
     def __init__(
         self,
-        kmer_size: int,
+        kmer_sizes: int | list[int],
         window_size: int,
         step: int,
         full: bool,
@@ -326,7 +327,7 @@ class DatabaseBuilder(Database):
     ):
         LOG.debug(f"DatabaseBuilder({locals()})")
         super().__init__(
-            kmer_size=kmer_size,
+            kmer_sizes=kmer_sizes,
             window_size=window_size,
             step=step,
             full=full,
@@ -373,7 +374,7 @@ class DatabaseBuilder(Database):
 
         data = self._reader.process_file(
             file_path=file_path,
-            kmer_size=self._kmer_size,
+            kmer_sizes=self._kmer_sizes,
             window_size=self._window_size,
             step=self._step,
             full=self._full,

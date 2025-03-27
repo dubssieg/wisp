@@ -31,7 +31,7 @@ class Reader:
     def process_file(
         self,
         file_path: str | Path,
-        kmer_size: int,
+        kmer_sizes: list[int],
         window_size: int,
         step: int,
         full: bool = False,
@@ -45,7 +45,7 @@ class Reader:
         if suffix == ".xz":
             return self.process_archive(
                 file_path,
-                kmer_size=kmer_size,
+                kmer_sizes=kmer_sizes,
                 window_size=window_size,
                 step=step,
                 full=full,
@@ -56,7 +56,7 @@ class Reader:
         elif suffix == ".fa":
             return self.process_fasta(
                 file_path,
-                kmer_size=kmer_size,
+                kmer_sizes=kmer_sizes,
                 window_size=window_size,
                 step=step,
                 full=full,
@@ -67,7 +67,7 @@ class Reader:
     def process_archive(
         self,
         archive_path: Path | str,
-        kmer_size: int,
+        kmer_sizes: list[int],
         window_size: int,
         step: int,
         full: bool = False,
@@ -114,7 +114,7 @@ class Reader:
                         executor.submit(
                             Reader.process_fasta,
                             file_path=file_path,
-                            kmer_size=kmer_size,
+                            kmer_sizes=kmer_sizes,
                             window_size=window_size,
                             step=step,
                             full=full,
@@ -228,7 +228,7 @@ class Reader:
     @staticmethod
     def process_fasta(
         file_path: Path | str,
-        kmer_size: int,
+        kmer_sizes: list[int],
         window_size: int,
         step: int,
         full: bool,
@@ -249,51 +249,39 @@ class Reader:
 
         source_id_to_data = {}
         for sequence in sequences:
-            kmer_count, source = Reader.process_sequence(
-                sequence=sequence,
-                kmer_size=kmer_size,
+            kmer_counts = Reader._counter(
+                entry=sequence["sequence"],
+                kmer_sizes=kmer_sizes,
                 window_size=window_size,
                 step=step,
                 full=full,
             )
-            source_id = source["id"]
-            source_id_to_data.setdefault(source_id, {"counters": [], "sources": []})
+            # rearange counters
+            num_elements = len(next(iter(kmer_counts.values())))
+            kmer_counts_as_list = []
+            for i in range(num_elements):
+                new_dict = {key: values[i] for key, values in kmer_counts.items()}
+                kmer_counts_as_list.append(new_dict)
+
+            source = {"id": sequence["id"], "contig": sequence["contig"]}
+            source_id_to_data.setdefault(source["id"], {"counters": [], "sources": []})
             if compressed:
-                kmer_count = compress(kmer_count, as_list=True)
+                kmer_counts_as_list = compress(kmer_counts_as_list, as_list=True)
                 source = compress(source)
-            source_id_to_data[source_id]["counters"].extend(kmer_count)
-            source_id_to_data[source_id]["sources"].append(source)
+            source_id_to_data[sequence["id"]]["counters"].extend(kmer_counts_as_list)
+            source_id_to_data[sequence["id"]]["sources"].extend(
+                [source] * len(kmer_counts_as_list)
+            )
 
         LOG.debug(f"[{file_name}] Return {len(sequences)} counters & sources")
         return source_id_to_data
 
     @staticmethod
-    def process_sequence(
-        sequence: str,
-        kmer_size: int,
-        window_size: int,
-        step: int,
-        full: bool,
-    ) -> tuple[dict, dict]:
-        """need to be static for ProcessPoolExecutor"""
-
-        kmer_count = Reader._counter(
-            entry=sequence["sequence"],
-            kmer_size=kmer_size,
-            window_size=window_size,
-            step=step,
-            full=full,
-        )
-
-        source = {k: v for k, v in sequence.items() if k != "sequence"}
-        return kmer_count, source
-
-    @staticmethod
     def _counter(
         entry: str,
-        kmer_size: int = 4,
-        window_size: int = 10000,
-        step: int = 5000,
+        kmer_sizes: list[int],
+        window_size: int,
+        step: int,
         full: bool = False,
     ) -> dict:
         complements = {
@@ -347,37 +335,43 @@ class Reader:
             if windows[-1][1] < seq_len:
                 windows.append((seq_len - window_size, seq_len))
 
-        window_counters = []
+        kmer_counters = {}
+        for kmer_size in kmer_sizes:
+            window_counters = []
+            for start, end in windows:
+                kmers = (
+                    entry[i : i + kmer_size] for i in range(start, end - kmer_size + 1)
+                )
 
-        for start, end in windows:
-            kmers = (
-                entry[i : i + kmer_size] for i in range(start, end - kmer_size + 1)
-            )
+                counts = Counter(kmers)
+                rev_counts = Counter(
+                    {
+                        Reader._revcomp(k, compl=complements): v
+                        for k, v in counts.items()
+                    }
+                )
+                counts += rev_counts
 
-            counts = Counter(kmers)
-            rev_counts = Counter(
-                {Reader._revcomp(k, compl=complements): v for k, v in counts.items()}
-            )
-            counts += rev_counts
+                if False:  # TODO: conf=max_size
+                    for filtered_kmer in (alpha * kmer_size for alpha in "ATCG"):
+                        counts.pop(filtered_kmer, None)
 
-            for filtered_kmer in (alpha * kmer_size for alpha in "ATCG"):
-                counts.pop(filtered_kmer, None)
+                counts_purged = {}
+                for key, count in counts.items():
+                    list_of_keys = [
+                        "".join(item)
+                        for item in product(*[degenerate_map.get(x, [x]) for x in key])
+                    ]
+                    kmer_number = count // len(list_of_keys)
+                    for prob_key in list_of_keys:
+                        counts_purged[prob_key] = (
+                            counts_purged.get(prob_key, 0) + kmer_number
+                        )
 
-            counts_purged = {}
-            for key, count in counts.items():
-                list_of_keys = [
-                    "".join(item)
-                    for item in product(*[degenerate_map.get(x, [x]) for x in key])
-                ]
-                kmer_number = count // len(list_of_keys)
-                for prob_key in list_of_keys:
-                    counts_purged[prob_key] = (
-                        counts_purged.get(prob_key, 0) + kmer_number
-                    )
+                window_counters.append(counts_purged)
+            kmer_counters[kmer_size] = window_counters
 
-            window_counters.append(counts_purged)
-
-        return window_counters
+        return kmer_counters
 
     @staticmethod
     def _revcomp(string: str, compl=None) -> str:
@@ -414,7 +408,6 @@ class Reader:
                     {
                         "id": r_id,
                         "contig": r_contig,
-                        "file": file_path.stem,
                         "sequence": str(record.seq),
                     }
                 )

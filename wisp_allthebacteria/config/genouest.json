@@ -9,7 +9,7 @@
         "email": "cyrille.leroux@irisa.fr"
     },
     "db":{
-        "kmer_size": 4,
+        "kmer_sizes": 4,
         "path": "/projects/microtaxo/exp_allthebacteria/dbs",
         "full": false,
         "window_size": 10000,

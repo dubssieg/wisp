@@ -52,7 +52,7 @@ def create_db(conf: dict):
         reader = Reader(md, num_workers=num_workers)
 
         db = DatabaseBuilder(
-            kmer_size=conf["db"]["kmer_size"],
+            kmer_sizes=conf["db"]["kmer_sizes"],
             window_size=conf["db"]["window_size"],
             step=conf["db"]["step"],
             full=conf["db"]["full"],
@@ -133,7 +133,7 @@ def db_info(conf: dict):
     LOG.info("DB info")
 
     db = Database(
-        kmer_size=conf["db"]["kmer_size"],
+        kmer_sizes=conf["db"]["kmer_sizes"],
         window_size=conf["db"]["window_size"],
         step=conf["db"]["step"],
         full=conf["db"]["full"],
@@ -169,7 +169,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             can_download=conf["api"]["can_download"],
         )
         database = Database(
-            kmer_size=conf["db"]["kmer_size"],
+            kmer_sizes=conf["db"]["kmer_sizes"],
             window_size=conf["db"]["window_size"],
             step=conf["db"]["step"],
             full=conf["db"]["full"],
@@ -308,7 +308,7 @@ def debug(conf):
     )
 
     db = Database(
-        kmer_size=conf["db"]["kmer_size"],
+        kmer_sizes=conf["db"]["kmer_sizes"],
         window_size=conf["db"]["window_size"],
         step=conf["db"]["step"],
         full=conf["db"]["full"],

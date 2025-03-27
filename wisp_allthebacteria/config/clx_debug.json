@@ -9,12 +9,12 @@
         "email": "cyrille.leroux@irisa.fr"
     },
     "db":{
-        "kmer_size": 4,
+        "kmer_sizes": [1, 4, 7],
         "path": "/data/microtaxo/dbs",
         "full": false,
         "window_size": 10000,
-        "step": 8000,
-        "create_db_workers": "max_minus_2",
+        "step": 9000,
+        "create_db_workers": 1,
         "db_insert_threads": "max_minus_2",
         "fanout_shards": 4,
         "fasta_batch_size": 1000,        
@@ -48,6 +48,6 @@
         "file_level": "debug",
         "file_size": 10000000,
         "file_count": 3,
-        "ignore_list": ["matplotlib"]
+        "ignore_list": ["matplotlib", "PIL"]
     }
 }
