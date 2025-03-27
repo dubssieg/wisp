@@ -5,7 +5,7 @@ import os
 import sys
 import tarfile
 import tempfile
-from collections import Counter
+from collections import Counter, defaultdict
 from itertools import product
 from pathlib import Path
 import time
@@ -171,7 +171,7 @@ class Reader:
 
             for i in range(fasta_count):
                 result = results[i]
-                for file_id, data in result.items():
+                for file_id, counters in result.items():
                     file_md = self._md[file_id]
                     match len(file_md):
                         case 0:
@@ -184,34 +184,23 @@ class Reader:
                     if return_db:
                         if tax_id not in merged_data:
                             merged_data[tax_id] = {
-                                "counters": Cache(
+                                "db": Cache(
                                     merged_data_path / str(tax_id) / "counter",
-                                    size_limit=sys.maxsize,
-                                ),
-                                "sources": Cache(
-                                    merged_data_path / str(tax_id) / "source",
                                     size_limit=sys.maxsize,
                                 ),
                                 "last_id": -1,
                             }
 
-                        Cache(
-                            merged_data_path / str(tax_id) / "counter",
-                            size_limit=sys.maxsize,
-                        )
-
                         current_id = merged_data[tax_id]["last_id"]
-                        db_counter = merged_data[tax_id]["counters"]
-                        db_source = merged_data[tax_id]["sources"]
-                        for counter, source in zip(data["counters"], data["sources"]):
+                        db = merged_data[tax_id]["db"]
+                        for counter in counters:
                             current_id += 1
-                            db_counter[current_id] = counter
-                            db_source[current_id] = source
+                            db[current_id] = counter
                         merged_data[tax_id]["last_id"] = current_id
                     else:
-                        merged_data.setdefault(tax_id, {"counters": [], "sources": []})
-                        merged_data[tax_id]["counters"].extend(data["counters"])
-                        merged_data[tax_id]["sources"].extend(data["sources"])
+                        if tax_id not in merged_data:
+                            merged_data[tax_id] = []
+                        merged_data[tax_id].extend(counters)
 
             LOG.debug(
                 f"[{archive_path}] {len(merged_data)} different tax_id(s) found - Deleting temporary directory ({temp_dir}) ..."
@@ -234,7 +223,7 @@ class Reader:
         full: bool,
         compression: str | None,
     ) -> dict:
-        """Simpler Fasta counting method, hopefully less bugged"""
+        """Fasta counting method"""
         file_path = Path(file_path).resolve()
         file_name, file_size = file_path.name, format_size(file_path.stat().st_size)
 
@@ -247,7 +236,7 @@ class Reader:
             LOG.exception(f"Error while reading fasta file: {file_path}")
             raise
 
-        source_id_to_data = {}
+        source_id_to_data = defaultdict(list)
         for sequence in sequences:
             kmer_counts = Reader._counter(
                 entry=sequence["sequence"],
@@ -260,23 +249,21 @@ class Reader:
             num_elements = len(next(iter(kmer_counts.values())))
             kmer_counts_as_list = []
             for i in range(num_elements):
-                new_dict = {key: values[i] for key, values in kmer_counts.items()}
-                kmer_counts_as_list.append(new_dict)
+                kmer_counts_i = {
+                    "counters": {key: values[i] for key, values in kmer_counts.items()},
+                    "md": {"id": sequence["id"], "contig": sequence["contig"]},
+                }
+                kmer_counts_as_list.append(kmer_counts_i)
 
-            source = {"id": sequence["id"], "contig": sequence["contig"]}
-            source_id_to_data.setdefault(source["id"], {"counters": [], "sources": []})
             if compression:
                 kmer_counts_as_list = compress(
                     kmer_counts_as_list, as_list=True, format=compression
                 )
-                source = compress(source, format=compression)
-            source_id_to_data[sequence["id"]]["counters"].extend(kmer_counts_as_list)
-            source_id_to_data[sequence["id"]]["sources"].extend(
-                [source] * len(kmer_counts_as_list)
-            )
-
-        LOG.debug(f"[{file_name}] Return {len(sequences)} counters & sources")
-        return source_id_to_data
+            source_id_to_data[sequence["id"]].extend(kmer_counts_as_list)
+        LOG.debug(
+            f"[{file_name}] Return {sum(len(counters) for counters in source_id_to_data.values())} counters ({len(source_id_to_data)} sequence ids)"
+        )
+        return dict(source_id_to_data)
 
     @staticmethod
     def _counter(
