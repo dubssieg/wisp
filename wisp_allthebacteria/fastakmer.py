@@ -19,7 +19,7 @@ from utils import format_size, cleanup_zombie_processes, compress
 
 LOG = logging.getLogger(__name__)
 
-MAX_RUNNING_TASKS_FASTA = 64
+NO_TAX_ID = "no-tax-id"
 
 
 class FastaKmer:
@@ -39,14 +39,18 @@ class FastaKmer:
         full: bool,
         compression: str,
         dry: bool,
-    ) -> Cache:
+        can_process: dict | None = None,
+    ) -> Cache | list:
         dry_str, dry_suffix = "", ""
         if dry:
             dry_str = "[==DRY==]"
             dry_suffix = "_dry"
         extracted_files = list(tmp_dir.rglob("*.fa"))
 
-        results = Cache(tmp_dir / f"results{dry_suffix}", size_limit=sys.maxsize)
+        if dry:
+            results = [None] * len(extracted_files)
+        else:
+            results = Cache(tmp_dir / f"results{dry_suffix}", size_limit=sys.maxsize)
         fasta_count = 0
         if batch_size is None:
             batches = [extracted_files]
@@ -71,6 +75,7 @@ class FastaKmer:
                         full=full,
                         compression=compression,
                         dry=dry,
+                        can_process=can_process,
                     ): file_path
                     for file_path in batch
                 }
@@ -119,6 +124,48 @@ class FastaKmer:
         )
         return results
 
+    def _count_analysis(
+        self, dry_results: list, max_counts: int, current_counts: dict
+    ) -> dict:
+        """Analyse the dry processing results to determine the maximum insertable counters per file_id and file path."""
+        an = defaultdict(dict)
+        tax_id_to_file_ids = defaultdict(lambda: defaultdict(int))
+
+        for result in dry_results:
+            for file_id, counter_list in result.items():
+                md = self._md[file_id]
+                if len(md) == 1:
+                    tax_id = md[0].get("TaxId", "NO_TAX_ID")
+                    for counter in counter_list:
+                        file_name = counter["md"]["file_name"]
+                        tax_id_to_file_ids[tax_id][(file_id, file_name)] += 1
+
+        for tax_id, file_id_counts in tax_id_to_file_ids.items():
+            current_count = current_counts.get(tax_id, 0)
+            remaining_counters = max_counts - current_count
+
+            if remaining_counters <= 0:
+                continue
+
+            total_count = sum(file_id_counts.values())
+
+            for (file_id, file_name), count in file_id_counts.items():
+                if total_count == 0:
+                    proportion = 0
+                else:
+                    proportion = count / total_count
+
+                max_insertable_tax_ids = min(
+                    int(proportion * remaining_counters), count
+                )
+                an[file_name][file_id] = max_insertable_tax_ids
+                remaining_counters -= max_insertable_tax_ids
+
+                if remaining_counters <= 0:
+                    break
+
+        return dict(an)
+
     def process_archive(
         self,
         archive_path: Path | str,
@@ -129,6 +176,8 @@ class FastaKmer:
         batch_size: int = None,
         compression: str | None = None,
         merged_data_as_db: bool = True,
+        current_counts: dict = {},
+        max_count: int | None = None,
     ):
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()
@@ -147,6 +196,27 @@ class FastaKmer:
                     f"[{archive_name}] {len(extracted_files)} FASTA files extracted"
                 )
 
+            can_process = None
+            if max_count:
+                dry_results = self._process_archive_workers(
+                    archive_name=archive_name,
+                    tmp_dir=tmp_dir,
+                    batch_size=batch_size,
+                    kmer_sizes=kmer_sizes,
+                    window_size=window_size,
+                    step=step,
+                    full=full,
+                    compression=False,
+                    dry=True,
+                    can_process=can_process,
+                )
+
+                can_process = self._count_analysis(
+                    dry_results=dry_results,
+                    max_counts=max_count,
+                    current_counts=current_counts,
+                )
+
             results = self._process_archive_workers(
                 archive_name=archive_name,
                 tmp_dir=tmp_dir,
@@ -157,6 +227,7 @@ class FastaKmer:
                 full=full,
                 compression=compression,
                 dry=False,
+                can_process=can_process,
             )
 
             if merged_data_as_db:
@@ -169,7 +240,7 @@ class FastaKmer:
                     file_md = self._md[file_id]
                     match len(file_md):
                         case 0:
-                            tax_id = "no-tax-id"
+                            tax_id = NO_TAX_ID
                         case 1:
                             tax_id = file_md[0]["TaxId"]
                         case _:
@@ -217,10 +288,20 @@ class FastaKmer:
         full: bool,
         compression: str | None,
         dry: bool = False,
+        can_process: dict | None = None,
     ) -> dict:
         """Fasta counting method"""
         file_path = Path(file_path).resolve()
         file_name, file_size = file_path.name, format_size(file_path.stat().st_size)
+
+        file_id_can = None
+        if can_process:
+            if file_name not in can_process:
+                LOG.debug(
+                    f"Skipping {file_name} due to insufficient suitable samples given the current limits"
+                )
+                return {}
+            file_id_can = can_process[file_name]
 
         try:
             sequences = FastaKmer._read_fasta(file_path)
@@ -233,6 +314,22 @@ class FastaKmer:
 
         source_id_to_data = defaultdict(list)
         for sequence in sequences:
+            if file_id_can is not None:
+                file_id = sequence["id"]
+                if file_id not in file_id_can:
+                    continue
+                file_id_can[file_id] -= 1
+                if file_id_can[file_id] == 0:
+                    LOG.debug(
+                        f"Limit reached for {file_id} in {file_name}. Checking for remaining file_ids in the list"
+                    )
+                    del file_id_can[file_id]
+                if len(file_id_can) == 0:
+                    LOG.debug(
+                        f"Stopping processing for {file_name} as sufficient samples have already been collected, given the current limits"
+                    )
+                    break
+
             kmer_counts = FastaKmer._counter(
                 entry=sequence["sequence"],
                 kmer_sizes=kmer_sizes,
@@ -246,9 +343,11 @@ class FastaKmer:
             kmer_counts_as_list = []
             for i in range(num_elements):
                 kmer_counts_i = {
-                    "counters": {key: values[i] for key, values in kmer_counts.items()},
+                    "counter": {key: values[i] for key, values in kmer_counts.items()},
                     "md": {"id": sequence["id"], "contig": sequence["contig"]},
                 }
+                if dry:
+                    kmer_counts_i["md"]["file_name"] = file_name
                 kmer_counts_as_list.append(kmer_counts_i)
 
             if compression:
@@ -320,6 +419,9 @@ class FastaKmer:
             ]
             if windows[-1][1] < seq_len:
                 windows.append((seq_len - window_size, seq_len))
+
+        if dry:
+            return {0: windows}
 
         kmer_counters = {}
         for kmer_size in kmer_sizes:

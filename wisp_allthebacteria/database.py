@@ -85,6 +85,10 @@ class Database:
             tax_ids = [tax_ids]
         return sum(self._get_last_valid_id(tax_id) + 1 for tax_id in tax_ids)
 
+    def counts(self) -> dict:
+        """All counts"""
+        return {tid: lvi + 1 for tid, lvi in self._get_last_valid_ids().items()}
+
     def tax_ids_to_sample_ids(self, tax_ids: int | list[int]) -> list[tuple[int, int]]:
         """Given a tax_id or a list of tax_id, get available samples_ids: DB(tax_id, num)
         Usage: self.get_data(*sample_id)"""
@@ -375,6 +379,8 @@ class DatabaseBuilder(Database):
             batch_size=self._fasta_batch_size,
             compression=self._compression,
             merged_data_as_db=self._merged_data_as_db,
+            max_count=self._species_count_limit,
+            current_counts=self.counts(),
         )
 
         data["merged_data"] = {

@@ -14,7 +14,7 @@
         "full": false,
         "window_size": 10000,
         "step": 9000,
-        "species_count_limit": 100000,
+        "species_count_limit": 500,
         "create_db_workers": 1,
         "db_insert_threads": "max_minus_2",
         "fanout_shards": 2,
