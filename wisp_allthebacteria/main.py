@@ -63,6 +63,7 @@ def create_db(conf: dict):
             insert_threads=num_threads,
             compression=conf["db"]["compression"],
             merged_data_as_db=conf["db"]["merged_data_as_db"],
+            species_count_limit=conf["db"]["species_count_limit"],
         )
 
         json_create_db_path = db.get_db_path() / "create_db.json"

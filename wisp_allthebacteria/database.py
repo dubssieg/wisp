@@ -320,6 +320,7 @@ class DatabaseBuilder(Database):
         compression: str | bool | None,
         fasta_batch_size: int | None = None,
         merged_data_as_db: bool = False,
+        species_count_limit: int | None = None,
     ):
         LOG.debug(f"DatabaseBuilder({locals()})")
         super().__init__(
@@ -335,6 +336,7 @@ class DatabaseBuilder(Database):
         self._fasta_batch_size = fasta_batch_size
         self._insert_threads = insert_threads
         self._merged_data_as_db = merged_data_as_db
+        self._species_count_limit = species_count_limit
         self.clean()
 
     def clean(self):
@@ -376,8 +378,34 @@ class DatabaseBuilder(Database):
             merged_data_as_db=self._merged_data_as_db,
         )
 
+        data["merged_data"] = {
+            self._parse_tax_id(tid): counters
+            for tid, counters in data["merged_data"].items()
+        }
+        data = self._apply_count_limit(data)
         self.clear_index()
         self._push_merged_data(data)
+
+    def _apply_count_limit(self, data: dict) -> dict:
+        if self._species_count_limit:
+            new_merged_data = {}
+            for tid, counters in data["merged_data"].items():
+                current_count = self.count(tid)
+                new_count_limit = self._species_count_limit - current_count
+                if new_count_limit > 0:
+                    new_merged_data[tid] = counters[:new_count_limit]
+                    if len(counters) > new_count_limit:
+                        LOG.debug(
+                            f"Filtered {len(counters) - new_count_limit} counters for specie {tid}"
+                        )
+                else:
+                    LOG.debug(
+                        f"All {len(counters)} counters filtered for specie {tid} due to count limit"
+                    )
+
+            data["merged_data"] = new_merged_data
+
+        return data
 
     def _push_merged_data(self, data):
         LOG.debug("Adding counter & sources - get DB metadata")
@@ -434,7 +462,6 @@ class DatabaseBuilder(Database):
 
     def _push_batch(self, tax_id: int, tdata: dict, is_db: bool):
         LOG.debug(f"Processing tax_id: {tax_id}")
-        tax_id = self._parse_tax_id(tax_id)
         last_valid_id = self._get_last_valid_id(tax_id)
         dst_db = self._get_db(db_type="counter", tax_id=tax_id)
 
