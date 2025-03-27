@@ -3,7 +3,7 @@
         "metadata_dir": "/data/microtaxo/allthebacteria_sample/metadata",
         "assembly_dir": "/data/microtaxo/allthebacteria_sample/assembly"
     },
-    "api":{
+    "taxdb":{
         "cache_dir": "/data/microtaxo/apicache",
         "can_download": true,
         "email": "cyrille.leroux@irisa.fr"

@@ -211,7 +211,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
 
 
 def populate_taxdb(conf: dict):
-    LOG.info("populate_taxdb_cache")
+    LOG.info("populate_taxdb")
     TaxDB(
         cache_dir=Path(conf["taxdb"]["cache_dir"]),
         email=conf["taxdb"]["email"],
@@ -223,7 +223,7 @@ def populate_taxdb(conf: dict):
 
 
 def export_taxdb(conf: dict):
-    LOG.info("export_apt_cache")
+    LOG.info("export_taxdb")
     TaxDB(
         cache_dir=Path(conf["taxdb"]["cache_dir"]),
         email="",
@@ -231,8 +231,8 @@ def export_taxdb(conf: dict):
     ).export_db()
 
 
-def import_taxdb_cache(conf: dict):
-    LOG.info("import_apt_cache")
+def import_taxdb(conf: dict):
+    LOG.info("import_taxdb")
     TaxDB(
         cache_dir=Path(conf["taxdb"]["cache_dir"]),
         email="",
@@ -304,14 +304,14 @@ if __name__ == "__main__":
         help="get most of needed data from Entrez",
     )
     parser.add_argument(
-        "--import-taxdb-cache",
+        "--import-taxdb",
         action="store_true",
-        help="pickle taxdb cache to out/cache_dump.pkl",
+        help="pickle taxdb to out/cache_dump.pkl",
     )
     parser.add_argument(
-        "--export-taxdb-cache",
+        "--export-taxdb",
         action="store_true",
-        help="unpickle taxdb cache from out/cache_dump.pkl",
+        help="unpickle taxdb from out/cache_dump.pkl",
     )
 
     parser.add_argument(
@@ -367,14 +367,14 @@ if __name__ == "__main__":
         debug(conf)
         sys.exit("debug")
 
-    if args.populate_taxdb_cache:
+    if args.populate_taxdb:
         populate_taxdb(conf)
 
-    if args.export_taxdb_cache:
+    if args.export_taxdb:
         export_taxdb(conf)
 
-    if args.import_taxdb_cache:
-        import_taxdb_cache(conf)
+    if args.import_taxdb:
+        import_taxdb(conf)
 
     if args.create_db:
         create_db(conf)

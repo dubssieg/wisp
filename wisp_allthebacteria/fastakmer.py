@@ -37,7 +37,7 @@ class FastaKmer:
         full: bool = False,
         batch_size: int = None,
         compression: str | None = None,
-        return_db: bool = True,
+        merged_data_as_db: bool = True,
     ):
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()
@@ -129,7 +129,7 @@ class FastaKmer:
                 f"[{archive_name}] All {len(extracted_files)} Fasta files done - sorting results..."
             )
 
-            if return_db:
+            if merged_data_as_db:
                 merged_data_path = Path(tempfile.mkdtemp("_wisp_merged_data"))
             merged_data = {}
 
@@ -145,7 +145,7 @@ class FastaKmer:
                         case _:
                             tax_id = f"multiple-{'|'.join(sorted(m['TaxId'] if m else 'no-tax-id' for m in file_md))}"
 
-                    if return_db:
+                    if merged_data_as_db:
                         if tax_id not in merged_data:
                             merged_data[tax_id] = {
                                 "db": Cache(
@@ -175,7 +175,7 @@ class FastaKmer:
         return {
             "archive": archive_path,
             "merged_data": merged_data,
-            "tmp_dir": merged_data_path if return_db else None,
+            "tmp_dir": merged_data_path if merged_data_as_db else None,
         }
 
     @staticmethod
