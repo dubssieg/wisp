@@ -9,7 +9,7 @@ from typing import Any, Generator, Literal
 from tqdm.auto import tqdm
 
 from diskcache import FanoutCache
-from reader import Reader
+from fastakmer import FastaKmer
 from utils import decompress, space_format, get_weights, sample_count_estimation
 
 LOG = logging.getLogger(__name__)
@@ -315,7 +315,7 @@ class DatabaseBuilder(Database):
         full: bool,
         dbs_path: str | Path,
         fanout_shards: int,
-        reader: Reader,
+        fasta_kmer: FastaKmer,
         insert_threads: int,
         compression: str | bool | None,
         fasta_batch_size: int | None = None,
@@ -332,7 +332,7 @@ class DatabaseBuilder(Database):
             dbs_path=dbs_path,
             compression=compression,
         )
-        self._reader = reader
+        self._fasta_kmer = fasta_kmer
         self._fasta_batch_size = fasta_batch_size
         self._insert_threads = insert_threads
         self._merged_data_as_db = merged_data_as_db
@@ -367,7 +367,7 @@ class DatabaseBuilder(Database):
         file_path = Path(archive_path).resolve()
         LOG.info(f"Pushing file: {file_path.name}")
 
-        data = self._reader.process_archive(
+        data = self._fasta_kmer.process_archive(
             archive_path=archive_path,
             kmer_sizes=self._kmer_sizes,
             window_size=self._window_size,

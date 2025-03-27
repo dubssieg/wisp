@@ -8,7 +8,7 @@ from pathlib import Path
 import argparse
 from tqdm.auto import tqdm
 from metadata import Metadata
-from reader import Reader
+from fastakmer import FastaKmer
 from api import API
 from model import XGBoostModel
 from database import Database, DatabaseBuilder, RANKS
@@ -49,8 +49,6 @@ def create_db(conf: dict):
         LOG.info(
             f"Max CPUs: {cpu_count('max')}, using {num_workers} fasta workers and {num_threads} DB insertion threads"
         )
-        reader = Reader(md, num_workers=num_workers)
-
         db = DatabaseBuilder(
             kmer_sizes=conf["db"]["kmer_sizes"],
             window_size=conf["db"]["window_size"],
@@ -58,7 +56,7 @@ def create_db(conf: dict):
             full=conf["db"]["full"],
             dbs_path=output_path,
             fanout_shards=conf["db"]["fanout_shards"],
-            reader=reader,
+            fasta_kmer=FastaKmer(md, num_workers=num_workers),
             fasta_batch_size=conf["db"]["fasta_batch_size"],
             insert_threads=num_threads,
             compression=conf["db"]["compression"],

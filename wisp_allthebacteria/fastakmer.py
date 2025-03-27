@@ -22,9 +22,9 @@ LOG = logging.getLogger(__name__)
 MAX_RUNNING_TASKS_FASTA = 64
 
 
-class Reader:
+class FastaKmer:
     def __init__(self, metadata: Metadata, num_workers: int):
-        LOG.debug(f"Reader({locals()})")
+        LOG.debug(f"FastaKmer({locals()})")
         self._md = metadata
         self._num_workers = num_workers
 
@@ -76,7 +76,7 @@ class Reader:
                     # ) as executor:
                     futures = {
                         executor.submit(
-                            Reader.process_fasta,
+                            FastaKmer.process_fasta,
                             file_path=file_path,
                             kmer_sizes=kmer_sizes,
                             window_size=window_size,
@@ -192,7 +192,7 @@ class Reader:
         file_name, file_size = file_path.name, format_size(file_path.stat().st_size)
 
         try:
-            sequences = Reader._read_fasta(file_path)
+            sequences = FastaKmer._read_fasta(file_path)
             LOG.debug(
                 f"[{file_name}] SIZE: {file_size} - {len(sequences)} sequences found"
             )
@@ -202,7 +202,7 @@ class Reader:
 
         source_id_to_data = defaultdict(list)
         for sequence in sequences:
-            kmer_counts = Reader._counter(
+            kmer_counts = FastaKmer._counter(
                 entry=sequence["sequence"],
                 kmer_sizes=kmer_sizes,
                 window_size=window_size,
@@ -299,7 +299,7 @@ class Reader:
                 counts = Counter(kmers)
                 rev_counts = Counter(
                     {
-                        Reader._revcomp(k, compl=complements): v
+                        FastaKmer._revcomp(k, compl=complements): v
                         for k, v in counts.items()
                     }
                 )
