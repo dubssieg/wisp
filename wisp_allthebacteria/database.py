@@ -14,11 +14,11 @@ from utils import decompress, space_format, get_weights, sample_count_estimation
 
 LOG = logging.getLogger(__name__)
 
-DB_TYPE = Literal["counter", "source", "index", "md"]
-LAST_VALID_ID = "_last_valid_id_"
+DB_TYPE = Literal["counter", "index", "md"]
+LAST_VALID_IDS = "_last_valid_ids_"
 CURRENT_TRANSACTION = "_current_transaction_"
 ARCHIVES = "_archives_"
-COMMON = "_common_"
+# COMMON = "_common_"
 
 RANKS = [
     "no rank",
@@ -71,19 +71,18 @@ class Database:
         if isinstance(kmer_sizes, int):
             kmer_sizes = [kmer_sizes]
         self._kmer_sizes = sorted(kmer_sizes)
+        self._last_valid_ids = None  # cache
 
-    def get_data(
-        self, tax_id: int, num: int, target: Literal["counter", "source"] = "counter"
-    ) -> dict | None:
-        db = self._get_db(db_type=target, tax_id=tax_id)
+    def get_data(self, tax_id: int, num: int) -> dict | None:
+        db = self._get_db(tax_id)
         data = db.get(num, None)
         if data and self._compression:
             return decompress(data, format=self._compression)
         return data
 
-    def count(self, tax_ids: int | list[int]) -> int:
+    def count(self, tax_ids: int | str | list[int | str]) -> int:
         """sample count"""
-        if isinstance(tax_ids, int):
+        if isinstance(tax_ids, (int, str)):
             tax_ids = [tax_ids]
         return sum(self._get_last_valid_id(tax_id) + 1 for tax_id in tax_ids)
 
@@ -95,10 +94,7 @@ class Database:
 
         sample_ids = []
         for tax_id in tax_ids:
-            self._get_last_valid_id(tax_id)
-            sample_ids.extend(
-                (tax_id, i) for i in range(self._get_last_valid_id(tax_id) + 1)
-            )
+            sample_ids.extend((tax_id, i) for i in range(self.count(tax_id)))
         return sample_ids
 
     def get_sample_count_estimation(
@@ -106,15 +102,14 @@ class Database:
     ) -> int:
         if isinstance(tax_ids, int):
             tax_ids = [tax_ids]
-        db_info = self.get_info()
-        counts = [db_info["counters"][tax_id] for tax_id in tax_ids]
+        counts = [self.count(tax_id) for tax_id in tax_ids]
         return sample_count_estimation(counts, balance_factor)
 
     def sample_generator(
         self,
         tax_ids: int | list[int],
         seed: int = 2025,
-        target: Literal["counter", "source", "sample_id"] = "counter",
+        target: Literal["counter", "md", "sample_id"] = "counter",
         balance_factor: float = 0.0,
     ) -> Generator[tuple[int, int], None, None]:
         """Generator version of tax_ids_to_sample_ids, with proportional sampling."""
@@ -123,8 +118,7 @@ class Database:
         random_instance = random.Random(seed)
 
         LOG.debug(f"Initializing sample generator using {len(tax_ids)} tax_ids")
-        db_info = self.get_info()
-        counts = [db_info["counters"][tax_id] for tax_id in tax_ids]
+        counts = [self.count(tax_id) for tax_id in tax_ids]
         weights = get_weights(counts, balance_factor)
 
         # initialize a list of iterators for each tax_id with random order
@@ -149,8 +143,8 @@ class Database:
                 num = next(iterator)
                 sample_id = (tax_id, num)
                 match target:
-                    case "counter" | "source":
-                        yield self.get_data(*sample_id, target=target)
+                    case "counter" | "md":
+                        yield self.get_data(*sample_id)[target]
                     case "sample_id":
                         yield sample_id
                     case _:
@@ -265,10 +259,15 @@ class Database:
     def _archive_stem(self, path: str | Path) -> str:
         return Path(path).stem.split(".")[0]
 
+    def _get_last_valid_ids(self) -> dict:
+        """Get last inserted ids"""
+        if self._last_valid_ids is None:
+            md_db = self._get_db(db_type="md")
+            self._last_valid_ids = md_db.get(LAST_VALID_IDS, {})
+        return self._last_valid_ids
+
     def _get_last_valid_id(self, tax_id: int) -> int:
-        """Get last inserted id"""
-        md_db = self._get_db(db_type="md", tax_id=tax_id)
-        return md_db.get(LAST_VALID_ID, -1)
+        return self._get_last_valid_ids().get(tax_id, -1)
 
     def _parse_tax_id(self, tax_id: str | int) -> str | int:
         try:
@@ -277,22 +276,19 @@ class Database:
             return tax_id
 
     @lru_cache(maxsize=1)
-    def _get_db(self, db_type: DB_TYPE, tax_id: int | None = None) -> FanoutCache:
+    def _get_db(
+        self, tax_id: int | str | None = None, db_type: DB_TYPE = "counter"
+    ) -> FanoutCache:
         """Get sub DB"""
-        # <base_dbs>/md/common
-        # <base_dbs>/md/<tax_id>
-        # <base_dbs>/md/counters/<tax_id>
-        # <base_dbs>/md/sources/<tax_id>
-
         path = self.get_db_path()
         path /= db_type
-        if tax_id:
-            path /= str(tax_id)
-        else:
-            path /= COMMON
+        if db_type == "counter":
+            if tax_id:
+                path /= str(tax_id)
+            else:
+                raise ValueError("tax_id needed")
 
         path.mkdir(parents=True, exist_ok=True)
-
         return FanoutCache(path, size_limit=sys.maxsize, shards=self._fanout_shards)
 
     def get_db_path(self):
@@ -351,8 +347,7 @@ class DatabaseBuilder(Database):
             data = md_db[CURRENT_TRANSACTION]
             merged_data = data["merged_data"]
             for tax_id in merged_data.keys():
-                counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-                source_db = self._get_db(db_type="source", tax_id=tax_id)
+                counter_db = self._get_db(tax_id=tax_id)
                 current_id = self._get_last_valid_id(tax_id)
                 deleting = True
                 while deleting:
@@ -361,8 +356,6 @@ class DatabaseBuilder(Database):
                     if current_id in counter_db:
                         del counter_db[current_id]
                         deleting = True
-                    if current_id in source_db:
-                        del source_db[current_id]
                         deleting = True
             del md_db[CURRENT_TRANSACTION]
             LOG.warning("Database cleaned")
@@ -396,7 +389,7 @@ class DatabaseBuilder(Database):
         # warning, tax_id is a str
         merged_data = data["merged_data"]
         LOG.debug(
-            f"Adding counters to DB for {len(merged_data)} species(s): {self.get_db_path()}"
+            f"Adding counters to DB for {len(merged_data)} specie(s): {self.get_db_path()}"
         )
 
         last_valid_ids = {}
@@ -424,27 +417,10 @@ class DatabaseBuilder(Database):
                     LOG.exception(f"Pushing counters to DB for tax_id {tax_id}")
                     raise
 
-        LOG.debug("All counters & sources added - ending transaction")
+        LOG.debug("All species added - ending transaction")
 
         # 2 - update MD
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self._insert_threads
-        ) as executor:
-            future_to_taxid = {
-                executor.submit(
-                    self._set_last_valid_id, tax_id=tax_id, last_valid_id=last_valid_id
-                ): tax_id
-                for tax_id, last_valid_id in last_valid_ids.items()
-            }
-
-            for future in concurrent.futures.as_completed(future_to_taxid):
-                tax_id = future_to_taxid[future]
-                try:
-                    future.result()
-                except Exception:
-                    LOG.exception(f"Error updating last valid ID for tax_id {tax_id}")
-                    raise
-
+        self._set_last_valid_ids(last_valid_ids)
         archives.append(archive)
         md_db[ARCHIVES] = archives
         # ending transaction
@@ -493,7 +469,20 @@ class DatabaseBuilder(Database):
         LOG.debug(f"Finished specie: {tax_id}")
         return tax_id, new_last_valid_id
 
-    def _set_last_valid_id(self, tax_id: int, last_valid_id: int) -> None:
-        """Get last inserted id"""
-        md_db = self._get_db(db_type="md", tax_id=tax_id)
-        md_db[LAST_VALID_ID] = last_valid_id
+    def _set_last_valid_id(self, tax_id: int | str, last_valid_id: int) -> None:
+        """Set last inserted id
+        WARNING: not thread safe (self._last_valid_ids)"""
+        last_valid_ids = self._get_last_valid_ids()
+        last_valid_ids[tax_id] = last_valid_id
+        md_db = self._get_db(db_type="md")
+        md_db[LAST_VALID_IDS] = last_valid_ids
+        self._last_valid_ids = None
+
+    def _set_last_valid_ids(self, updated_last_valid_ids: dict[int | str, int]) -> None:
+        """Update last inserted ids
+        WARNING: not thread safe (self._last_valid_ids)"""
+        last_valid_ids = self._get_last_valid_ids()
+        last_valid_ids.update(updated_last_valid_ids)
+        md_db = self._get_db(db_type="md")
+        md_db[LAST_VALID_IDS] = last_valid_ids
+        self._last_valid_ids = None
