@@ -259,14 +259,8 @@ class FastaKmer:
             for i in range(len(extracted_files)):
                 result = results[i]
                 for file_id, counters in result.items():
-                    file_md = self._md[file_id]
-                    match len(file_md):
-                        case 0:
-                            tax_id = NO_TAX_ID
-                        case 1:
-                            tax_id = file_md[0]["TaxId"]
-                        case _:
-                            tax_id = f"multiple-{'|'.join(sorted(m['TaxId'] if m else 'no-tax-id' for m in file_md))}"
+                    md = self._md[file_id]
+                    tax_id = self._taxdb.clean_tax_id(md.get("TaxId", None))
 
                     if merged_data_as_db:
                         if tax_id not in merged_data:
