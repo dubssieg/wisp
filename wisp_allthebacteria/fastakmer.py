@@ -28,6 +28,97 @@ class FastaKmer:
         self._md = metadata
         self._num_workers = num_workers
 
+    def _process_archive_workers(
+        self,
+        archive_name: str,
+        tmp_dir: Path,
+        batch_size: int | None,
+        kmer_sizes: list[int],
+        window_size: int,
+        step: int,
+        full: bool,
+        compression: str,
+        dry: bool,
+    ) -> Cache:
+        dry_str, dry_suffix = "", ""
+        if dry:
+            dry_str = "[==DRY==]"
+            dry_suffix = "_dry"
+        extracted_files = list(tmp_dir.rglob("*.fa"))
+
+        results = Cache(tmp_dir / f"results{dry_suffix}", size_limit=sys.maxsize)
+        fasta_count = 0
+        if batch_size is None:
+            batches = [extracted_files]
+        else:
+            batches = [
+                extracted_files[i : i + batch_size]
+                for i in range(0, len(extracted_files), batch_size)
+            ]
+        for batch_i, batch in enumerate(batches):
+            LOG.debug(
+                f"{dry_str}[{archive_name}] Batch {batch_i + 1} / {len(batches)} - {len(batch)} fasta files"
+            )
+
+            with get_reusable_executor(max_workers=self._num_workers) as executor:
+                futures = {
+                    executor.submit(
+                        FastaKmer.process_fasta,
+                        file_path=file_path,
+                        kmer_sizes=kmer_sizes,
+                        window_size=window_size,
+                        step=step,
+                        full=full,
+                        compression=compression,
+                        dry=dry,
+                    ): file_path
+                    for file_path in batch
+                }
+                try:
+                    for future in concurrent.futures.as_completed(futures):
+                        try:
+                            result = future.result(timeout=60)  # TODO: conf
+
+                            results[fasta_count] = result
+                            fasta_count += 1
+
+                            LOG.debug(
+                                f"[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
+                            )
+
+                        except concurrent.futures.TimeoutError:
+                            LOG.error(f"[{archive_name}] Timeout")
+                        except Exception:
+                            LOG.exception(f"[{archive_name}]")
+                            raise
+                    LOG.debug(
+                        f"{dry_str}[{archive_name}] Batch {batch_i + 1} / {len(batches)} done. Terminating worker pool..."
+                    )
+                finally:
+                    LOG.debug(f"{dry_str}[{archive_name}] Shutting down executor...")
+                    # force workers to stop
+                    executor.shutdown(wait=True, kill_workers=True)
+                    LOG.debug(f"{dry_str}[{archive_name}] Executor shut down.")
+
+                    # give time for zombies to appear
+                    time.sleep(2)
+                    LOG.debug(
+                        f"{dry_str}[{archive_name}] Checking for zombie processes..."
+                    )
+                    cleanup_zombie_processes(os.getpid())
+
+                    # free mem
+                    gc.collect()
+                    LOG.debug(
+                        f"{dry_str}[{archive_name}] Cleanup complete - Workers pool terminated"
+                    )
+
+            LOG.debug(f"{dry_str}[{archive_name}] Workers pool terminated")
+        LOG.debug(
+            f"{dry_str}[{archive_name}] All {len(extracted_files)} Fasta files processed"
+        )
+        return results
+
     def process_archive(
         self,
         archive_path: Path | str,
@@ -43,97 +134,36 @@ class FastaKmer:
         archive_path = Path(archive_path).resolve()
         archive_name = archive_path.name
 
-        with tempfile.TemporaryDirectory("_wisp_fasta") as temp_dir:
-            temp_dir = Path(temp_dir).resolve()
+        with tempfile.TemporaryDirectory("_wisp_fasta") as tmp_dir:
+            tmp_dir = Path(tmp_dir).resolve()
             archive_size = format_size(archive_path.stat().st_size)
             LOG.info(f"[{archive_name}] Extracting archive")
-            LOG.info(f"[{archive_name}] SIZE: {archive_size}, temp dir: {temp_dir}")
+            LOG.info(f"[{archive_name}] SIZE: {archive_size}, temp dir: {tmp_dir}")
             # extraction de l'archive
             with tarfile.open(archive_path, "r:xz") as tar:
-                tar.extractall(temp_dir)
-
-            extracted_files = list(temp_dir.rglob("*.fa"))
-            LOG.debug(f"[{archive_name}] {len(extracted_files)} FASTA files extracted")
-
-            results = Cache(temp_dir / "results", size_limit=sys.maxsize)
-            fasta_count = 0
-
-            if batch_size is None:
-                batches = [extracted_files]
-            else:
-                batches = [
-                    extracted_files[i : i + batch_size]
-                    for i in range(0, len(extracted_files), batch_size)
-                ]
-            for batch_i, batch in enumerate(batches):
+                tar.extractall(tmp_dir)
+                extracted_files = list(tmp_dir.rglob("*.fa"))
                 LOG.debug(
-                    f"[{archive_name}] Batch {batch_i + 1} / {len(batches)} - {len(batch)} fasta files"
+                    f"[{archive_name}] {len(extracted_files)} FASTA files extracted"
                 )
 
-                with get_reusable_executor(max_workers=self._num_workers) as executor:
-                    # with concurrent.futures.ProcessPoolExecutor(
-                    #     max_workers=self._num_workers
-                    # ) as executor:
-                    futures = {
-                        executor.submit(
-                            FastaKmer.process_fasta,
-                            file_path=file_path,
-                            kmer_sizes=kmer_sizes,
-                            window_size=window_size,
-                            step=step,
-                            full=full,
-                            compression=compression,
-                        ): file_path
-                        for file_path in batch
-                    }
-                    try:
-                        for future in concurrent.futures.as_completed(futures):
-                            try:
-                                result = future.result(timeout=60)  # TODO: conf
-
-                                results[fasta_count] = result
-                                fasta_count += 1
-
-                                LOG.debug(
-                                    f"[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
-                                )
-
-                            except concurrent.futures.TimeoutError:
-                                LOG.error(f"[{archive_name}] Timeout")
-                            except Exception:
-                                LOG.exception(f"[{archive_name}]")
-                                raise
-                        LOG.debug(
-                            f"[{archive_name}] Batch {batch_i + 1} / {len(batches)} done. Terminating worker pool..."
-                        )
-                    finally:
-                        LOG.debug(f"[{archive_name}] Shutting down executor...")
-                        # force workers to stop
-                        executor.shutdown(wait=True, kill_workers=True)
-                        LOG.debug(f"[{archive_name}] Executor shut down.")
-
-                        # give time for zombies to appear
-                        time.sleep(2)
-                        LOG.debug(f"[{archive_name}] Checking for zombie processes...")
-                        cleanup_zombie_processes(os.getpid())
-
-                        # free mem
-                        gc.collect()
-                        LOG.debug(
-                            f"[{archive_name}] Cleanup complete - Workers pool terminated"
-                        )
-
-                LOG.debug(f"[{archive_name}] Workers pool terminated")
-
-            LOG.debug(
-                f"[{archive_name}] All {len(extracted_files)} Fasta files done - sorting results..."
+            results = self._process_archive_workers(
+                archive_name=archive_name,
+                tmp_dir=tmp_dir,
+                batch_size=batch_size,
+                kmer_sizes=kmer_sizes,
+                window_size=window_size,
+                step=step,
+                full=full,
+                compression=compression,
+                dry=False,
             )
 
             if merged_data_as_db:
                 merged_data_path = Path(tempfile.mkdtemp("_wisp_merged_data"))
             merged_data = {}
 
-            for i in range(fasta_count):
+            for i in range(len(extracted_files)):
                 result = results[i]
                 for file_id, counters in result.items():
                     file_md = self._md[file_id]
@@ -167,7 +197,7 @@ class FastaKmer:
                         merged_data[tax_id].extend(counters)
 
             LOG.debug(
-                f"[{archive_path}] {len(merged_data)} different tax_id(s) found - Deleting temporary directory ({temp_dir}) ..."
+                f"[{archive_path}] {len(merged_data)} different tax_id(s) found - Deleting temporary directory ({tmp_dir}) ..."
             )
 
         LOG.debug(f"[{archive_name}] Temporary files deleted")
@@ -186,6 +216,7 @@ class FastaKmer:
         step: int,
         full: bool,
         compression: str | None,
+        dry: bool = False,
     ) -> dict:
         """Fasta counting method"""
         file_path = Path(file_path).resolve()
@@ -208,6 +239,7 @@ class FastaKmer:
                 window_size=window_size,
                 step=step,
                 full=full,
+                dry=dry,
             )
             # rearange counters
             num_elements = len(next(iter(kmer_counts.values())))
@@ -236,6 +268,7 @@ class FastaKmer:
         window_size: int,
         step: int,
         full: bool = False,
+        dry: bool = False,
     ) -> dict:
         complements = {
             "A": "T",

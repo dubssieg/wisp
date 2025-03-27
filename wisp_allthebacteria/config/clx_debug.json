@@ -9,13 +9,13 @@
         "email": "cyrille.leroux@irisa.fr"
     },
     "db":{
-        "kmer_sizes": [1, 4, 7],
+        "kmer_sizes": [1, 4],
         "path": "/data/microtaxo/dbs",
         "full": false,
         "window_size": 10000,
         "step": 9000,
         "species_count_limit": 100000,
-        "create_db_workers": "max_minus_2",
+        "create_db_workers": 1,
         "db_insert_threads": "max_minus_2",
         "fanout_shards": 2,
         "fasta_batch_size": 1000,        
