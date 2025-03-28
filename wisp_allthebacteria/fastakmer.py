@@ -16,7 +16,7 @@ from Bio import SeqIO
 import concurrent
 from loky import get_reusable_executor
 from metadata import Metadata
-from utils import format_size, cleanup_zombie_processes, compress
+from utils import format_size, cleanup_zombie_processes, compress, space_format
 from taxdb import TaxDB
 
 LOG = logging.getLogger(__name__)
@@ -285,6 +285,7 @@ class FastaKmer:
         self, dry_results: list, max_counts: int, current_counts: dict
     ) -> dict:
         """Analyse the dry processing results to determine the maximum insertable counters per file_id and file path."""
+
         file_selector = defaultdict(dict)
         tax_id_to_file_ids = defaultdict(lambda: defaultdict(int))
 
@@ -294,58 +295,43 @@ class FastaKmer:
                 tax_id = self._taxdb.clean_tax_id(md.get("TaxId", None))
                 for counter in counter_list:
                     file_name = counter["md"]["file_name"]
-                    tax_id_to_file_ids[tax_id][(file_id, file_name)] += 1
-
-        files_to_process = defaultdict(int)
-        files_to_skip = defaultdict(int)
+                    tax_id_to_file_ids[tax_id][file_id, file_name] += 1
 
         for tax_id, file_id_counts in tax_id_to_file_ids.items():
-            tax_id = self._md.clean_tax_id(tax_id)
             current_count = current_counts.get(tax_id, 0)
             remaining_counters = max_counts - current_count
 
             if remaining_counters <= 0:
-                for (file_id, file_name), count in file_id_counts.items():
-                    files_to_skip[file_name] += count
                 continue
 
             total_count = sum(file_id_counts.values())
 
-            for (file_id, file_name), count in file_id_counts.items():
-                if total_count == 0:
-                    proportion = 0
-                else:
-                    proportion = count / total_count
+            if total_count == 0:
+                continue
 
-                max_insertable_tax_ids = min(
-                    int(proportion * remaining_counters), count
-                )
-                file_selector[file_name][file_id] = max_insertable_tax_ids
-                remaining_counters -= max_insertable_tax_ids
+            for (file_id, file_name), count in sorted(
+                file_id_counts.items(), key=lambda x: -x[1]
+            ):
+                proportion = count / total_count
+                max_insertable = min(int(round(proportion * remaining_counters)), count)
 
-                if max_insertable_tax_ids > 0:
-                    files_to_process[file_name] += max_insertable_tax_ids
-                else:
-                    files_to_skip[file_name] += count
+                if max_insertable > 0:
+                    file_selector[file_name][file_id] = max_insertable
+                    remaining_counters -= max_insertable
 
                 if remaining_counters <= 0:
                     break
 
-        LOG.debug(
-            f"Analysis done, {sum(files_to_process.values())} samples to add, {sum(files_to_skip.values())} skipped"
+        selected = sum(sum(d.values()) for d in file_selector.values())
+        total = sum(
+            sum(file_id_counts.values())
+            for file_id_counts in tax_id_to_file_ids.values()
         )
+        LOG.debug("Sample analysis done:")
+        LOG.debug(f"- Total: {space_format(total)}")
+        LOG.debug(f"- Selected: {space_format(selected)}")
+        LOG.debug(f"- Skipped:  {space_format(total - selected)}")
 
-        # if files_to_process:
-        #     LOG.debug("Files to process:")
-        #     for file_name, sample_count in files_to_process.items():
-        #         LOG.debug(f"- {file_name}: {sample_count} samples")
-
-        # if files_to_skip:
-        #     LOG.debug("Files to skip due to insufficient samples or limits:")
-        #     for file_name, sample_count in files_to_skip.items():
-        #         LOG.debug(f"- {file_name}: {sample_count} samples")
-
-        # TODO: add report files
         return dict(file_selector)
 
     def _process_result(self, result: dict, merged_data_as_db: bool = False) -> dict:
