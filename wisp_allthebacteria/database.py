@@ -16,7 +16,7 @@ LOG = logging.getLogger(__name__)
 
 DB_TYPE = Literal["counter", "index", "md"]
 LAST_VALID_IDS = "_last_valid_ids_"
-CURRENT_TRANSACTION = "_current_transaction_"
+ARCHIVE_TRANSACTION = "_archive_transaction_"
 ARCHIVES = "_archives_"
 
 
@@ -220,8 +220,8 @@ class Database:
 
     def clear_index(self) -> None:
         LOG.debug("Clearing INDEX DB...")
-        in_db = self._get_db(db_type="index")
-        in_db.clear()
+        idx_db = self._get_db(db_type="index")
+        idx_db.clear()
         LOG.debug("INDEX DB is now empty")
 
     def get_archives(self) -> list[str]:
@@ -314,37 +314,15 @@ class DatabaseBuilder(Database):
         self._insert_threads = insert_threads
         self._merged_data_as_db = merged_data_as_db
         self._species_count_limit = species_count_limit
-        self.clean()
-
-    def clean(self):
-        """Undo unfinished transactions"""
-        md_db = self._get_db(db_type="md")
-        if CURRENT_TRANSACTION in md_db:
-            LOG.warning(
-                f"Cleaning database {self.get_db_path()} (last transaction failed)"
-            )
-            data = md_db[CURRENT_TRANSACTION]
-            merged_data = data["merged_data"]
-            for tax_id in merged_data.keys():
-                counter_db = self._get_db(tax_id=tax_id)
-                current_id = self._get_last_valid_id(tax_id)
-                deleting = True
-                while deleting:
-                    current_id += 1
-                    deleting = False
-                    if current_id in counter_db:
-                        del counter_db[current_id]
-                        deleting = True
-                        deleting = True
-            del md_db[CURRENT_TRANSACTION]
-            LOG.warning("Database cleaned")
+        self._cancel_transaction()  # if needed
 
     def push_archive(self, archive_path: str | Path):
         """Add content."""
-        file_path = Path(archive_path).resolve()
-        LOG.info(f"Pushing file: {file_path.name}")
+        archive_path = Path(archive_path).resolve()
+        LOG.info(f"Pushing file: {archive_path.name}")
 
-        data = self._fasta_kmer.process_archive(
+        self._start_transaction()
+        for data in self._fasta_kmer.process_archive(
             archive_path=archive_path,
             kmer_sizes=self._kmer_sizes,
             window_size=self._window_size,
@@ -355,15 +333,12 @@ class DatabaseBuilder(Database):
             merged_data_as_db=self._merged_data_as_db,
             max_count=self._species_count_limit,
             current_counts=self.counts(),
-        )
+        ):
+            if data:
+                self._push_merged_data(data)
 
-        data["merged_data"] = {
-            self._parse_tax_id(tid): counters
-            for tid, counters in data["merged_data"].items()
-        }
-        data = self._apply_count_limit(data)
         self.clear_index()
-        self._push_merged_data(data)
+        self._end_transaction(archive_path)
 
     def _apply_count_limit(self, data: dict) -> dict:
         if self._species_count_limit:
@@ -386,24 +361,15 @@ class DatabaseBuilder(Database):
 
         return data
 
-    def _push_merged_data(self, data):
-        LOG.debug("Adding counter & sources - get DB metadata")
-        md_db = self._get_db(db_type="md")
-        md_db[CURRENT_TRANSACTION] = data
-        archives = md_db.get(ARCHIVES, [])
-        archive = self._archive_stem(data["archive"])
-
-        # warning, tax_id is a str
+    def _push_merged_data(self, data) -> dict[int, int]:
         merged_data = data["merged_data"]
-        LOG.debug(
-            f"Adding counters to DB for {len(merged_data)} specie(s): {self.get_db_path()}"
-        )
+        tmp_dir = data["tmp_dir"]
+        LOG.debug(f"Adding counters to DB for {len(merged_data)} tax_id")
 
         last_valid_ids = {}
         insert_counter = 0
         is_db = data["tmp_dir"] is not None
 
-        # 1 - update counters
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self._insert_threads
         ) as executor:
@@ -423,21 +389,12 @@ class DatabaseBuilder(Database):
                 except Exception:
                     LOG.exception(f"Pushing counters to DB for tax_id {tax_id}")
                     raise
-
-        LOG.debug("All species added - ending transaction")
-
-        # 2 - update MD
-        self._set_last_valid_ids(last_valid_ids)
-        archives.append(archive)
-        md_db[ARCHIVES] = archives
-        # ending transaction
-        del md_db[CURRENT_TRANSACTION]
-        LOG.debug("Transaction ended successfully")
-
         if is_db:
-            LOG.debug(f"Deleting temporary directory {data['tmp_dir']} ...")
-            shutil.rmtree(data["tmp_dir"])
+            LOG.debug(f"Deleting temporary directory {tmp_dir} ...")
+            shutil.rmtree(tmp_dir)
             LOG.debug("Temporary files deleted")
+
+        self._set_last_valid_ids(last_valid_ids)
 
     def _push_batch(self, tax_id: int, tdata: dict, is_db: bool):
         LOG.debug(f"Processing tax_id: {tax_id}")
@@ -492,3 +449,26 @@ class DatabaseBuilder(Database):
         md_db = self._get_db(db_type="md")
         md_db[LAST_VALID_IDS] = last_valid_ids
         self._last_valid_ids = None
+
+    def _start_transaction(self) -> None:
+        LOG.debug("starting transaction")
+        md_db = self._get_db(db_type="md")
+        md_db[ARCHIVE_TRANSACTION] = self._get_last_valid_ids()
+
+    def _end_transaction(self, archive: str | Path) -> None:
+        LOG.debug(f"ending transaction for {archive}")
+        md_db = self._get_db(db_type="md")
+        archives: list = md_db.get(ARCHIVES, [])
+        archive = self._archive_stem(archive)
+        archives.append(archive)
+        md_db[ARCHIVES] = archives
+        del md_db[ARCHIVE_TRANSACTION]
+
+    def _cancel_transaction(self):
+        md_db = self._get_db(db_type="md")
+        if ARCHIVE_TRANSACTION in md_db:
+            LOG.warning("Cancel transaction - Restoring...")
+            last_valid_ids = md_db[ARCHIVE_TRANSACTION]
+            self._set_last_valid_ids(last_valid_ids)
+            del md_db[ARCHIVE_TRANSACTION]
+            LOG.warning("Transaction canceled")

@@ -9,6 +9,7 @@ from collections import Counter, defaultdict
 from itertools import product
 from pathlib import Path
 import time
+from typing import Generator
 from diskcache import Cache
 
 from Bio import SeqIO
@@ -30,6 +31,39 @@ class FastaKmer:
         self._num_workers = num_workers
         self._taxdb = taxdb
 
+    def _process_result(self, result: dict, merged_data_as_db: bool = False) -> dict:
+        if merged_data_as_db:
+            merged_data_path = Path(tempfile.mkdtemp("_wisp_merged_data"))
+        merged_data = {}
+        for file_id, counters in result.items():
+            md = self._md[file_id]
+            tax_id = self._taxdb.clean_tax_id(md.get("TaxId", None))
+
+            if merged_data_as_db:
+                if tax_id not in merged_data:
+                    merged_data[tax_id] = {
+                        "db": Cache(
+                            merged_data_path / str(tax_id) / "counter",
+                            size_limit=sys.maxsize,
+                        ),
+                        "last_id": -1,
+                    }
+
+                current_id = merged_data[tax_id]["last_id"]
+                db = merged_data[tax_id]["db"]
+                for counter in counters:
+                    current_id += 1
+                    db[current_id] = counter
+                merged_data[tax_id]["last_id"] = current_id
+            else:
+                if tax_id not in merged_data:
+                    merged_data[tax_id] = []
+                merged_data[tax_id].extend(counters)
+        return {
+            "merged_data": merged_data,
+            "tmp_dir": merged_data_path if merged_data_as_db else None,
+        }
+
     def _process_archive_workers(
         self,
         archive_name: str,
@@ -41,19 +75,24 @@ class FastaKmer:
         full: bool,
         compression: str,
         dry: bool,
-        can_process: dict | None = None,
-    ) -> Cache | list:
-        dry_str, dry_suffix = "", ""
-        if dry:
-            dry_str = "[==DRY==]"
-            dry_suffix = "_dry"
-        extracted_files = list(tmp_dir.rglob("*.fa"))
+        merged_data_as_db: bool,
+        file_selector: dict | None = None,
+    ) -> Generator[dict, None, None]:
+        dry_str = "[==DRY==]" if dry else ""
 
-        if dry:
-            results = [None] * len(extracted_files)
-        else:
-            results = Cache(tmp_dir / f"results{dry_suffix}", size_limit=sys.maxsize)
+        results = []
+        # if dry:
+        #     results = [None] * len(extracted_files)
+        # else:
+        #     results = Cache(tmp_dir / f"results{dry_suffix}", size_limit=sys.maxsize)
         fasta_count = 0
+
+        extracted_files = list(tmp_dir.rglob("*.fa"))
+        if file_selector:
+            extracted_files = [
+                p for p in extracted_files if p.name in file_selector.keys()
+            ]
+
         if batch_size is None:
             batches = [extracted_files]
         else:
@@ -77,7 +116,7 @@ class FastaKmer:
                         full=full,
                         compression=compression,
                         dry=dry,
-                        can_process=can_process,
+                        file_selector=file_selector,
                     ): file_path
                     for file_path in batch
                 }
@@ -86,11 +125,16 @@ class FastaKmer:
                         try:
                             result = future.result(timeout=60)  # TODO: conf
 
-                            results[fasta_count] = result
+                            if dry:
+                                results.append(result)
+                            else:
+                                yield self._process_result(
+                                    result=result, merged_data_as_db=merged_data_as_db
+                                )
                             fasta_count += 1
 
                             LOG.debug(
-                                f"[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
+                                f"{dry_str}[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
                             )
 
                         except concurrent.futures.TimeoutError:
@@ -124,13 +168,13 @@ class FastaKmer:
         LOG.debug(
             f"{dry_str}[{archive_name}] All {len(extracted_files)} Fasta files processed"
         )
-        return results
+        yield results if dry else None
 
     def _count_analysis(
         self, dry_results: list, max_counts: int, current_counts: dict
     ) -> dict:
         """Analyse the dry processing results to determine the maximum insertable counters per file_id and file path."""
-        an = defaultdict(dict)
+        file_selector = defaultdict(dict)
         tax_id_to_file_ids = defaultdict(lambda: defaultdict(int))
 
         for result in dry_results:
@@ -165,7 +209,7 @@ class FastaKmer:
                 max_insertable_tax_ids = min(
                     int(proportion * remaining_counters), count
                 )
-                an[file_name][file_id] = max_insertable_tax_ids
+                file_selector[file_name][file_id] = max_insertable_tax_ids
                 remaining_counters -= max_insertable_tax_ids
 
                 if max_insertable_tax_ids > 0:
@@ -176,17 +220,22 @@ class FastaKmer:
                 if remaining_counters <= 0:
                     break
 
-        if files_to_process:
-            LOG.debug("Files to process:")
-            for file_name, sample_count in files_to_process.items():
-                LOG.debug(f"- {file_name}: {sample_count} samples")
+        LOG.debug(
+            f"Analysis done, {sum(files_to_process.values())} samples to add, {sum(files_to_skip.values())} skipped"
+        )
 
-        if files_to_skip:
-            LOG.debug("Files to skip due to insufficient samples or limits:")
-            for file_name, sample_count in files_to_skip.items():
-                LOG.debug(f"- {file_name}: {sample_count} samples")
+        # if files_to_process:
+        #     LOG.debug("Files to process:")
+        #     for file_name, sample_count in files_to_process.items():
+        #         LOG.debug(f"- {file_name}: {sample_count} samples")
 
-        return dict(an)
+        # if files_to_skip:
+        #     LOG.debug("Files to skip due to insufficient samples or limits:")
+        #     for file_name, sample_count in files_to_skip.items():
+        #         LOG.debug(f"- {file_name}: {sample_count} samples")
+
+        # TODO: add report files
+        return dict(file_selector)
 
     def process_archive(
         self,
@@ -200,7 +249,7 @@ class FastaKmer:
         merged_data_as_db: bool = True,
         current_counts: dict = {},
         max_count: int | None = None,
-    ):
+    ) -> Generator[dict, None, None]:
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()
         archive_name = archive_path.name
@@ -218,28 +267,31 @@ class FastaKmer:
                     f"[{archive_name}] {len(extracted_files)} FASTA files extracted"
                 )
 
-            can_process = None
+            file_selector = None
             if max_count:
-                dry_results = self._process_archive_workers(
-                    archive_name=archive_name,
-                    tmp_dir=tmp_dir,
-                    batch_size=batch_size,
-                    kmer_sizes=kmer_sizes,
-                    window_size=window_size,
-                    step=step,
-                    full=full,
-                    compression=False,
-                    dry=True,
-                    can_process=can_process,
+                dry_results = next(
+                    self._process_archive_workers(
+                        archive_name=archive_name,
+                        tmp_dir=tmp_dir,
+                        batch_size=batch_size,
+                        kmer_sizes=kmer_sizes,
+                        window_size=window_size,
+                        step=step,
+                        full=full,
+                        compression=False,
+                        dry=True,
+                        merged_data_as_db=False,
+                        file_selector=None,
+                    )
                 )
 
-                can_process = self._count_analysis(
+                file_selector = self._count_analysis(
                     dry_results=dry_results,
                     max_counts=max_count,
                     current_counts=current_counts,
                 )
 
-            results = self._process_archive_workers(
+            yield from self._process_archive_workers(
                 archive_name=archive_name,
                 tmp_dir=tmp_dir,
                 batch_size=batch_size,
@@ -249,51 +301,12 @@ class FastaKmer:
                 full=full,
                 compression=compression,
                 dry=False,
-                can_process=can_process,
+                merged_data_as_db=merged_data_as_db,
+                file_selector=file_selector,
             )
 
-            if merged_data_as_db:
-                merged_data_path = Path(tempfile.mkdtemp("_wisp_merged_data"))
-            merged_data = {}
-
-            for i in range(len(extracted_files)):
-                result = results[i]
-                for file_id, counters in result.items():
-                    md = self._md[file_id]
-                    tax_id = self._taxdb.clean_tax_id(md.get("TaxId", None))
-
-                    if merged_data_as_db:
-                        if tax_id not in merged_data:
-                            merged_data[tax_id] = {
-                                "db": Cache(
-                                    merged_data_path / str(tax_id) / "counter",
-                                    size_limit=sys.maxsize,
-                                ),
-                                "last_id": -1,
-                            }
-
-                        current_id = merged_data[tax_id]["last_id"]
-                        db = merged_data[tax_id]["db"]
-                        for counter in counters:
-                            current_id += 1
-                            db[current_id] = counter
-                        merged_data[tax_id]["last_id"] = current_id
-                    else:
-                        if tax_id not in merged_data:
-                            merged_data[tax_id] = []
-                        merged_data[tax_id].extend(counters)
-
-            LOG.debug(
-                f"[{archive_path}] {len(merged_data)} different tax_id(s) found - Deleting temporary directory ({tmp_dir}) ..."
-            )
-
+            LOG.debug(f"[{archive_path}] Deleting temporary directory ({tmp_dir}) ...")
         LOG.debug(f"[{archive_name}] Temporary files deleted")
-
-        return {
-            "archive": archive_path,
-            "merged_data": merged_data,
-            "tmp_dir": merged_data_path if merged_data_as_db else None,
-        }
 
     @staticmethod
     def process_fasta(
@@ -304,20 +317,11 @@ class FastaKmer:
         full: bool,
         compression: str | None,
         dry: bool = False,
-        can_process: dict | None = None,
+        file_selector: dict | None = None,
     ) -> dict:
         """Fasta counting method"""
         file_path = Path(file_path).resolve()
         file_name, file_size = file_path.name, format_size(file_path.stat().st_size)
-
-        file_id_can = None
-        if can_process:
-            if file_name not in can_process:
-                LOG.debug(
-                    f"Skipping {file_name} due to insufficient suitable samples given the current limits"
-                )
-                return {}
-            file_id_can = can_process[file_name]
 
         try:
             sequences = FastaKmer._read_fasta(file_path)
@@ -328,22 +332,21 @@ class FastaKmer:
             LOG.exception(f"Error while reading fasta file: {file_path}")
             raise
 
+        file_id_selector = None
+        if file_selector:
+            file_id_selector = file_selector[file_name]
+
         source_id_to_data = defaultdict(list)
         for sequence in sequences:
-            if file_id_can is not None:
+            if file_id_selector is not None:
+                # filtered file_ids  only + check limits
                 file_id = sequence["id"]
-                if file_id not in file_id_can:
+                if file_id not in file_id_selector:
                     continue
-                file_id_can[file_id] -= 1
-                if file_id_can[file_id] == 0:
-                    LOG.debug(
-                        f"Limit reached for {file_id} in {file_name}. Checking for remaining file_ids in the list"
-                    )
-                    del file_id_can[file_id]
-                if len(file_id_can) == 0:
-                    LOG.debug(
-                        f"Stopping processing for {file_name} as sufficient samples have already been collected, given the current limits"
-                    )
+                file_id_selector[file_id] -= 1
+                if file_id_selector[file_id] == 0:
+                    del file_id_selector[file_id]
+                if len(file_id_selector) == 0:
                     break
 
             kmer_counts = FastaKmer._counter(
