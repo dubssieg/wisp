@@ -38,7 +38,7 @@
         "sample_balance_factor": 0.0,
         "batch_balance_factor": 0.7,
         "min_samples_by_class": 1000,
-        "max_buffer_total_size": 100000 
+        "max_buffer_total_size": 1000 
     },
     "report":{
         "default_reports_dir": "/data/microtaxo/reports"

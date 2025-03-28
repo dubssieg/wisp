@@ -31,214 +31,6 @@ class FastaKmer:
         self._num_workers = num_workers
         self._taxdb = taxdb
 
-    def _process_result(self, result: dict, merged_data_as_db: bool = False) -> dict:
-        if merged_data_as_db:
-            merged_data_path = Path(tempfile.mkdtemp("_wisp_merged_data"))
-        merged_data = {}
-        for file_id, counters in result.items():
-            md = self._md[file_id]
-            tax_id = self._taxdb.clean_tax_id(md.get("TaxId", None))
-
-            if merged_data_as_db:
-                if tax_id not in merged_data:
-                    merged_data[tax_id] = {
-                        "db": Cache(
-                            merged_data_path / str(tax_id) / "counter",
-                            size_limit=sys.maxsize,
-                        ),
-                        "last_id": -1,
-                    }
-
-                current_id = merged_data[tax_id]["last_id"]
-                db = merged_data[tax_id]["db"]
-                for counter in counters:
-                    current_id += 1
-                    db[current_id] = counter
-                merged_data[tax_id]["last_id"] = current_id
-            else:
-                if tax_id not in merged_data:
-                    merged_data[tax_id] = []
-                merged_data[tax_id].extend(counters)
-        return {
-            "merged_data": merged_data,
-            "tmp_dir": merged_data_path if merged_data_as_db else None,
-        }
-
-    def _process_archive_workers(
-        self,
-        archive_name: str,
-        tmp_dir: Path,
-        batch_size: int | None,
-        kmer_sizes: list[int],
-        window_size: int,
-        step: int,
-        full: bool,
-        compression: str,
-        dry: bool,
-        merged_data_as_db: bool,
-        file_selector: dict | None = None,
-    ) -> Generator[dict, None, None]:
-        dry_str = "[==DRY==]" if dry else ""
-
-        results = []
-        # if dry:
-        #     results = [None] * len(extracted_files)
-        # else:
-        #     results = Cache(tmp_dir / f"results{dry_suffix}", size_limit=sys.maxsize)
-        fasta_count = 0
-
-        extracted_files = list(tmp_dir.rglob("*.fa"))
-        if file_selector:
-            extracted_files = [
-                p for p in extracted_files if p.name in file_selector.keys()
-            ]
-
-        if batch_size is None:
-            batches = [extracted_files]
-        else:
-            batches = [
-                extracted_files[i : i + batch_size]
-                for i in range(0, len(extracted_files), batch_size)
-            ]
-        for batch_i, batch in enumerate(batches):
-
-            LOG.debug(
-                f"[{archive_name}] Batch {batch_i + 1} / {len(batches)} - {len(batch)} fasta files"
-            )
-
-            with get_reusable_executor(max_workers=self._num_workers) as executor:
-                futures = {
-                    executor.submit(
-                        FastaKmer.process_fasta,
-                        file_path=file_path,
-                        kmer_sizes=kmer_sizes,
-                        window_size=window_size,
-                        step=step,
-                        full=full,
-                        compression=compression,
-                        dry=dry,
-                        file_selector=file_selector,
-                    ): file_path
-                    for file_path in batch
-                }
-                try:
-                    for future in concurrent.futures.as_completed(futures):
-                        try:
-                            result = future.result(timeout=60)  # TODO: conf
-
-                            if dry:
-                                results.append(result)
-                            else:
-                                yield self._process_result(
-                                    result=result, merged_data_as_db=merged_data_as_db
-                                )
-                            fasta_count += 1
-
-                            if not dry:
-                                LOG.debug(
-                                    f"{dry_str}[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
-                                )
-
-                        except concurrent.futures.TimeoutError:
-                            LOG.error(f"[{archive_name}] Timeout")
-                        except Exception:
-                            LOG.exception(f"[{archive_name}]")
-                            raise
-                    LOG.debug(
-                        f"{dry_str}[{archive_name}] Batch {batch_i + 1} / {len(batches)} done. Terminating worker pool..."
-                    )
-                finally:
-                    LOG.debug(f"{dry_str}[{archive_name}] Shutting down executor...")
-                    # force workers to stop
-                    executor.shutdown(wait=True, kill_workers=True)
-                    LOG.debug(f"{dry_str}[{archive_name}] Executor shut down.")
-
-                    # give time for zombies to appear
-                    time.sleep(2)
-                    LOG.debug(
-                        f"{dry_str}[{archive_name}] Checking for zombie processes..."
-                    )
-                    cleanup_zombie_processes(os.getpid())
-
-                    # free mem
-                    gc.collect()
-                    LOG.debug(
-                        f"{dry_str}[{archive_name}] Cleanup complete - Workers pool terminated"
-                    )
-
-            LOG.debug(f"{dry_str}[{archive_name}] Workers pool terminated")
-        LOG.debug(
-            f"{dry_str}[{archive_name}] All {len(extracted_files)} Fasta files processed"
-        )
-        yield results if dry else None
-
-    def _count_analysis(
-        self, dry_results: list, max_counts: int, current_counts: dict
-    ) -> dict:
-        """Analyse the dry processing results to determine the maximum insertable counters per file_id and file path."""
-        file_selector = defaultdict(dict)
-        tax_id_to_file_ids = defaultdict(lambda: defaultdict(int))
-
-        for result in dry_results:
-            for file_id, counter_list in result.items():
-                md = self._md[file_id]
-                tax_id = self._taxdb.clean_tax_id(md.get("TaxId", None))
-                for counter in counter_list:
-                    file_name = counter["md"]["file_name"]
-                    tax_id_to_file_ids[tax_id][(file_id, file_name)] += 1
-
-        files_to_process = defaultdict(int)
-        files_to_skip = defaultdict(int)
-
-        for tax_id, file_id_counts in tax_id_to_file_ids.items():
-            tax_id = self._md.clean_tax_id(tax_id)
-            current_count = current_counts.get(tax_id, 0)
-            remaining_counters = max_counts - current_count
-
-            if remaining_counters <= 0:
-                for (file_id, file_name), count in file_id_counts.items():
-                    files_to_skip[file_name] += count
-                continue
-
-            total_count = sum(file_id_counts.values())
-
-            for (file_id, file_name), count in file_id_counts.items():
-                if total_count == 0:
-                    proportion = 0
-                else:
-                    proportion = count / total_count
-
-                max_insertable_tax_ids = min(
-                    int(proportion * remaining_counters), count
-                )
-                file_selector[file_name][file_id] = max_insertable_tax_ids
-                remaining_counters -= max_insertable_tax_ids
-
-                if max_insertable_tax_ids > 0:
-                    files_to_process[file_name] += max_insertable_tax_ids
-                else:
-                    files_to_skip[file_name] += count
-
-                if remaining_counters <= 0:
-                    break
-
-        LOG.debug(
-            f"Analysis done, {sum(files_to_process.values())} samples to add, {sum(files_to_skip.values())} skipped"
-        )
-
-        # if files_to_process:
-        #     LOG.debug("Files to process:")
-        #     for file_name, sample_count in files_to_process.items():
-        #         LOG.debug(f"- {file_name}: {sample_count} samples")
-
-        # if files_to_skip:
-        #     LOG.debug("Files to skip due to insufficient samples or limits:")
-        #     for file_name, sample_count in files_to_skip.items():
-        #         LOG.debug(f"- {file_name}: {sample_count} samples")
-
-        # TODO: add report files
-        return dict(file_selector)
-
     def process_archive(
         self,
         archive_path: Path | str,
@@ -310,8 +102,116 @@ class FastaKmer:
             LOG.debug(f"[{archive_path}] Deleting temporary directory ({tmp_dir}) ...")
         LOG.debug(f"[{archive_name}] Temporary files deleted")
 
+    def _process_archive_workers(
+        self,
+        archive_name: str,
+        tmp_dir: Path,
+        batch_size: int | None,
+        kmer_sizes: list[int],
+        window_size: int,
+        step: int,
+        full: bool,
+        compression: str,
+        dry: bool,
+        merged_data_as_db: bool,
+        file_selector: dict | None = None,
+    ) -> Generator[dict, None, None]:
+        dry_str = "[==DRY==]" if dry else ""
+
+        results = []
+        # if dry:
+        #     results = [None] * len(extracted_files)
+        # else:
+        #     results = Cache(tmp_dir / f"results{dry_suffix}", size_limit=sys.maxsize)
+        fasta_count = 0
+
+        extracted_files = list(tmp_dir.rglob("*.fa"))
+        if file_selector:
+            extracted_files = [
+                p for p in extracted_files if p.name in file_selector.keys()
+            ]
+
+        if batch_size is None:
+            batches = [extracted_files]
+        else:
+            batches = [
+                extracted_files[i : i + batch_size]
+                for i in range(0, len(extracted_files), batch_size)
+            ]
+        for batch_i, batch in enumerate(batches):
+
+            LOG.debug(
+                f"[{archive_name}] Batch {batch_i + 1} / {len(batches)} - {len(batch)} fasta files"
+            )
+
+            with get_reusable_executor(max_workers=self._num_workers) as executor:
+                futures = {
+                    executor.submit(
+                        FastaKmer._process_fasta,
+                        file_path=file_path,
+                        kmer_sizes=kmer_sizes,
+                        window_size=window_size,
+                        step=step,
+                        full=full,
+                        compression=compression,
+                        dry=dry,
+                        file_selector=file_selector,
+                    ): file_path
+                    for file_path in batch
+                }
+                try:
+                    for future in concurrent.futures.as_completed(futures):
+                        try:
+                            result = future.result(timeout=60)  # TODO: conf
+
+                            if dry:
+                                results.append(result)
+                            else:
+                                yield self._process_result(
+                                    result=result, merged_data_as_db=merged_data_as_db
+                                )
+                            fasta_count += 1
+
+                            if not dry:
+                                LOG.debug(
+                                    f"{dry_str}[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
+                                )
+
+                        except concurrent.futures.TimeoutError:
+                            LOG.error(f"[{archive_name}] Timeout")
+                        except Exception:
+                            LOG.exception(f"[{archive_name}]")
+                            raise
+                    LOG.debug(
+                        f"{dry_str}[{archive_name}] Batch {batch_i + 1} / {len(batches)} done. Terminating worker pool..."
+                    )
+                finally:
+                    LOG.debug(f"{dry_str}[{archive_name}] Shutting down executor...")
+                    # force workers to stop
+                    executor.shutdown(wait=True, kill_workers=True)
+                    LOG.debug(f"{dry_str}[{archive_name}] Executor shut down.")
+
+                    # give time for zombies to appear
+                    time.sleep(2)
+                    LOG.debug(
+                        f"{dry_str}[{archive_name}] Checking for zombie processes..."
+                    )
+                    cleanup_zombie_processes(os.getpid())
+
+                    # free mem
+                    gc.collect()
+                    LOG.debug(
+                        f"{dry_str}[{archive_name}] Cleanup complete - Workers pool terminated"
+                    )
+
+            LOG.debug(f"{dry_str}[{archive_name}] Workers pool terminated")
+        LOG.debug(
+            f"{dry_str}[{archive_name}] All {len(extracted_files)} Fasta files processed"
+        )
+        yield results if dry else None
+
     @staticmethod
-    def process_fasta(
+    def _process_fasta(
         file_path: Path | str,
         kmer_sizes: list[int],
         window_size: int,
@@ -380,6 +280,106 @@ class FastaKmer:
             f"[{file_name}] Return {sum(len(counters) for counters in source_id_to_data.values())} counters ({len(source_id_to_data)} sequence ids)"
         )
         return dict(source_id_to_data)
+
+    def _count_analysis(
+        self, dry_results: list, max_counts: int, current_counts: dict
+    ) -> dict:
+        """Analyse the dry processing results to determine the maximum insertable counters per file_id and file path."""
+        file_selector = defaultdict(dict)
+        tax_id_to_file_ids = defaultdict(lambda: defaultdict(int))
+
+        for result in dry_results:
+            for file_id, counter_list in result.items():
+                md = self._md[file_id]
+                tax_id = self._taxdb.clean_tax_id(md.get("TaxId", None))
+                for counter in counter_list:
+                    file_name = counter["md"]["file_name"]
+                    tax_id_to_file_ids[tax_id][(file_id, file_name)] += 1
+
+        files_to_process = defaultdict(int)
+        files_to_skip = defaultdict(int)
+
+        for tax_id, file_id_counts in tax_id_to_file_ids.items():
+            tax_id = self._md.clean_tax_id(tax_id)
+            current_count = current_counts.get(tax_id, 0)
+            remaining_counters = max_counts - current_count
+
+            if remaining_counters <= 0:
+                for (file_id, file_name), count in file_id_counts.items():
+                    files_to_skip[file_name] += count
+                continue
+
+            total_count = sum(file_id_counts.values())
+
+            for (file_id, file_name), count in file_id_counts.items():
+                if total_count == 0:
+                    proportion = 0
+                else:
+                    proportion = count / total_count
+
+                max_insertable_tax_ids = min(
+                    int(proportion * remaining_counters), count
+                )
+                file_selector[file_name][file_id] = max_insertable_tax_ids
+                remaining_counters -= max_insertable_tax_ids
+
+                if max_insertable_tax_ids > 0:
+                    files_to_process[file_name] += max_insertable_tax_ids
+                else:
+                    files_to_skip[file_name] += count
+
+                if remaining_counters <= 0:
+                    break
+
+        LOG.debug(
+            f"Analysis done, {sum(files_to_process.values())} samples to add, {sum(files_to_skip.values())} skipped"
+        )
+
+        # if files_to_process:
+        #     LOG.debug("Files to process:")
+        #     for file_name, sample_count in files_to_process.items():
+        #         LOG.debug(f"- {file_name}: {sample_count} samples")
+
+        # if files_to_skip:
+        #     LOG.debug("Files to skip due to insufficient samples or limits:")
+        #     for file_name, sample_count in files_to_skip.items():
+        #         LOG.debug(f"- {file_name}: {sample_count} samples")
+
+        # TODO: add report files
+        return dict(file_selector)
+
+    def _process_result(self, result: dict, merged_data_as_db: bool = False) -> dict:
+        if merged_data_as_db:
+            merged_data_path = Path(tempfile.mkdtemp("_wisp_merged_data"))
+        merged_data = {}
+        for file_id, counters in result.items():
+            md = self._md[file_id]
+            tax_id = self._taxdb.clean_tax_id(md.get("TaxId", None))
+
+            if merged_data_as_db:
+                if tax_id not in merged_data:
+                    merged_data[tax_id] = {
+                        "db": Cache(
+                            merged_data_path / str(tax_id) / "counter",
+                            size_limit=sys.maxsize,
+                        ),
+                        "last_id": -1,
+                    }
+
+                current_id = merged_data[tax_id]["last_id"]
+                db = merged_data[tax_id]["db"]
+                for counter in counters:
+                    current_id += 1
+                    db[current_id] = counter
+                merged_data[tax_id]["last_id"] = current_id
+            else:
+                if tax_id not in merged_data:
+                    merged_data[tax_id] = []
+                merged_data[tax_id].extend(counters)
+        return {
+            "merged_data": merged_data,
+            "tmp_dir": merged_data_path if merged_data_as_db else None,
+        }
 
     @staticmethod
     def _counter(
