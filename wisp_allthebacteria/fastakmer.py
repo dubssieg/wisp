@@ -126,7 +126,7 @@ class FastaKmer:
         fasta_count = 0
 
         extracted_files = list(tmp_dir.rglob("*.fa"))
-        if file_selector:
+        if file_selector is not None:
             extracted_files = [
                 p for p in extracted_files if p.name in file_selector.keys()
             ]

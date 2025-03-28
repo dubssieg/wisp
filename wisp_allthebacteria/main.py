@@ -92,7 +92,7 @@ def create_db(conf: dict):
                         LOG.info(f"Retrying {archive_path.name}...")
 
                     if db.has_archive(archive_path):
-                        LOG.warning(f"{archive_path.name} already in DB, skipping.")
+                        LOG.warning(f"{archive_path.name} already in DB - SKIP.")
                     else:
 
                         db.push_archive(archive_path)
