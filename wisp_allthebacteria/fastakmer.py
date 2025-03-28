@@ -234,22 +234,22 @@ class FastaKmer:
             LOG.exception(f"Error while reading fasta file: {file_path}")
             raise
 
-        file_id_selector = None
-        if file_selector:
-            file_id_selector = file_selector[file_name]
+        has_limits = file_selector is not None
+        # if file_selector:
+        #     file_id_selector =
+
+        if has_limits:
+            file_id_limits = file_selector[file_name]
 
         source_id_to_data = defaultdict(list)
         for sequence in sequences:
-            if file_id_selector is not None:
-                # filtered file_ids  only + check limits
+            if has_limits:
                 file_id = sequence["id"]
-                if file_id not in file_id_selector:
+                if file_id not in file_id_limits:
                     continue
-                file_id_selector[file_id] -= 1
-                if file_id_selector[file_id] == 0:
-                    del file_id_selector[file_id]
-                if len(file_id_selector) == 0:
-                    break
+
+            if len(sequence["sequence"]) < window_size:
+                continue
 
             kmer_counts = FastaKmer._counter(
                 entry=sequence["sequence"],
@@ -261,6 +261,14 @@ class FastaKmer:
             )
             # rearange counters
             num_elements = len(next(iter(kmer_counts.values())))
+
+            if has_limits:
+                if num_elements > file_id_limits[file_id]:
+                    num_elements = file_id_limits[file_id]
+                file_id_limits[file_id] -= num_elements
+                if file_id_limits[file_id] == 0:
+                    del file_id_limits[file_id]
+
             kmer_counts_as_list = []
             for i in range(num_elements):
                 kmer_counts_i = {
@@ -276,6 +284,11 @@ class FastaKmer:
                     kmer_counts_as_list, as_list=True, format=compression
                 )
             source_id_to_data[sequence["id"]].extend(kmer_counts_as_list)
+
+            if has_limits:
+                if len(file_id_limits) == 0:
+                    break
+
         LOG.debug(
             f"[{file_name}] Return {sum(len(counters) for counters in source_id_to_data.values())} counters ({len(source_id_to_data)} sequence ids)"
         )
@@ -284,53 +297,41 @@ class FastaKmer:
     def _count_analysis(
         self, dry_results: list, max_counts: int, current_counts: dict
     ) -> dict:
-        """Analyse the dry processing results to determine the maximum insertable counters per file_id and file path."""
-
         file_selector = defaultdict(dict)
         tax_id_to_file_ids = defaultdict(lambda: defaultdict(int))
 
         for result in dry_results:
             for file_id, counter_list in result.items():
-                md = self._md[file_id]
-                tax_id = self._taxdb.clean_tax_id(md.get("TaxId", None))
+                tax_id = self._taxdb.clean_tax_id(self._md[file_id].get("TaxId"))
                 for counter in counter_list:
-                    file_name = counter["md"]["file_name"]
-                    tax_id_to_file_ids[tax_id][file_id, file_name] += 1
+                    tax_id_to_file_ids[tax_id][
+                        (file_id, counter["md"]["file_name"])
+                    ] += 1
 
         for tax_id, file_id_counts in tax_id_to_file_ids.items():
-            current_count = current_counts.get(tax_id, 0)
-            remaining_counters = max_counts - current_count
-
-            if remaining_counters <= 0:
-                continue
-
-            total_count = sum(file_id_counts.values())
-
-            if total_count == 0:
+            remaining = max_counts - current_counts.get(tax_id, 0)
+            if remaining <= 0:
                 continue
 
             for (file_id, file_name), count in sorted(
                 file_id_counts.items(), key=lambda x: -x[1]
             ):
-                proportion = count / total_count
-                max_insertable = min(int(round(proportion * remaining_counters)), count)
-
+                max_insertable = min(remaining, count)
                 if max_insertable > 0:
                     file_selector[file_name][file_id] = max_insertable
-                    remaining_counters -= max_insertable
-
-                if remaining_counters <= 0:
+                    remaining -= max_insertable
+                if remaining <= 0:
                     break
 
         selected = sum(sum(d.values()) for d in file_selector.values())
-        total = sum(
-            sum(file_id_counts.values())
-            for file_id_counts in tax_id_to_file_ids.values()
-        )
+        total = sum(sum(d.values()) for d in tax_id_to_file_ids.values())
         LOG.debug("Sample analysis done:")
         LOG.debug(f"- Total: {space_format(total)}")
         LOG.debug(f"- Selected: {space_format(selected)}")
         LOG.debug(f"- Skipped:  {space_format(total - selected)}")
+        LOG.debug(
+            f"- Tax IDs:  {', '.join(map(str, sorted(tax_id_to_file_ids.keys())))}"
+        )
 
         return dict(file_selector)
 

@@ -398,16 +398,16 @@ class DatabaseBuilder(Database):
         self._set_last_valid_ids(last_valid_ids)
 
     def _push_batch(self, tax_id: int, tdata: dict, is_db: bool):
-        LOG.debug(f"Processing tax_id: {tax_id}")
+        LOG.debug(f"Pushing tax_id {tax_id} to DB")
         last_valid_id = self._get_last_valid_id(tax_id)
         dst_db = self._get_db(db_type="counter", tax_id=tax_id)
 
         if is_db:
             src_db = tdata["db"]
             src_last_id = tdata["last_id"]
-            LOG.debug(
-                f"Starting DB transaction with {src_last_id} counters for tax_id {tax_id}"
-            )
+            # LOG.debug(
+            #     f"Starting DB transaction with {src_last_id} counters for tax_id {tax_id}"
+            # )
 
             with dst_db.transact():
                 for j in range(src_last_id):
@@ -420,9 +420,9 @@ class DatabaseBuilder(Database):
                 last_valid_id + j + 1: counter for j, counter in enumerate(tdata)
             }
 
-            LOG.debug(
-                f"Starting DB transaction : counte with {len(batch_counters)} counters for tax_id {tax_id}"
-            )
+            # LOG.debug(
+            #     f"Starting DB transaction : counte with {len(batch_counters)} counters for tax_id {tax_id}"
+            # )
 
             with dst_db.transact():
                 for current_id, counter in batch_counters.items():
@@ -430,7 +430,7 @@ class DatabaseBuilder(Database):
 
             new_last_valid_id = last_valid_id + len(batch_counters)
 
-        LOG.debug(f"Finished specie: {tax_id}")
+        # LOG.debug(f"Finished specie: {tax_id}")
         return tax_id, new_last_valid_id
 
     def _set_last_valid_id(self, tax_id: int | str, last_valid_id: int) -> None:
