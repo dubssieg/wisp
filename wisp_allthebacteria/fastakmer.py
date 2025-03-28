@@ -101,8 +101,9 @@ class FastaKmer:
                 for i in range(0, len(extracted_files), batch_size)
             ]
         for batch_i, batch in enumerate(batches):
+
             LOG.debug(
-                f"{dry_str}[{archive_name}] Batch {batch_i + 1} / {len(batches)} - {len(batch)} fasta files"
+                f"[{archive_name}] Batch {batch_i + 1} / {len(batches)} - {len(batch)} fasta files"
             )
 
             with get_reusable_executor(max_workers=self._num_workers) as executor:
@@ -133,9 +134,10 @@ class FastaKmer:
                                 )
                             fasta_count += 1
 
-                            LOG.debug(
-                                f"{dry_str}[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
-                            )
+                            if not dry:
+                                LOG.debug(
+                                    f"{dry_str}[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
+                                )
 
                         except concurrent.futures.TimeoutError:
                             LOG.error(f"[{archive_name}] Timeout")
@@ -273,7 +275,7 @@ class FastaKmer:
                     self._process_archive_workers(
                         archive_name=archive_name,
                         tmp_dir=tmp_dir,
-                        batch_size=batch_size,
+                        batch_size=None,
                         kmer_sizes=kmer_sizes,
                         window_size=window_size,
                         step=step,

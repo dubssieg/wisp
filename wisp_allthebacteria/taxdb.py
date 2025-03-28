@@ -188,6 +188,8 @@ class TaxDB:
             lineage = [
                 (entry["TaxId"], entry["Rank"]) for entry in record.get("LineageEx", [])
             ]
+            # add self one tid is parent of an other tid
+            lineage.append((record["TaxId"], record["Rank"]))
             if lineage:
                 for ancestor_id, rank in lineage:
                     rank_index = RANKS.index(rank)

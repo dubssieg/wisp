@@ -341,6 +341,7 @@ class DatabaseBuilder(Database):
         self._end_transaction(archive_path)
 
     def _apply_count_limit(self, data: dict) -> dict:
+        """deprecated?"""
         if self._species_count_limit:
             new_merged_data = {}
             for tid, counters in data["merged_data"].items():
@@ -405,7 +406,7 @@ class DatabaseBuilder(Database):
             src_db = tdata["db"]
             src_last_id = tdata["last_id"]
             LOG.debug(
-                f"Starting DB transactions with {src_last_id} counters for specie {tax_id}"
+                f"Starting DB transaction with {src_last_id} counters for tax_id {tax_id}"
             )
 
             with dst_db.transact():
@@ -420,7 +421,7 @@ class DatabaseBuilder(Database):
             }
 
             LOG.debug(
-                f"Starting DB transactions with {len(batch_counters)} counters for specie {tax_id}"
+                f"Starting DB transaction : counte with {len(batch_counters)} counters for tax_id {tax_id}"
             )
 
             with dst_db.transact():
