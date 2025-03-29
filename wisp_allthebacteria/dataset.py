@@ -26,7 +26,7 @@ class Dataset:
         self._db = database
         self._taxdb = taxdb
 
-        self._column_names = ["".join(p) for p in product("ATGC", repeat=4)]
+        self._column_names = self._get_column_names()
         self._column_index = {
             name: index for index, name in enumerate(self._column_names)
         }
@@ -125,6 +125,13 @@ class Dataset:
                 LOG.debug(f"{removed} {rank}(s) removed (samples < {min_samples})")
 
         return rank_mapping
+
+    def _get_column_names(self) -> list[str]:
+        kmer_sizes = self._db.kmer_sizes()
+        column_names = []
+        for size in kmer_sizes:
+            column_names.extend("".join(p) for p in product("ATGC", repeat=size))
+        return sorted(column_names)
 
 
 class ByRankGenerator(Dataset):
@@ -376,6 +383,10 @@ class ByRankGenerator(Dataset):
 
     def _counter_to_row(self, counter: dict, normalize: str) -> np.array:
         row = np.zeros(len(self._column_names))
+
+        # merge kmer counts
+        counter = {k: v for d in counter.values() for k, v in d.items()}
+
         if normalize == "sum":
             counter = self._normalize_sum(counter)
         elif normalize == "min_max":

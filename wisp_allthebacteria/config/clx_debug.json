@@ -37,7 +37,7 @@
         "eval_batch_count": 1,
         "eval_patience": 10,
         "sample_balance_factor": 0.0,
-        "batch_balance_factor": 0.7,
+        "batch_balance_factor": 0.9,
         "min_samples_by_class": 1000,
         "max_buffer_total_size": 100000 
     },

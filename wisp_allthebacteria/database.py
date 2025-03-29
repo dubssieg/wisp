@@ -230,6 +230,9 @@ class Database:
         """Check if archive already was pushed in base."""
         return self._archive_stem(path) in self.get_archives()
 
+    def kmer_sizes(self) -> list[int]:
+        return self._kmer_sizes
+
     def _archive_stem(self, path: str | Path) -> str:
         return Path(path).stem.split(".")[0]
 
