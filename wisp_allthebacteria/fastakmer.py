@@ -25,11 +25,18 @@ NO_TAX_ID = "no-tax-id"
 
 
 class FastaKmer:
-    def __init__(self, metadata: Metadata, num_workers: int, taxdb: TaxDB):
+    def __init__(
+        self,
+        metadata: Metadata,
+        num_workers: int,
+        taxdb: TaxDB,
+        tmp_path: str | Path = "/tmp",
+    ):
         LOG.debug(f"FastaKmer({locals()})")
         self._md = metadata
         self._num_workers = num_workers
         self._taxdb = taxdb
+        self._tmp_path = Path(tmp_path).resolve()
 
     def process_archive(
         self,
@@ -43,12 +50,15 @@ class FastaKmer:
         merged_data_as_db: bool = True,
         current_counts: dict = {},
         max_count: int | None = None,
+        tmp_path: str | Path = "/tmp",
     ) -> Generator[dict, None, None]:
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()
         archive_name = archive_path.name
 
-        with tempfile.TemporaryDirectory("_wisp_fasta") as tmp_dir:
+        with tempfile.TemporaryDirectory(
+            dir=self._tmp_path, suffix="_wisp_fasta"
+        ) as tmp_dir:
             tmp_dir = Path(tmp_dir).resolve()
             archive_size = format_size(archive_path.stat().st_size)
             LOG.info(f"[{archive_name}] Extracting archive")
@@ -338,7 +348,9 @@ class FastaKmer:
 
     def _process_result(self, result: dict, merged_data_as_db: bool = False) -> dict:
         if merged_data_as_db:
-            merged_data_path = Path(tempfile.mkdtemp("_wisp_merged_data"))
+            merged_data_path = Path(
+                tempfile.mkdtemp(dir=self._tmp_path, suffix="_wisp_merged_data")
+            )
         merged_data = {}
         for file_id, counters in result.items():
             md = self._md[file_id]

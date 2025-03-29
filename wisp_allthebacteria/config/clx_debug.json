@@ -11,6 +11,7 @@
     "db":{
         "kmer_sizes": [1, 4, 7],
         "path": "/data/microtaxo/dbs",
+        "tmp_path": "/tmp/microtaxo",
         "full": false,
         "window_size": 10000,
         "step": 9000,

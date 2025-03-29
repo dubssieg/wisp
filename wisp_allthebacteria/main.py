@@ -62,6 +62,7 @@ def create_db(conf: dict):
             compression=conf["db"]["compression"],
             merged_data_as_db=conf["db"]["merged_data_as_db"],
             species_count_limit=conf["db"]["species_count_limit"],
+            tmp_path=conf["db"]["tmp_path"],
         )
 
         json_create_db_path = db.get_db_path() / "create_db.json"
