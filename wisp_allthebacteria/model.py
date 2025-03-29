@@ -406,7 +406,7 @@ class XGBoostModel:
     def _get_tax_id_report(self) -> list[dict]:
         tid_by_rank = self._gen._get_tax_ids_by_rank(self._rank)
         gen_tid_by_rank = self._gen._tax_ids_by_rank
-        db_info = self._database.get_info()
+        counts = self._database.counts()
         report = []
 
         for rank_tid, tax_ids in tid_by_rank.items():
@@ -420,7 +420,7 @@ class XGBoostModel:
             for tax_id in tax_ids:
                 tax_ids_report[tax_id] = {
                     "name": self._taxdb[tax_id].get("ScientificName", "Unknown"),
-                    "count": db_info["counters"].get(tax_id, 0),
+                    "count": counts.get(tax_id, 0),
                     "tax_id": tax_id,
                 }
 

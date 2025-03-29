@@ -126,6 +126,7 @@ class FastaKmer:
         fasta_count = 0
 
         extracted_files = list(tmp_dir.rglob("*.fa"))
+        orig_file_count = len(extracted_files)
         if file_selector is not None:
             extracted_files = [
                 p for p in extracted_files if p.name in file_selector.keys()
@@ -174,7 +175,7 @@ class FastaKmer:
 
                             if not dry:
                                 LOG.debug(
-                                    f"{dry_str}[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)}"
+                                    f"{dry_str}[{archive_name}] {futures[future].name}: {fasta_count} / {len(extracted_files)} ({orig_file_count})"
                                 )
 
                         except concurrent.futures.TimeoutError:

@@ -50,9 +50,8 @@ class Dataset:
             }
 
             for tax_id in tax_ids:
-                db_info = self._db.get_info()
                 # get sample count and additional information
-                sample_count = db_info["counters"][tax_id]
+                sample_count = self._db.counts()
                 tax_info = self._taxdb[tax_id]
                 scientific_name = tax_info.get("ScientificName", "Unknown")
                 rank = tax_info.get("Rank", "Unknown")
@@ -92,8 +91,7 @@ class Dataset:
         return analysis_result
 
     def total_samples(self) -> int:
-        db_info = self._db.get_info()
-        return db_info["total_samples"]
+        return sum(self._db.counts())
 
     def labels(self, rank: str, min_samples: int | None = None) -> list[str]:
         """All labels in this DB, for this rank"""
@@ -117,12 +115,11 @@ class Dataset:
 
         if min_samples:
             rm_len = len(rank_mapping)
-            db_info = self._db.get_info()
+            counts = self._db.counts()
             rank_mapping = {
                 key: tax_ids
                 for key, tax_ids in rank_mapping.items()
-                if sum(db_info["counters"].get(tax_id, 0) for tax_id in tax_ids)
-                >= min_samples
+                if sum(counts.get(tax_id, 0) for tax_id in tax_ids) >= min_samples
             }
             if removed := rm_len - len(rank_mapping):
                 LOG.debug(f"{removed} {rank}(s) removed (samples < {min_samples})")

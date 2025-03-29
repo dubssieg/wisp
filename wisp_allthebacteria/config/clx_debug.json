@@ -17,7 +17,7 @@
         "species_count_limit": 10000,
         "create_db_workers": "max_minus_2",
         "db_insert_threads": "max_minus_2",
-        "fanout_shards": 2,
+        "fanout_shards": 1,
         "fasta_batch_size": 1000,        
         "compression": "zlib",
         "merged_data_as_db": false

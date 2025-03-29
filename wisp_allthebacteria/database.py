@@ -6,7 +6,6 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Generator, Literal
-from tqdm.auto import tqdm
 
 from diskcache import FanoutCache
 from fastakmer import FastaKmer
@@ -156,9 +155,7 @@ class Database:
             archives = self.get_archives()
 
             # counters for each tax_id
-            counters = {}
-            for tax_id in tqdm(tax_ids, desc="Counting samples..."):
-                counters[tax_id] = self.count(tax_id)
+            counters = self.counts()
             total_samples = sum(counters.values())
 
             # path
@@ -386,7 +383,7 @@ class DatabaseBuilder(Database):
                     tax_id, last_valid_id = future.result()
                     last_valid_ids[tax_id] = last_valid_id
                     insert_counter += 1
-                    LOG.debug(f"DB insertions: {insert_counter} / {len(merged_data)}")
+                    LOG.debug(f"[{tax_id}] DB: {insert_counter} / {len(merged_data)}")
                 except Exception:
                     LOG.exception(f"Pushing counters to DB for tax_id {tax_id}")
                     raise
@@ -398,16 +395,14 @@ class DatabaseBuilder(Database):
         self._set_last_valid_ids(last_valid_ids)
 
     def _push_batch(self, tax_id: int, tdata: dict, is_db: bool):
-        LOG.debug(f"Pushing tax_id {tax_id} to DB")
+        # LOG.debug(f"Pushing tax_id {tax_id} to DB")
         last_valid_id = self._get_last_valid_id(tax_id)
         dst_db = self._get_db(db_type="counter", tax_id=tax_id)
 
         if is_db:
             src_db = tdata["db"]
             src_last_id = tdata["last_id"]
-            # LOG.debug(
-            #     f"Starting DB transaction with {src_last_id} counters for tax_id {tax_id}"
-            # )
+            # LOG.debug(f"[{tax_id}] Pushing {src_last_id} counters to DB")
 
             with dst_db.transact():
                 for j in range(src_last_id):
@@ -419,10 +414,7 @@ class DatabaseBuilder(Database):
             batch_counters = {
                 last_valid_id + j + 1: counter for j, counter in enumerate(tdata)
             }
-
-            # LOG.debug(
-            #     f"Starting DB transaction : counte with {len(batch_counters)} counters for tax_id {tax_id}"
-            # )
+            # LOG.debug(f"[{tax_id}] Pushing {len(batch_counters)} counters to DB")
 
             with dst_db.transact():
                 for current_id, counter in batch_counters.items():
