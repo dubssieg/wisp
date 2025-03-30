@@ -28,8 +28,8 @@ class DMatStore:
         for name in names:
             yield self._deserialize_dmatrix(name)
 
-    def _dmat_path(self, name: str) -> Path:
-        return self._path / name + DMAT_SUFFIX
+    def _dmat_path(self, name: str | int) -> Path:
+        return self._path / f"{name}{DMAT_SUFFIX}"
 
     def _serialize_dmatrix(self, dmat: xgb.DMatrix, name: str) -> None:
         dmat_path = self._dmat_path(name)
