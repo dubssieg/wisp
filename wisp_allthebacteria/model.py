@@ -2,7 +2,8 @@ import json
 import logging
 from pathlib import Path
 import time
-from typing import Generator
+
+# from typing import Generator, Iterator
 from matplotlib import pyplot as plt
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.preprocessing import LabelEncoder
@@ -16,6 +17,7 @@ from tqdm.auto import tqdm
 from dataset import ByRankGenerator
 from taxdb import TaxDB
 from database import Database
+from dmatstore import DMatStore
 
 LOG = logging.getLogger(__name__)
 
@@ -58,6 +60,7 @@ class XGBoostModel:
         batch_balance_factor: float = 0.0,
         min_samples_by_class: int = 1,
         max_buffer_total_size: int | None = None,
+        workspace_path: str | Path | None = None,
     ):
         LOG.debug(f"XGBoostModel({locals()})")
         self._params = params if params is not None else DEFAULT_PARAMETERS
@@ -75,12 +78,18 @@ class XGBoostModel:
         self._batch_balance_factor = batch_balance_factor
         self._min_samples_by_class = min_samples_by_class
         self._save_path = save_path = Path(save_path).resolve()
+        self._workspace_path = (  # TODO: unique db signature + seed
+            Path(workspace_path).resolve()
+            if workspace_path
+            else self._save_path / "workspace"
+        )
         self._model = None
         self._gen = None
-        self._last_batch_id = None
+        self._last_batch_id = 0
         self._max_batch_count = None
         self._report = None  # full report
         self._batch_reports = []  # patience
+        self._dmat_store = DMatStore(self._workspace_path / "dmatstore")
 
         # sample generator
         self._gen = ByRankGenerator(
@@ -109,42 +118,164 @@ class XGBoostModel:
 
         # batches
         self._max_batch_count = self._gen.estimated_batches_count()
-        if self._train_batch_count is None:
-            self._train_batch_count = max(
-                1,
-                self._max_batch_count - self._test_batch_count - self._eval_batch_count,
-            )
-
-        needed_batches = (
-            self._train_batch_count + self._eval_batch_count + self._test_batch_count
-        )
-        if needed_batches > self._max_batch_count:
-            self._gen.stop()
-            raise ValueError(
-                f"not enough batches available: {needed_batches} > {self._max_batch_count}"
-            )
 
         LOG.info(
             f"XGBoostModel batches (size: {self._batch_size}): max: {self._max_batch_count}, train: {self._train_batch_count}, eval: {self._eval_batch_count}, test: {self._test_batch_count}"
         )
 
-    def _store_eval_and_test_batches(self) -> None:
-        # store eval batches
-        if self._eval_batch_count:
-            LOG.debug(
-                f"Generating and storing {self._eval_batch_count} eval batches..."
-            )
-            self._store_batches(
-                batch_count=self._eval_batch_count, storage_name=EVAL_STORAGE
-            )
-            LOG.debug(f"{self._eval_batch_count} eval batches stored")
-        LOG.debug(f"Generating and storing {self._test_batch_count} test batches...")
-        self._store_batches(
-            batch_count=self._test_batch_count, storage_name=TEST_STORAGE
+    def train(self, eval_patience: int = 1, num_boost_round: int = 100):
+        splits = self._get_simple_batch_splits()
+        self._train_and_evaluate(
+            eval_patience=eval_patience,
+            num_boost_round=num_boost_round,
+            train_batch_ids=splits["train"],
+            eval_batch_ids=splits["eval"],
+            test_batch_ids=splits["test"],
         )
-        LOG.debug(f"{self._test_batch_count} test batches stored")
 
-    def train(
+    def _train_and_evaluate(
+        self,
+        eval_patience: int,
+        num_boost_round: int,
+        train_batch_ids: list[int],
+        eval_batch_ids: list[int],
+        test_batch_ids: list[int],
+    ):
+        report = {}
+        self._batch_reports = []
+        self._model = None
+
+        report["start_dt"] = datetime.now()
+        # params
+        params = self._params.copy()
+        if "seed" not in params:
+            params["seed"] = self._seed
+        params["num_class"] = len(self._labels)
+
+        report["params"] = params
+        report["train"] = {"total_duration": 0, "batches": []}
+        report["num_boost_round"] = num_boost_round
+        start_total_time = time.time()
+
+        for i, batch_id in enumerate(train_batch_ids):
+            LOG.debug(f"Train : {i+1} / {len(train_batch_ids)} - batch ID: {batch_id}")
+
+            dtrain = self._get_batch(batch_id)
+            start_batch_time = time.time()
+            batch_report = {
+                "batch_duration": 0,
+                "get_batch_duration": 0,
+                "train_duration": 0,
+                "eval_duration": 0,
+                "report": None,
+                "eval_score": None,
+            }
+
+            y = dtrain.get_label().astype(int)
+            y_encoded = self._label_encoder.transform(y)
+            dtrain_encoded = xgb.DMatrix(dtrain.get_data(), label=y_encoded)
+            batch_report["get_batch_duration"] = time.time() - start_batch_time
+            start_train_time = time.time()
+            self._model = xgb.train(
+                params,
+                dtrain_encoded,
+                num_boost_round=num_boost_round,
+                xgb_model=self._model,
+            )
+            batch_report["train_duration"] = time.time() - start_train_time
+            if eval_batch_ids:
+                start_eval_time = time.time()
+                eval_report = self._evaluate(batch_ids=eval_batch_ids)
+                score = eval_report["score"]
+                LOG.debug(f"Evaluation score: {score:.3f}")
+                self.save(f"batch_models/{len(self._batch_reports)}", workspace=True)
+
+                prev_scores = [br["score"] for br in self._batch_reports]
+                prev_scores_str = ", ".join(f"{ps:.2f}" for ps in prev_scores)
+                LOG.debug(
+                    f"Batch score: {score:.2f}, previous scores: {prev_scores_str}"
+                )
+                self._batch_reports.append(eval_report)
+
+                batch_report.update(
+                    {
+                        "eval_duration": time.time() - start_eval_time,
+                        "report": eval_report,
+                        "eval_score": score,
+                    }
+                )
+
+                if len(self._batch_reports) >= eval_patience:
+                    patience_prev_scores = prev_scores[-eval_patience:]
+                    min_improvement = 0.001  # TODO: conf
+                    if score < all(
+                        prev_score > score + min_improvement
+                        for prev_score in patience_prev_scores
+                    ):
+                        LOG.info(
+                            f"Early stopping: no improvement in the last {eval_patience} evaluations"
+                        )
+                        break
+
+            report["train"]["batches"].append(batch_report)
+
+        self._load_best_model()  # FIXME:not working anymore
+        report["train"]["total_duration"] = time.time() - start_total_time
+        LOG.debug("Model trained")
+
+    def _evaluate(self, batch_ids: list[int]) -> dict:
+        """Evaluate the model (eval or test)"""
+
+        LOG.debug("Evaluating model...")
+
+        all_y_true_encoded = []
+        all_y_pred_encoded = []
+        report = {}
+
+        # evaluate
+        for i, batch_id in enumerate(batch_ids):
+            deval = self._get_batch(batch_id)
+            LOG.debug(
+                f"Evaluation batch {i + 1} / {len(batch_ids)}) - batch ID: {batch_id}"
+            )
+
+            y_true = deval.get_label().astype(int)
+            y_true_encoded = self._label_encoder.transform(y_true)
+            dteval_encoded = xgb.DMatrix(deval.get_data(), label=y_true_encoded)
+            y_pred_encoded = self._model.predict(dteval_encoded).astype(int)
+
+            all_y_true_encoded.extend(y_true_encoded)
+            all_y_pred_encoded.extend(y_pred_encoded)
+
+        y_true = self._label_encoder.inverse_transform(all_y_true_encoded)
+        y_pred = self._label_encoder.inverse_transform(all_y_pred_encoded)
+
+        # scientific names
+        y_true = [self._sn_map[tax_id] for tax_id in y_true]
+        y_pred = [self._sn_map[tax_id] for tax_id in y_pred]
+
+        LOG.debug("Model evaluated, getting report...")
+
+        # generate classification report and confusion matrix
+        sorted_labels = sorted(self._sn_map.values())
+        report["classification_report"] = classification_report(
+            y_true,
+            y_pred,
+            labels=sorted_labels,
+            output_dict=True,
+        )
+        report["confusion_matrix"] = confusion_matrix(
+            y_true, y_pred, labels=sorted_labels
+        )
+        report["score"] = self._score(report)
+
+        LOG.debug("Model evaluated")
+        # if storage_name == TEST_STORAGE:
+        #     self._report["evaluation"] = report
+        #     self._report["end_dt"] = datetime.now()
+        return report
+
+    def train_deprecated(
         self,
         eval_patience: int = 1,
         num_boost_round: int = 100,
@@ -258,7 +389,7 @@ class XGBoostModel:
         else:
             if storage_name is None:
                 storage_name = TEST_STORAGE
-            batch_iterator = self._stored_batches_generator(storage_name)
+            batch_iterator = self._get_stored_batches_generator(storage_name)
 
         # evaluate
         for i, dtest in enumerate(batch_iterator):
@@ -331,7 +462,8 @@ class XGBoostModel:
         report_lines.append(f"Batch balance factor: {self._batch_balance_factor}")
         report_lines.append(f"Min samples per class: {self._min_samples_by_class}")
         report_lines.append(f"Available Batches: {self._max_batch_count}")
-        report_lines.append(f"Actually used Batches: {self._last_batch_id + 1}")
+        report_lines.append(f"Actually used Batches: {self._last_batch_id}")
+        # FIXME: train_count
         train_batches = (
             self._last_batch_id + 1 - self._eval_batch_count - self._test_batch_count
         )
@@ -432,9 +564,9 @@ class XGBoostModel:
 
         return report
 
-    def load(self, sub_dir: str | None = None) -> None:
+    def load(self, sub_dir: str | None = None, workspace: bool = False) -> None:
         """Load model from file."""
-        save_path = self._save_path
+        save_path = self._workspace_path if workspace else self._save_path
         if sub_dir:
             save_path /= sub_dir
         LOG.debug(f"Loading model: {save_path}")
@@ -458,11 +590,11 @@ class XGBoostModel:
         prev_scores = [br["score"] for br in self._batch_reports]
         max_index, max_value = max(enumerate(prev_scores), key=lambda x: x[1])
         LOG.debug(f"Loading best model: BATCH {max_index} => {max_value:.3f}")
-        self.load(f"batch_models/{max_index}")
+        self.load(f"batch_models/{max_index}", workspace=True)
 
-    def save(self, sub_dir: str | None = None) -> None:
+    def save(self, sub_dir: str | None = None, workspace: bool = False) -> None:
         """Save model to directory."""
-        save_path = self._save_path
+        save_path = self._workspace_path if workspace else self._save_path
         if sub_dir:
             save_path /= sub_dir
             LOG.debug(f"Saving model: {save_path}")
@@ -482,69 +614,6 @@ class XGBoostModel:
 
     def stop(self) -> None:
         self._gen.stop()
-
-    @staticmethod
-    def _serialize_dmatrix(dmatrix: xgb.DMatrix, file_path: str | Path) -> None:
-        file_path = Path(file_path)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        dmatrix.save_binary(file_path)
-
-    @staticmethod
-    def _deserialize_dmatrix(file_path: str | Path) -> xgb.DMatrix:
-        file_path = Path(file_path)
-        if not file_path.exists():
-            raise FileNotFoundError(f"{file_path} DMatrix not found.")
-        return xgb.DMatrix(file_path)
-
-    def _store_batches(
-        self, batch_count: int, storage_name: str, return_dmats: bool = False
-    ) -> list[xgb.DMatrix] | None:
-        storage_dir = self._save_path / "dmats" / storage_name
-        dmats = []
-        for i in range(batch_count):
-            dmat = self._get_next_batch()
-            dmat_path = storage_dir / f"{i+1:04}.dmat"
-
-            counter = 1
-            while dmat_path.exists():
-                # change name if needed
-                dmat_path = storage_dir / f"{i+1:04}_{counter:04}.dmat"
-                counter += 1
-
-            self._serialize_dmatrix(dmat, dmat_path)
-            if return_dmats:
-                dmats.append(dmat)
-        if return_dmats:
-            return dmats
-
-    def _stored_batches_generator(
-        self, storage_name: str
-    ) -> Generator[xgb.DMatrix, None, None]:
-        storage_dir = self._save_path / "dmats" / storage_name
-        if not storage_dir.is_dir():
-            raise NotADirectoryError(f"{storage_dir} is not a directory.")
-
-        for file_path in storage_dir.iterdir():
-            if file_path.is_file():
-                dmatrix = self._deserialize_dmatrix(file_path)
-                yield dmatrix
-
-    def _get_next_batch(self, storage_name: str | None = None) -> xgb.DMatrix:
-        if self._last_batch_id is None:
-            self._last_batch_id = -1
-        self._last_batch_id += 1
-        try:
-            if storage_name:
-                # store before returning
-                return self._store_batches(
-                    batch_count=1, storage_name=storage_name, return_dmats=True
-                )[0]
-            return next(self._gen.get())
-        except StopIteration:
-            LOG.exception(
-                f"No more batch available: {self._last_batch_id + 1} / {self._max_batch_count}"
-            )
-            raise
 
     def _score(self, report: dict, lambda_penalty: float = 0.5) -> float:
         """Custom metric: f1 avg, but add penalty according to rank position"""
@@ -603,3 +672,153 @@ class XGBoostModel:
         plt.tight_layout()
         plt.savefig(file_path)
         plt.close()
+
+    def _get_simple_batch_splits(self) -> dict[str, list[int]]:
+        min_required_batches = 1 + self._eval_batch_count + self._test_batch_count
+        if self._train_batch_count is None:
+            min_required_batches += 1
+        else:
+            min_required_batches += self._train_batch_count
+
+        if self._max_batch_count < min_required_batches:
+            raise ValueError(
+                f"Not enough batches available for the specified split ({self._max_batch_count})"
+            )
+
+        test_indices = list(range(1, self._test_batch_count + 1))
+        eval_indices = list(
+            range(
+                self._test_batch_count + 1,
+                self._test_batch_count + self._eval_batch_count + 1,
+            )
+        )
+
+        train_start_index = self._test_batch_count + self._eval_batch_count + 1
+
+        if self._train_batch_count is None:
+            train_indices = list(range(train_start_index, self._max_batch_count + 1))
+        else:
+            train_indices = list(
+                range(train_start_index, train_start_index + self._train_batch_count)
+            )
+
+        return {"train": train_indices, "eval": eval_indices, "test": test_indices}
+
+    def _get_kfold_batch_splits(self, k: int):
+        if self._max_batch_count < k + self._eval_batch_count:
+            raise ValueError(
+                f"Not enough batches available for the specified k-fold split ({self._max_batch_count})"
+            )
+
+        splits = []
+        all_batches = list(range(1, self._max_batch_count + 1))
+        fold_size = (len(all_batches) + k - 1) // k
+
+        for i in range(k):
+            start_index = i * fold_size
+            end_index = min(start_index + fold_size, len(all_batches))
+
+            test_indices = all_batches[start_index:end_index]
+            remaining_indices = [j for j in all_batches if j not in test_indices]
+            eval_index = remaining_indices[: self._eval_batch_count]
+
+            if self._train_batch_count is None:
+                train_indices = remaining_indices[self._eval_batch_count :]
+            else:
+                train_indices = remaining_indices[
+                    self._eval_batch_count : self._eval_batch_count
+                    + self._train_batch_count
+                ]
+
+            splits.append(
+                {"train": train_indices, "eval": eval_index, "test": test_indices}
+            )
+
+        return splits
+
+    def _get_next_batch(self) -> xgb.DMatrix:
+        self._last_batch_id += 1
+        try:
+            return next(self._gen.get())
+        except StopIteration:
+            LOG.exception(
+                f"No more batch available: {self._last_batch_id} / {self._max_batch_count}"
+            )
+            self._last_batch_id -= 1
+            raise
+
+    def _get_batch(self, batch_id: int) -> xgb.DMatrix:
+        while not self._dmat_store.has_dmat(batch_id):
+            batch = self._get_next_batch()
+            self._dmat_store[self._last_batch_id] = batch
+
+        return self._dmat_store[batch_id]
+
+    # def _store_eval_and_test_batches(self) -> None:
+    #     # store eval batches
+    #     if self._eval_batch_count:
+    #         LOG.debug(
+    #             f"Generating and storing {self._eval_batch_count} eval batches..."
+    #         )
+    #         self._store_batches(
+    #             batch_count=self._eval_batch_count, storage_name=EVAL_STORAGE
+    #         )
+    #         LOG.debug(f"{self._eval_batch_count} eval batches stored")
+    #     LOG.debug(f"Generating and storing {self._test_batch_count} test batches...")
+    #     self._store_batches(
+    #         batch_count=self._test_batch_count, storage_name=TEST_STORAGE
+    #     )
+    #     LOG.debug(f"{self._test_batch_count} test batches stored")
+
+    # def _get_batch_iterator(
+    #     self,
+    #     batches: list[xgb.DMatrix] | None = None,
+    #     storage_names: str | list[str] | None = None,
+    # ) -> Iterator:
+    #     if batches and storage_names:
+    #         raise ValueError("You must choose between Dmatrix and storage name")
+    #     if batches:
+    #         if isinstance(batches, xgb.DMatrix):
+    #             batches = [batches]
+    #         return iter(batches)
+
+    #     return self._get_stored_batches_generator(storage_names)
+
+    # def _store_batches(
+    #     self, batch_count: int, storage_name: str, return_dmats: bool = False
+    # ) -> list[xgb.DMatrix] | None:
+    #     storage_dir = self._save_path / "dmats" / storage_name
+    #     dmats = []
+    #     for i in range(batch_count):
+    #         dmat = self._get_next_batch()
+    #         dmat_path = storage_dir / f"{i+1:04}.dmat"
+
+    #         counter = 1
+    #         while dmat_path.exists():
+    #             # change name if needed
+    #             dmat_path = storage_dir / f"{i+1:04}_{counter:04}.dmat"
+    #             counter += 1
+
+    #         self._serialize_dmatrix(dmat, dmat_path)
+    #         if return_dmats:
+    #             dmats.append(dmat)
+    #     if return_dmats:
+    #         return dmats
+
+    # def _has_storage(self, storage_name: str) -> bool:
+    #     return (self._save_path / "dmats" / storage_name).exists()
+
+    # def _get_stored_batches_generator(
+    #     self, storage_names: str | list[str]
+    # ) -> Generator[xgb.DMatrix, None, None]:
+    #     if isinstance(storage_names, str):
+    #         storage_names = [storage_names]
+    #     for storage_name in storage_names:
+    #         storage_dir = self._save_path / "dmats" / storage_name
+    #         if not storage_dir.is_dir():
+    #             raise NotADirectoryError(f"{storage_dir} is not a directory.")
+
+    #         for file_path in storage_dir.iterdir():
+    #             if file_path.is_file():
+    #                 dmatrix = self._deserialize_dmatrix(file_path)
+    #                 yield dmatrix
