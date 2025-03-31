@@ -4,13 +4,13 @@
         "assembly_dir": "/projects/microtaxo/data/AllTheBacteria/assembly"
     },
     "taxdb":{
-        "cache_dir": "/projects/microtaxo/exp_allthebacteria/apicache",
+        "cache_dir": "/WORKS/microtaxo_atb/apicache",
         "can_download": true,
         "email": "cyrille.leroux@irisa.fr"
     },
     "db":{
         "kmer_sizes": [1, 4, 7],
-        "path": "/projects/microtaxo/exp_allthebacteria/dbs",
+        "path": "/WORKS/microtaxo_atb/dbs",
         "tmp_path": "/scratch/cleroux2/microtaxo",
         "full": false,
         "window_size": 10000,
@@ -28,8 +28,8 @@
         "normalize": false,
         "num_boost_round":100,
         "scientific_name": true,
-        "default_models_dir": "/projects/microtaxo/exp_allthebacteria/models",
-        "default_workspaces_dir": "/projects/microtaxo/exp_allthebacteria/workspaces",
+        "default_models_dir": "/WORKS/microtaxo_atb/models",
+        "default_workspaces_dir": "/WORKS/microtaxo_atb/workspaces",
         "kfold": 5,
         "batch_size": 100000,
         "generator_threads": "max_minus_2",
@@ -43,10 +43,10 @@
         "max_buffer_total_size": 200000 
     },
     "report":{
-        "default_reports_dir": "/projects/microtaxo/exp_allthebacteria/reports"
+        "default_reports_dir": "/WORKS/microtaxo_atb/reports"
     },
     "log":{
-        "log_path": "/projects/microtaxo/exp_allthebacteria/logs/log.txt",
+        "log_path": "/WORKS/microtaxo_atb/logs/log.txt",
         "terminal_level": "warning",
         "file_level": "debug",
         "file_size": 100000000,

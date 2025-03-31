@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH --partition=genscale
+#SBATCH --nodelist=cl1n028
 #SBATCH --job-name=clx_create_db
 #SBATCH --chdir=/home/genouest/cnrs_umr6074/cleroux2/microtaxo/wisp/wisp_allthebacteria
 #SBATCH --output=slurm/%j.txt
