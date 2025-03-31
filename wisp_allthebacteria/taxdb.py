@@ -1,13 +1,15 @@
-from collections import defaultdict
 import logging
 import pickle
+from collections import defaultdict
+from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError
+
 import pandas as pd
-from tqdm.auto import tqdm
 from Bio import Entrez
 from diskcache import Cache
-from urllib.error import HTTPError
-from pathlib import Path
+from tenacity import retry, wait_exponential, stop_after_delay
+from tqdm.auto import tqdm
 
 LOG = logging.getLogger(__name__)
 
@@ -70,7 +72,8 @@ class TaxDB:
             return record[0]
         # not found, try do download
         if self._can_download:
-            return self._get_api_data(tax_id)[0]
+            if record := self._get_api_data(tax_id):
+                return record[0]
         # None
         return record
 
@@ -139,6 +142,9 @@ class TaxDB:
         for k, v in tqdm(exp_cache.items()):
             self._cache[k] = v
 
+    @retry(
+        wait=wait_exponential(multiplier=2, min=1, max=32), stop=stop_after_delay(60)
+    )
     def _get_api_data(self, tax_id: int | str) -> list | None:
         tax_id = self.clean_tax_id(tax_id)
         if not tax_id:
