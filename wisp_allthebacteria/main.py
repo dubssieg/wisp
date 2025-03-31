@@ -49,6 +49,13 @@ def create_db(conf: dict):
         LOG.info(
             f"Max CPUs: {cpu_count('max')}, using {num_workers} fasta workers and {num_threads} DB insertion threads"
         )
+
+        fasta_kmer = FastaKmer(
+            md,
+            num_workers=num_workers,
+            taxdb=taxdb,
+            tmp_path=conf["db"]["tmp_path"],
+        )
         db = DatabaseBuilder(
             kmer_sizes=conf["db"]["kmer_sizes"],
             window_size=conf["db"]["window_size"],
@@ -56,13 +63,12 @@ def create_db(conf: dict):
             full=conf["db"]["full"],
             dbs_path=output_path,
             fanout_shards=conf["db"]["fanout_shards"],
-            fasta_kmer=FastaKmer(md, num_workers=num_workers, taxdb=taxdb),
+            fasta_kmer=fasta_kmer,
             fasta_batch_size=conf["db"]["fasta_batch_size"],
             insert_threads=num_threads,
             compression=conf["db"]["compression"],
             merged_data_as_db=conf["db"]["merged_data_as_db"],
             species_count_limit=conf["db"]["species_count_limit"],
-            tmp_path=conf["db"]["tmp_path"],
         )
 
         json_create_db_path = db.get_db_path() / "create_db.json"

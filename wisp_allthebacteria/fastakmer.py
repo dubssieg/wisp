@@ -50,12 +50,12 @@ class FastaKmer:
         merged_data_as_db: bool = True,
         current_counts: dict = {},
         max_count: int | None = None,
-        tmp_path: str | Path = "/tmp",
     ) -> Generator[dict, None, None]:
         """Extract and process an archive."""
         archive_path = Path(archive_path).resolve()
         archive_name = archive_path.name
 
+        self._tmp_path.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(
             dir=self._tmp_path, suffix="_wisp_fasta"
         ) as tmp_dir:

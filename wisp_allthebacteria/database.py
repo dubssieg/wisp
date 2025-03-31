@@ -298,7 +298,6 @@ class DatabaseBuilder(Database):
         fasta_batch_size: int | None = None,
         merged_data_as_db: bool = False,
         species_count_limit: int | None = None,
-        tmp_path: str | Path = "/tmp",
     ):
         LOG.debug(f"DatabaseBuilder({locals()})")
         super().__init__(
@@ -315,7 +314,6 @@ class DatabaseBuilder(Database):
         self._insert_threads = insert_threads
         self._merged_data_as_db = merged_data_as_db
         self._species_count_limit = species_count_limit
-        self._tmp_path = Path(tmp_path).resolve()
         self._cancel_transaction()  # if needed
 
     def push_archive(self, archive_path: str | Path):
@@ -335,7 +333,6 @@ class DatabaseBuilder(Database):
             merged_data_as_db=self._merged_data_as_db,
             max_count=self._species_count_limit,
             current_counts=self.counts(),
-            tmp_path=self._tmp_path,
         ):
             if data:
                 self._push_merged_data(data)

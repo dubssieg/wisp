@@ -150,12 +150,13 @@ class TaxDB:
 
         # API call + cache
         try:
+            LOG.debug(f"Downloading taxonomy data for {tax_id}...")
             handle = Entrez.efetch(db="taxonomy", id=str(tax_id), retmode="xml")
             records = Entrez.read(handle)
             self._cache[tax_id] = records
             return records
         except HTTPError:
-            LOG.exception("Could not get API data")
+            LOG.error(f"Could not get API data for {tax_id}")
             return None
 
     def clean_tax_id(self, tax_id: Any) -> int:
