@@ -157,12 +157,6 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
         if rank not in RANKS:
             raise ValueError(f"Invalid rank {rank}")
 
-        if save_path is None:
-            save_path = (
-                Path(conf["model"]["default_models_dir"])
-                / get_current_datetime_string()
-            )
-
         taxdb = TaxDB(
             cache_dir=conf["taxdb"]["cache_dir"],
             email=conf["taxdb"]["email"],
@@ -178,13 +172,12 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             compression=conf["db"]["compression"],
         )
 
-        train_batch_count = conf["model"]["train_batch_count"]
-        if train_batch_count == "max":
-            train_batch_count = None
-
         normalize = conf["model"]["normalize"]
         if not normalize:
             normalize = None
+        dt = get_current_datetime_string()
+        worspace_path = Path(conf["model"]["default_models_dir"]).resolve() / dt
+
         xgb_model = XGBoostModel(
             rank=rank,
             database=database,
@@ -192,22 +185,27 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             batch_size=conf["model"]["batch_size"],
             taxdb=taxdb,
             generator_threads=cpu_count(conf["model"]["generator_threads"]),
-            save_path=save_path,
             sample_balance_factor=conf["model"]["sample_balance_factor"],
             batch_balance_factor=conf["model"]["batch_balance_factor"],
-            train_batch_count=train_batch_count,
-            eval_batch_count=conf["model"]["eval_batch_count"],
-            test_batch_count=conf["model"]["test_batch_count"],
             min_samples_by_class=conf["model"]["min_samples_by_class"],
             max_buffer_total_size=conf["model"]["max_buffer_total_size"],
+            workspace_path=worspace_path,
         )
 
+        train_batch_count = conf["model"]["train_batch_count"]
+        if train_batch_count == "max":
+            train_batch_count = None
+        if save_path is None:
+            save_path = Path(conf["model"]["default_models_dir"]) / dt
         xgb_model.train(
+            save_path=save_path,
+            train_batch_count=train_batch_count,
             eval_patience=conf["model"]["eval_patience"],
+            eval_batch_count=conf["model"]["eval_batch_count"],
+            test_batch_count=conf["model"]["test_batch_count"],
         )
 
-        xgb_model.evaluate()
-        xgb_model.generate_report()
+        # xgb_model.generate_report()
         xgb_model.stop()
 
 

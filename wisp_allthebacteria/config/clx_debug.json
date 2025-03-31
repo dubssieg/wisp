@@ -29,6 +29,7 @@
         "num_boost_round":10,
         "scientific_name": true,
         "default_models_dir": "/data/microtaxo/models",
+        "default_workspaces_dir": "/data/microtaxo/workspaces",
         "kfold": 3,
         "batch_size": 100,
         "generator_threads": 10,
