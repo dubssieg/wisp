@@ -209,61 +209,56 @@ class ByRankGenerator(Dataset):
         random_instance = random.Random(self._seed)
         force_next_rank_tid = None
 
-        with (
-            FunctionLogger(30, self._batch_info),
-            FunctionLogger(30, self._buffers_info),
+        while not (
+            self._all_generator_done()
+            and self._all_buffers_done()
+            and self._terminating
         ):
-
-            while not (
-                self._all_generator_done()
-                and self._all_buffers_done()
-                and self._terminating
-            ):
-                if force_next_rank_tid is None:
-                    rank_tid = random_instance.choices(
-                        self._rank_tids, weights=self._weights, k=1
-                    )[0]
+            if force_next_rank_tid is None:
+                rank_tid = random_instance.choices(
+                    self._rank_tids, weights=self._weights, k=1
+                )[0]
+            else:
+                rank_tid = force_next_rank_tid
+                force_next_rank_tid = None
+            try:
+                counter = self._buffers[rank_tid].get(timeout=1)
+            except queue.Empty:
+                if self._is_rank_done(rank_tid):
+                    LOG.debug(f"{self._rank} {rank_tid} is DONE - Cleaning")
+                    self._remove(rank_tid)
                 else:
-                    rank_tid = force_next_rank_tid
-                    force_next_rank_tid = None
-                try:
-                    counter = self._buffers[rank_tid].get(timeout=1)
-                except queue.Empty:
-                    if self._is_rank_done(rank_tid):
-                        LOG.debug(f"{self._rank} {rank_tid} is DONE - Cleaning")
-                        self._remove(rank_tid)
-                    else:
-                        LOG.debug(f"Empty buffer for {rank_tid}, wait and retry...")
-                        time.sleep(5)
-                        force_next_rank_tid = rank_tid
-                    continue
+                    LOG.debug(f"Empty buffer for {rank_tid}, wait and retry...")
+                    time.sleep(5)
+                    force_next_rank_tid = rank_tid
+                continue
 
-                # prepare data and labels for DMatrix
-                row = self._counter_to_row(counter=counter, normalize=self._normalize)
-                self._data_batch.append(row)
-                self._labels_batch.append(rank_tid)
+            # prepare data and labels for DMatrix
+            row = self._counter_to_row(counter=counter, normalize=self._normalize)
+            self._data_batch.append(row)
+            self._labels_batch.append(rank_tid)
 
-                # yield a DMatrix if batch is filled
-                if len(self._data_batch) >= self._batch_size:
-                    dmatrix = self._data2DMatrix(self._data_batch, self._labels_batch)
-                    self._batch_count += 1
-                    LOG.debug(
-                        f"Sending batch {self._batch_count} / (max: {self._max_batch_count}) - {len(self._labels_batch)} samples"
-                    )
-                    self._data_batch = []
-                    self._labels_batch = []
-                    yield dmatrix
-
-            # yield any remaining data as a final DMatrix
-            if self._data_batch:
-                self._batch_count += 1
+            # yield a DMatrix if batch is filled
+            if len(self._data_batch) >= self._batch_size:
                 dmatrix = self._data2DMatrix(self._data_batch, self._labels_batch)
+                self._batch_count += 1
                 LOG.debug(
-                    f"Sending (last) batch {self._batch_count} - {len(self._labels_batch)} samples"
+                    f"Sending batch {self._batch_count} / (max: {self._max_batch_count}) - {len(self._labels_batch)} samples"
                 )
+                self._data_batch = []
+                self._labels_batch = []
                 yield dmatrix
 
-    def _buffers_info(self) -> str:
+        # yield any remaining data as a final DMatrix
+        if self._data_batch:
+            self._batch_count += 1
+            dmatrix = self._data2DMatrix(self._data_batch, self._labels_batch)
+            LOG.debug(
+                f"Sending (last) batch {self._batch_count} - {len(self._labels_batch)} samples"
+            )
+            yield dmatrix
+
+    def buffers_info(self) -> str:
         buffer_info = []
         for tid in self._tax_ids_by_rank.keys():
             qsize = str(self._buffers[tid].qsize())
@@ -282,7 +277,7 @@ class ByRankGenerator(Dataset):
             + "|".join(buffer_info)
         )
 
-    def _batch_info(self) -> None:
+    def batch_info(self) -> None:
         perc = 100 * len(self._labels_batch) / self._batch_size
         return f"BATCH {self._batch_count + 1}: {len(self._labels_batch)} / {self._batch_size} ({perc:.1f} %)"
 

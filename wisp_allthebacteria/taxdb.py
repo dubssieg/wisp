@@ -156,7 +156,7 @@ class TaxDB:
     @retry(
         wait=wait_exponential(multiplier=2, min=1, max=64),
         stop=stop_after_delay(3600),
-        before_sleep=before_sleep_log(LOG, logging.WARNING),
+        before_sleep=before_sleep_log(LOG, logging.INFO),
         after=after_log(LOG, logging.INFO),
     )
     def _get_api_data(self, tax_id: int | str) -> list | None:

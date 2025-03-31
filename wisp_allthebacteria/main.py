@@ -212,13 +212,25 @@ def train_model(
             train_batch_count = None
         if save_path is None:
             save_path = Path(conf["model"]["default_models_dir"]) / dt
-        xgb_model.train(
-            save_path=save_path,
-            train_batch_count=train_batch_count,
-            eval_patience=conf["model"]["eval_patience"],
-            eval_batch_count=conf["model"]["eval_batch_count"],
-            test_batch_count=conf["model"]["test_batch_count"],
-        )
+
+        if kfold:
+            xgb_model.kfold(
+                k=kfold,
+                save_path=save_path,
+                train_batch_count=train_batch_count,
+                eval_patience=conf["model"]["eval_patience"],
+                eval_batch_count=conf["model"]["eval_batch_count"],
+                num_boost_round=conf["model"]["num_boost_round"],
+            )
+        else:
+            xgb_model.train(
+                save_path=save_path,
+                train_batch_count=train_batch_count,
+                eval_patience=conf["model"]["eval_patience"],
+                eval_batch_count=conf["model"]["eval_batch_count"],
+                test_batch_count=conf["model"]["test_batch_count"],
+                num_boost_round=conf["model"]["num_boost_round"],
+            )
 
         # xgb_model.generate_report()
         xgb_model.stop()
@@ -296,10 +308,10 @@ if __name__ == "__main__":
             python main.py --train-model --rank="phylum"
 
         Evaluate a model for phylum classification 1
-            python main.py --evaluate-model-kfold --rank="phylum"
+            python main.py --train-model --kfold --rank="phylum"
 
         Evaluate a model for phylum classification 2
-            python main.py --evaluate-model-kfold=5 --rank="phylum" --save-path="report_1"
+            python main.py --train-model kfold=5 --rank="phylum" --save-path="report_1"
 
         """,
     )
@@ -349,11 +361,12 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--evaluate-model-kfolds",
+        "--kfold",
         type=int,
         nargs="?",
-        const=-1,
-        help="Number of folds for k-fold cross-validation (check config for report location)",
+        const=5,
+        default=None,  # Valeur par défaut si l'argument n'est pas spécifié
+        help="Number of folds for k-fold cross-validation",
     )
 
     parser.add_argument(
@@ -407,15 +420,7 @@ if __name__ == "__main__":
             rank=args.rank,
             save_path=args.save_path,
             workspace_path=args.workspace_path,
-            kfold=None,
-        )
-
-    if args.evaluate_model_kfolds:
-        train_model(
-            conf=conf,
-            rank=args.rank,
-            save_path=args.save_path,
-            kfold=args.evaluate_model_kfolds,
+            kfold=args.kfold,
         )
 
     # train-model, save-model, evaluate-model-kfolds, load-model, evaluate-fa

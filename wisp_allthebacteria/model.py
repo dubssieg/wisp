@@ -11,7 +11,7 @@ import seaborn as sns
 import numpy as np
 import xgboost as xgb
 from datetime import datetime
-from utils import serialize, deserialize, format_duration
+from utils import serialize, deserialize, format_duration, FunctionLogger
 
 # from tqdm.auto import tqdm
 
@@ -47,11 +47,7 @@ class XGBoostModel:
         self,
         rank: str,
         database: Database,
-        # save_path: str | Path,
         batch_size: int,
-        # test_batch_count: int,
-        # train_batch_count: int | None = None,  # None = max
-        # eval_batch_count: int = 0,
         workspace_path: str | Path,
         params: dict | None = None,
         normalize: str | None = None,
@@ -65,9 +61,6 @@ class XGBoostModel:
     ):
         LOG.debug(f"XGBoostModel({locals()})")
         self._params = params if params is not None else DEFAULT_PARAMETERS
-        # self._train_batch_count = train_batch_count
-        # self._test_batch_count = test_batch_count
-        # self._eval_batch_count = eval_batch_count
         self._seed = seed
         self._rank = rank
         self._normalize = normalize
@@ -127,42 +120,55 @@ class XGBoostModel:
         eval_patience: int = 1,
         num_boost_round: int = 100,
     ):
-        save_path = Path(save_path).resolve()
+        with (
+            FunctionLogger(30, self._gen.batch_info),
+            FunctionLogger(30, self._gen.buffers_info),
+        ):
+            save_path = Path(save_path).resolve()  # models + report
 
-        splits = self._get_simple_batch_splits(
-            train_batch_count=train_batch_count,
-            eval_batch_count=eval_batch_count,
-            test_batch_count=test_batch_count,
-        )
-        report = self._train_and_evaluate(
-            eval_patience=eval_patience,
-            num_boost_round=num_boost_round,
-            splits=splits,
-            # train_batch_ids=splits["train"],
-            # eval_batch_ids=splits["eval"],
-            # test_batch_ids=splits["test"],
-        )
+            splits = self._get_simple_batch_splits(
+                train_batch_count=train_batch_count,
+                eval_batch_count=eval_batch_count,
+                test_batch_count=test_batch_count,
+            )
+            report = self._train_and_evaluate(
+                eval_patience=eval_patience,
+                num_boost_round=num_boost_round,
+                splits=splits,
+            )
 
-        self.save(save_path)
-        self._generate_report(path=save_path / "report", report=report)
+            self.save(save_path)
+            self._generate_report(path=save_path / "report", report=report)
 
     def kfold(
         self,
-        k: int = 5,
+        k: int,
+        save_path: str | Path,
         train_batch_count: int | None = None,
         eval_batch_count: int = 1,
         eval_patience: int = 1,
         num_boost_round: int = 100,
     ):
-        ksplits = self._get_kfold_batch_splits(
-            k, train_batch_count=train_batch_count, eval_batch_count=eval_batch_count
-        )
-        for splits in ksplits:
-            self._train_and_evaluate(
-                eval_patience=eval_patience,
-                num_boost_round=num_boost_round,
-                splits=splits,
+        with (
+            FunctionLogger(30, self._gen.batch_info),
+            FunctionLogger(30, self._gen.buffers_info),
+        ):
+            save_path = Path(save_path).resolve()  # report
+            ksplits = self._get_kfold_batch_splits(
+                k,
+                train_batch_count=train_batch_count,
+                eval_batch_count=eval_batch_count,
             )
+            reports = []
+            for i, splits in enumerate(ksplits):
+                kreport = self._train_and_evaluate(
+                    eval_patience=eval_patience,
+                    num_boost_round=num_boost_round,
+                    splits=splits,
+                )
+                self._generate_report(path=save_path / "folds" / str(i), report=kreport)
+                reports.append(kreport)
+            return reports  # TODO: generate aggregated report
 
     def _train_and_evaluate(
         self, eval_patience: int, num_boost_round: int, splits: dict
