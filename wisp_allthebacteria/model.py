@@ -134,13 +134,17 @@ class XGBoostModel:
             eval_batch_count=eval_batch_count,
             test_batch_count=test_batch_count,
         )
-        self._train_and_evaluate(
+        report = self._train_and_evaluate(
             eval_patience=eval_patience,
             num_boost_round=num_boost_round,
-            train_batch_ids=splits["train"],
-            eval_batch_ids=splits["eval"],
-            test_batch_ids=splits["test"],
+            splits=splits,
+            # train_batch_ids=splits["train"],
+            # eval_batch_ids=splits["eval"],
+            # test_batch_ids=splits["test"],
         )
+
+        self.save(save_path)
+        self._generate_report(path=save_path / "report", report=report)
 
     def kfold(
         self,
@@ -157,22 +161,18 @@ class XGBoostModel:
             self._train_and_evaluate(
                 eval_patience=eval_patience,
                 num_boost_round=num_boost_round,
-                train_batch_ids=splits["train"],
-                eval_batch_ids=splits["eval"],
-                test_batch_ids=splits["test"],
+                splits=splits,
             )
 
     def _train_and_evaluate(
-        self,
-        eval_patience: int,
-        num_boost_round: int,
-        train_batch_ids: list[int],
-        eval_batch_ids: list[int],
-        test_batch_ids: list[int],
+        self, eval_patience: int, num_boost_round: int, splits: dict
     ) -> dict:
         report = {}
         batchs_report = []
         self._model = None
+        train_batch_ids = splits["train"]
+        eval_batch_ids = splits["eval"]
+        test_batch_ids = splits["test"]
 
         report["start_dt"] = datetime.now()
         # params
@@ -184,6 +184,7 @@ class XGBoostModel:
         report["params"] = params
         report["train"] = {"total_duration": 0, "batches": []}
         report["num_boost_round"] = num_boost_round
+        report["splits"] = splits
         start_total_time = time.time()
 
         for i, batch_id in enumerate(train_batch_ids):
@@ -261,15 +262,10 @@ class XGBoostModel:
 
         # 3 - TEST
         start_test_time = time.time()
-        test_report = self._evaluate(batch_ids=test_batch_ids)
-        score = test_report["score"]
+        report["test"] = self._evaluate(batch_ids=test_batch_ids)
         LOG.debug(f"Test score: {score:.3f}")
-        report["test"] = {
-            "eval_duration": time.time() - start_test_time,
-            "report": test_report,
-            "eval_score": score,
-            "best_batch": {"index": max_index, "score": max_value},
-        }
+        report["test"]["eval_duration"] = time.time() - start_test_time
+        report["test"]["best_batch"] = ({"index": max_index, "score": max_value},)
         report["end_dt"] = datetime.now()
         return report
 
@@ -320,18 +316,14 @@ class XGBoostModel:
         report["score"] = self._score(report)
 
         LOG.debug("Model evaluated")
-        # if storage_name == TEST_STORAGE:
-        #     self._report["evaluation"] = report
-        #     self._report["end_dt"] = datetime.now()
         return report
 
-    def generate_report(self):
+    def _generate_report(self, path: Path, report: dict):
         report_lines = []
-        report = self._report
         dt_format = "%Y-%m-%d %H:%M:%S"
 
-        report_dir = self._save_path / "report"
-        report_dir.mkdir(parents=True, exist_ok=True)
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
 
         # basic
         report_lines.append("=== Training / Evaluation Report ===")
@@ -357,16 +349,12 @@ class XGBoostModel:
         report_lines.append(f"Min samples per class: {self._min_samples_by_class}")
         report_lines.append(f"Available Batches: {self._max_batch_count}")
         report_lines.append(f"Actually used Batches: {self._last_batch_id}")
-        # FIXME: train_count
-        train_batches = (
-            self._last_batch_id + 1 - self._eval_batch_count - self._test_batch_count
-        )
         report_lines.append(
-            f"Training Batches: {train_batches} (max: {self._train_batch_count})"
+            f"Training Batches: {len(report['train']['batches'])} (max: {len(report['splits']['train'])})"
         )
 
-        report_lines.append(f"Evaluation Batches: {self._eval_batch_count}")
-        report_lines.append(f"Test Batches: {self._test_batch_count}")
+        report_lines.append(f"Evaluation Batches: {len(report['splits']['eval'])}")
+        report_lines.append(f"Test Batches: {len(report['splits']['test'])}")
         report_lines.append(f"Normalization: {self._normalize}")
         report_lines.append(f"Seed: {self._seed}")
         report_lines.append("")
@@ -386,12 +374,12 @@ class XGBoostModel:
         )
         self._plot_and_save_confusion_matrix(
             report["test"]["confusion_matrix"],
-            report_dir / "confusion_matrix.png",
+            path / "confusion_matrix.png",
         )
 
         report_str = "\n".join(report_lines)
 
-        report_file = report_dir / "report.txt"
+        report_file = path / "report.txt"
         report_file.write_text(report_str, encoding="utf-8")
 
         # tax_id report in as separate file
@@ -426,7 +414,7 @@ class XGBoostModel:
                 )
 
         tid_report_str = "\n".join(tid_report_lines)
-        tid_report_file = report_dir / "tax_report.txt"
+        tid_report_file = path / "tax_report.txt"
         tid_report_file.write_text(tid_report_str, encoding="utf-8")
 
     def _get_tax_id_report(self) -> list[dict]:

@@ -151,7 +151,13 @@ def load_config(json_file: Path | str):
     return conf
 
 
-def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int | None):
+def train_model(
+    conf: dict,
+    rank: str | None,
+    save_path: str | None,
+    workspace_path: str | None,
+    kfold: int | None,
+):
     LOG.info("train_model")
     with SystemStatsLogger(interval=30):
         if rank not in RANKS:
@@ -176,7 +182,10 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
         if not normalize:
             normalize = None
         dt = get_current_datetime_string()
-        workspace_path = Path(conf["model"]["default_workspaces_dir"]).resolve() / dt
+        if workspace_path is None:
+            workspace_path = (
+                Path(conf["model"]["default_workspaces_dir"]).resolve() / dt
+            )
 
         xgb_model = XGBoostModel(
             rank=rank,
@@ -327,6 +336,11 @@ if __name__ == "__main__":
         type=str,
         help="Path to save results (or check config for default location)",
     )
+    parser.add_argument(
+        "--workspace-path",
+        type=str,
+        help="Path to save DMatrix and batches (or check config for default location)",
+    )
 
     parser.add_argument(
         "--evaluate-model-kfolds",
@@ -382,7 +396,13 @@ if __name__ == "__main__":
         db_info(conf)
 
     if args.train_model:
-        train_model(conf=conf, rank=args.rank, save_path=args.save_path, kfold=None)
+        train_model(
+            conf=conf,
+            rank=args.rank,
+            save_path=args.save_path,
+            workspace_path=args.workspace_path,
+            kfold=None,
+        )
 
     if args.evaluate_model_kfolds:
         train_model(
