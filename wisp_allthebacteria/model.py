@@ -325,7 +325,7 @@ class XGBoostModel:
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
 
-        # basic
+        # 1 - main report
         report_lines.append("=== Training / Evaluation Report ===")
         report_lines.append(f"Rank: {self._rank}")
         report_lines.append(f"Start Date: {report['start_dt'].strftime(dt_format)}")
@@ -341,7 +341,6 @@ class XGBoostModel:
         report_lines.append(json.dumps(report["params"], indent=4))
         report_lines.append("")
 
-        # training
         report_lines.append("\n=== Training Data ===")
         report_lines.append(f"Samples per Batch: {self._batch_size}")
         report_lines.append(f"Sample balance factor: {self._sample_balance_factor}")
@@ -352,7 +351,6 @@ class XGBoostModel:
         report_lines.append(
             f"Training Batches: {len(report['train']['batches'])} (max: {len(report['splits']['train'])})"
         )
-
         report_lines.append(f"Evaluation Batches: {len(report['splits']['eval'])}")
         report_lines.append(f"Test Batches: {len(report['splits']['test'])}")
         report_lines.append(f"Normalization: {self._normalize}")
@@ -382,7 +380,7 @@ class XGBoostModel:
         report_file = path / "report.txt"
         report_file.write_text(report_str, encoding="utf-8")
 
-        # tax_id report in as separate file
+        # 2 - tax_id report
         tid_report = self._get_tax_id_report()
         tid_report_lines = []
 
@@ -416,6 +414,18 @@ class XGBoostModel:
         tid_report_str = "\n".join(tid_report_lines)
         tid_report_file = path / "tax_report.txt"
         tid_report_file.write_text(tid_report_str, encoding="utf-8")
+
+        # 3 - raw report (json)
+        raw_report_path = path / "raw_report.txt"
+        raw_report_path.write_text(
+            json.dumps(
+                report,
+                indent=4,
+                default=lambda obj: (
+                    obj.isoformat() if isinstance(obj, datetime) else None
+                ),
+            )
+        )
 
     def _get_tax_id_report(self) -> list[dict]:
         tid_by_rank = self._gen._get_tax_ids_by_rank(self._rank)
