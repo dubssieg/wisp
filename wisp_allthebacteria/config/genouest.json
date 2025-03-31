@@ -11,7 +11,7 @@
     "db":{
         "kmer_sizes": [1, 4, 7],
         "path": "/WORKS/microtaxo_atb/dbs",
-        "tmp_path": "/scratch/cleroux2/microtaxo",
+        "tmp_path": "/WORKS/microtaxo_atb/tmp",
         "full": false,
         "window_size": 10000,
         "step": 8000,
