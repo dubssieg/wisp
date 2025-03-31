@@ -90,28 +90,33 @@ class TaxDB:
     def populate_api_cache(self, metadata_csv_path: str | Path):
         """Run once."""
         errors = set()
-        unique_tax_ids = list()
+        unique_tax_ids = set()
         extra_tax_ids = set()
+
         df = pd.read_csv(metadata_csv_path, sep="\t", usecols=["tax_id"])
 
         # direct tax_id
         for tax_id in tqdm(df["tax_id"].unique()):
-            if self._get_api_data(tax_id):
-                unique_tax_ids.append(tax_id)
+            cleaned_tax_id = self.clean_tax_id(tax_id)
+            if self._get_api_data(cleaned_tax_id):
+                unique_tax_ids.add(cleaned_tax_id)
             else:
-                errors.add(tax_id)
+                errors.add(cleaned_tax_id)
 
         # extra tax_id
         for tax_id in tqdm(unique_tax_ids):
             if tax_id in self._cache:
                 if tdata := self._cache[tax_id]:
                     extra_tax_ids.update(
-                        [int(lin["TaxId"]) for lin in tdata[0].get("LineageEx", {})]
+                        [
+                            self.clean_tax_id(lin["TaxId"])
+                            for lin in tdata[0].get("LineageEx", {})
+                        ]
                     )
         for tax_id in tqdm(extra_tax_ids):
             self._get_api_data(tax_id)
 
-        return unique_tax_ids, list(extra_tax_ids), list(errors)
+        return list(unique_tax_ids), list(extra_tax_ids), list(errors)
 
     def clean_cache(self) -> list:
         """Clean the cache by removing entries with non-integer keys or empty values."""
