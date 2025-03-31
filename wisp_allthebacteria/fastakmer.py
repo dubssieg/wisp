@@ -2,6 +2,7 @@ import concurrent.futures
 import gc
 import logging
 import os
+import shutil
 import sys
 import tarfile
 import tempfile
@@ -55,7 +56,11 @@ class FastaKmer:
         archive_path = Path(archive_path).resolve()
         archive_name = archive_path.name
 
+        if self._tmp_path.exists():
+            LOG.warning(f"Deleting {self._tmp_path}")
+            shutil.rmtree(self._tmp_path)
         self._tmp_path.mkdir(parents=True, exist_ok=True)
+
         with tempfile.TemporaryDirectory(
             dir=self._tmp_path, suffix="_wisp_fasta"
         ) as tmp_dir:
