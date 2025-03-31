@@ -176,7 +176,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
         if not normalize:
             normalize = None
         dt = get_current_datetime_string()
-        worspace_path = Path(conf["model"]["default_models_dir"]).resolve() / dt
+        workspace_path = Path(conf["model"]["default_workspaces_dir"]).resolve() / dt
 
         xgb_model = XGBoostModel(
             rank=rank,
@@ -189,7 +189,7 @@ def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int 
             batch_balance_factor=conf["model"]["batch_balance_factor"],
             min_samples_by_class=conf["model"]["min_samples_by_class"],
             max_buffer_total_size=conf["model"]["max_buffer_total_size"],
-            workspace_path=worspace_path,
+            workspace_path=workspace_path,
         )
 
         train_batch_count = conf["model"]["train_batch_count"]

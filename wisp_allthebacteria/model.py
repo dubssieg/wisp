@@ -118,13 +118,6 @@ class XGBoostModel:
 
         LOG.info(f"XGBoostModel max batches: {self._max_batch_count}")
 
-    # TODO: refactoring: faire passer les arguments nécessaires seulement pour les nombres de batch et k
-    # TODO: ne plus passer par self quand non nécessaire
-    # TODO: pour train: passer un répertoire pour la sauvegarde
-    # TODO: faire le point entre save et workspace (+ delete ?)
-    # TODO: revoir les méthodes non retestée : load_best_model, score, etc
-    # TODO: faire le test à la fin (test_batch_count)
-    # TODO: default parameters
     def train(
         self,
         save_path: str | Path,
@@ -178,7 +171,7 @@ class XGBoostModel:
         test_batch_ids: list[int],
     ) -> dict:
         report = {}
-        self._batch_reports = []
+        batchs_report = []
         self._model = None
 
         report["start_dt"] = datetime.now()
@@ -194,6 +187,7 @@ class XGBoostModel:
         start_total_time = time.time()
 
         for i, batch_id in enumerate(train_batch_ids):
+            # 1 - TRAIN
             LOG.debug(f"Train : {i+1} / {len(train_batch_ids)} - batch ID: {batch_id}")
 
             dtrain = self._get_batch(batch_id)
@@ -220,18 +214,18 @@ class XGBoostModel:
             )
             batch_report["train_duration"] = time.time() - start_train_time
             if eval_batch_ids:
+                # 2 - EVAL
                 start_eval_time = time.time()
                 eval_report = self._evaluate(batch_ids=eval_batch_ids)
                 score = eval_report["score"]
                 LOG.debug(f"Evaluation score: {score:.3f}")
-                self.save(f"batch_models/{len(self._batch_reports)}", workspace=True)
-
-                prev_scores = [br["score"] for br in self._batch_reports]
+                self.save(self._workspace_path / "batches " / str(len(batchs_report)))
+                prev_scores = [br["score"] for br in batchs_report]
                 prev_scores_str = ", ".join(f"{ps:.2f}" for ps in prev_scores)
                 LOG.debug(
                     f"Batch score: {score:.2f}, previous scores: {prev_scores_str}"
                 )
-                self._batch_reports.append(eval_report)
+                batchs_report.append(eval_report)
 
                 batch_report.update(
                     {
@@ -241,7 +235,7 @@ class XGBoostModel:
                     }
                 )
 
-                if len(self._batch_reports) >= eval_patience:
+                if len(batchs_report) >= eval_patience:
                     patience_prev_scores = prev_scores[-eval_patience:]
                     min_improvement = 0.001  # TODO: conf
                     if score < all(
@@ -253,11 +247,30 @@ class XGBoostModel:
                         )
                         break
 
-            report["train"]["batches"].append(batch_report)
+            report["train"]["batches"].append(batchs_report)
 
-        self._load_best_model()  # FIXME:not working anymore
+        LOG.debug("Loading best model...")
+        prev_scores = [br["score"] for br in batchs_report]
+        max_index, max_value = max(enumerate(prev_scores), key=lambda x: x[1])
+        LOG.debug(f"Loading best model: BATCH {max_index} => {max_value:.3f}")
+        self.load(self._workspace_path / "batches " / str(max_index))
+
         report["train"]["total_duration"] = time.time() - start_total_time
+        report["train"]["batches"] = batchs_report
         LOG.debug("Model trained")
+
+        # 3 - TEST
+        start_test_time = time.time()
+        test_report = self._evaluate(batch_ids=test_batch_ids)
+        score = test_report["score"]
+        LOG.debug(f"Test score: {score:.3f}")
+        report["test"] = {
+            "eval_duration": time.time() - start_test_time,
+            "report": test_report,
+            "eval_score": score,
+            "best_batch": {"index": max_index, "score": max_value},
+        }
+        report["end_dt"] = datetime.now()
         return report
 
     def _evaluate(self, batch_ids: list[int]) -> dict:
@@ -359,7 +372,7 @@ class XGBoostModel:
         report_lines.append("")
 
         report_lines.append("\n=== Classification Report ===")
-        for label, metrics in report["evaluation"]["classification_report"].items():
+        for label, metrics in report["test"]["classification_report"].items():
             if isinstance(metrics, dict):
                 report_lines.append(f"Label : {label}")
                 for metric_name, value in metrics.items():
@@ -369,10 +382,10 @@ class XGBoostModel:
 
         report_lines.append("\n=== Confusion Matrix ===")
         report_lines.append(
-            self._confusion_matrix_to_ascii(report["evaluation"]["confusion_matrix"])
+            self._confusion_matrix_to_ascii(report["test"]["confusion_matrix"])
         )
         self._plot_and_save_confusion_matrix(
-            report["evaluation"]["confusion_matrix"],
+            report["test"]["confusion_matrix"],
             report_dir / "confusion_matrix.png",
         )
 
@@ -445,16 +458,14 @@ class XGBoostModel:
 
         return report
 
-    def load(self, sub_dir: str | None = None, workspace: bool = False) -> None:
+    def load(self, path: str | Path) -> None:
         """Load model from file."""
-        save_path = self._workspace_path if workspace else self._save_path
-        if sub_dir:
-            save_path /= sub_dir
-        LOG.debug(f"Loading model: {save_path}")
-        model_path = save_path / "model.bin"
-        label_path = save_path / "labels.pkl"
-        label_encoder_path = save_path / "labels_encoder.pkl"
-        params_path = save_path / "params.json"
+        path = Path(path).resolve()
+        LOG.debug(f"Loading model: {path}...")
+        model_path = path / "model.bin"
+        label_path = path / "labels.pkl"
+        label_encoder_path = path / "labels_encoder.pkl"
+        params_path = path / "params.json"
         for f in (model_path, label_path, label_encoder_path, params_path):
             if not f.is_file:
                 self._gen.stop()
@@ -466,24 +477,15 @@ class XGBoostModel:
         self._label_encoder = deserialize(label_encoder_path)
         self._params = json.loads(params_path.read_text())
 
-    def _load_best_model(self) -> None:
-        LOG.debug("Loading best model...")
-        prev_scores = [br["score"] for br in self._batch_reports]
-        max_index, max_value = max(enumerate(prev_scores), key=lambda x: x[1])
-        LOG.debug(f"Loading best model: BATCH {max_index} => {max_value:.3f}")
-        self.load(f"batch_models/{max_index}", workspace=True)
-
-    def save(self, sub_dir: str | None = None, workspace: bool = False) -> None:
+    def save(self, path: str | Path) -> None:
         """Save model to directory."""
-        save_path = self._workspace_path if workspace else self._save_path
-        if sub_dir:
-            save_path /= sub_dir
-            LOG.debug(f"Saving model: {save_path}")
-        save_path.mkdir(parents=True, exist_ok=True)
-        model_path = save_path / "model.bin"
-        label_path = save_path / "labels.pkl"
-        label_encoder_path = save_path / "labels_encoder.pkl"
-        params_path = save_path / "params.json"
+        path = Path(path).resolve()
+        LOG.debug(f"Saving model: {path}...")
+        path.mkdir(parents=True, exist_ok=True)
+        model_path = path / "model.bin"
+        label_path = path / "labels.pkl"
+        label_encoder_path = path / "labels_encoder.pkl"
+        params_path = path / "params.json"
 
         if self._model is not None:
             self._model.save_model(str(model_path))
