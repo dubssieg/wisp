@@ -8,7 +8,13 @@ from urllib.error import HTTPError
 import pandas as pd
 from Bio import Entrez
 from diskcache import Cache
-from tenacity import retry, wait_exponential, stop_after_delay
+from tenacity import (
+    retry,
+    wait_exponential,
+    stop_after_delay,
+    before_sleep_log,
+    after_log,
+)
 from tqdm.auto import tqdm
 
 LOG = logging.getLogger(__name__)
@@ -143,7 +149,10 @@ class TaxDB:
             self._cache[k] = v
 
     @retry(
-        wait=wait_exponential(multiplier=2, min=1, max=32), stop=stop_after_delay(60)
+        wait=wait_exponential(multiplier=2, min=1, max=64),
+        stop=stop_after_delay(3600),
+        before_sleep=before_sleep_log(LOG, logging.WARNING),
+        after=after_log(LOG, logging.INFO),
     )
     def _get_api_data(self, tax_id: int | str) -> list | None:
         tax_id = self.clean_tax_id(tax_id)
