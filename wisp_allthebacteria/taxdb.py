@@ -176,8 +176,8 @@ class TaxDB:
             self._cache[tax_id] = records
             return records
         except HTTPError:
-            LOG.error(f"Could not get API data for {tax_id}")
-            return None
+            LOG.error(f"HTTPError occurred, could not reach API for tax_id {tax_id}")
+            raise
 
     def clean_tax_id(self, tax_id: Any) -> int:
         """Clean and normalize tax_id - find closest parent if needed"""
