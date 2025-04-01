@@ -28,7 +28,7 @@ METADATA_FILENAME = "ena_metadata.tsv"
 
 
 def create_db(conf: dict):
-    LOG.info("create_db")
+    LOG.info("Create DB")
     with SystemStatsLogger(interval=30, pid=os.getpid()):  # TODO: conf + level
         input_path = Path(conf["allthebacteria"]["assembly_dir"])
         output_path = Path(conf["db"]["path"])
@@ -151,19 +151,47 @@ def db_info(conf: dict):
     print(db.get_info(as_str=True))
 
 
+def batch_count(conf: dict, rank: str):
+    LOG.info("Batch counts")
+    database = Database(
+        kmer_sizes=conf["db"]["kmer_sizes"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=conf["db"]["path"],
+        compression=conf["db"]["compression"],
+        fanout_shards=conf["db"]["fanout_shards"],
+    )
+    taxdb = TaxDB(
+        cache_dir=conf["taxdb"]["cache_dir"],
+        email=conf["taxdb"]["email"],
+        can_download=conf["taxdb"]["can_download"],
+        preload=False,
+    )
+    ds = Dataset(database=database, taxdb=taxdb)
+    print(
+        ds.get_batch_counts_for_rank(
+            rank=rank,
+            batch_size=conf["model"]["batch_size"],
+            min_samples_by_class=conf["model"]["min_samples_by_class"],
+            as_str=True,
+        )
+    )
+
+
 def load_config(json_file: Path | str):
     with open(json_file, "r") as file:
         conf = json.load(file)
     return conf
 
 
-def train_model(
+def train(
     conf: dict,
     rank: str | None,
     save_path: str | None,
     kfold: bool,
 ):
-    LOG.info("train_model")
+    LOG.info("Train")
     with SystemStatsLogger(interval=30):
         if rank not in RANKS:
             raise ValueError(f"Invalid rank {rank}")
@@ -238,7 +266,7 @@ def train_model(
 
 
 def populate_taxdb(conf: dict):
-    LOG.info("populate_taxdb")
+    LOG.info("Populate_taxdb")
     TaxDB(
         cache_dir=Path(conf["taxdb"]["cache_dir"]),
         email=conf["taxdb"]["email"],
@@ -250,7 +278,7 @@ def populate_taxdb(conf: dict):
 
 
 def export_taxdb(conf: dict):
-    LOG.info("export_taxdb")
+    LOG.info("Export_taxdb")
     TaxDB(
         cache_dir=Path(conf["taxdb"]["cache_dir"]),
         email="",
@@ -259,7 +287,7 @@ def export_taxdb(conf: dict):
 
 
 def import_taxdb(conf: dict):
-    LOG.info("import_taxdb")
+    LOG.info("Import_taxdb")
     TaxDB(
         cache_dir=Path(conf["taxdb"]["cache_dir"]),
         email="",
@@ -269,7 +297,7 @@ def import_taxdb(conf: dict):
 
 def debug(conf):
     """debugging, ignore it"""
-    LOG.info("debug")
+    LOG.info("Debug")
 
     taxdb = TaxDB(
         cache_dir=conf["taxdb"]["cache_dir"],
@@ -305,15 +333,11 @@ if __name__ == "__main__":
         Create a database (local machine/debug)
             python main.py -- create-db --conf="config/clx_debug.json"
 
+        Evaluate a model for phylum classification
+            python main.py --train --kfold --rank="phylum"
+
         Train a model for phylum classification
-            python main.py --train-model --rank="phylum"
-
-        Evaluate a model for phylum classification 1
-            python main.py --train-model --kfold --rank="phylum"
-
-        Evaluate a model for phylum classification 2
-            python main.py --train-model kfold=5 --rank="phylum" --save-path="report_1"
-
+            python main.py --train --rank="phylum"
         """,
     )
     parser.add_argument(
@@ -339,12 +363,6 @@ if __name__ == "__main__":
         "--export-taxdb",
         action="store_true",
         help="unpickle taxdb from out/cache_dump.pkl",
-    )
-
-    parser.add_argument(
-        "--train-model",
-        action="store_true",
-        help="Train a new model (may need --save-model)",
     )
 
     parser.add_argument(
@@ -375,6 +393,12 @@ if __name__ == "__main__":
         "--db-info",
         action="store_true",
         help="Show database informations",
+    )
+
+    parser.add_argument(
+        "--batch-count",
+        type=str,
+        help="How many batches for this rank (use batch_size and min_samples_by_class). Ex: --batch_counts=phylum",
     )
     parser.add_argument(
         "--debug",
@@ -407,8 +431,11 @@ if __name__ == "__main__":
     if args.db_info:
         db_info(conf)
 
-    if args.train_model:
-        train_model(
+    if args.batch_count:
+        batch_count(conf, rank=args.batch_count)
+
+    if args.train:
+        train(
             conf=conf,
             rank=args.rank,
             save_path=args.save_path,

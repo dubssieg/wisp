@@ -1,6 +1,7 @@
 from collections import defaultdict
 import concurrent.futures
 from itertools import product
+import itertools
 import logging
 import queue
 import random
@@ -96,6 +97,50 @@ class Dataset:
     def labels(self, rank: str, min_samples: int | None = None) -> list[str]:
         """All labels in this DB, for this rank"""
         return list(self._get_tax_ids_by_rank(rank, min_samples=min_samples).keys())
+
+    def get_batch_counts_for_rank(
+        self,
+        rank: str,
+        batch_size: int,
+        min_samples_by_class: int | None = None,
+        as_str: bool = False,
+    ) -> dict | str:
+        tids_by_rank = self._get_tax_ids_by_rank(
+            rank=rank, min_samples=min_samples_by_class
+        )
+        values = [i / 10 for i in range(11)]
+        data = defaultdict(dict)
+        for batch_balance_factor, sample_balance_factor in list(
+            itertools.product(values, values)
+        ):
+            counts = [
+                self._db.get_sample_count_estimation(tids, sample_balance_factor)
+                for tids in tids_by_rank.values()
+            ]
+            total_samples = sample_count_estimation(counts, batch_balance_factor)
+            batch_count = (total_samples + batch_size - 1) // batch_size
+            data[batch_balance_factor][sample_balance_factor] = batch_count
+
+        if as_str:
+            header = (
+                f"{'Batch Balance Factor':>24} "
+                + " ".join(f"{i / 10:>6}" for i in range(11))
+                + "\n"
+            )
+
+            body = f"{'Sample Balance Factor':>24} \n"
+
+            for key, values in data.items():
+                row = (
+                    f"{key:>24} "
+                    + " ".join(f"{values[j]:>6}" for j in sorted(values))
+                    + "\n"
+                )
+                body += row
+
+            table = header + body
+            return table
+        return dict(data)
 
     def _get_tax_ids_by_rank(
         self, rank: str, min_samples: int | None = None
