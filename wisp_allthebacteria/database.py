@@ -9,7 +9,7 @@ from typing import Any, Generator, Literal
 
 from diskcache import FanoutCache
 from fastakmer import FastaKmer
-from utils import decompress, space_format, get_weights, sample_count_estimation
+from utils import decompress, space_format, get_weights, sample_count_estimation, hashed
 
 LOG = logging.getLogger(__name__)
 
@@ -44,6 +44,18 @@ class Database:
             kmer_sizes = [kmer_sizes]
         self._kmer_sizes = sorted(kmer_sizes)
         self._last_valid_ids = None  # cache
+
+    def signature(self) -> str:
+        return hashed(
+            (
+                self._dbs_path,
+                self._window_size,
+                self._step,
+                self._full,
+                self._compression,
+                self._kmer_sizes,
+            )
+        )
 
     def get_data(self, tax_id: int, num: int) -> dict | None:
         db = self._get_db(tax_id)

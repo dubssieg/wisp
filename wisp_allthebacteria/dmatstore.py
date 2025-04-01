@@ -9,8 +9,9 @@ DMAT_SUFFIX = ".dmat"
 
 
 class DMatStore:
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, signature: str | None = None):
         self._path = Path(path).resolve()
+        self._signature = str(signature)
 
     def has_dmat(self, name: str) -> bool:
         return self._dmat_path(name).exists()
@@ -29,7 +30,10 @@ class DMatStore:
             yield self._deserialize_dmatrix(name)
 
     def _dmat_path(self, name: str | int) -> Path:
-        return self._path / f"{name}{DMAT_SUFFIX}"
+        path = self._path
+        if self._signature:
+            path /= self._signature
+        return path / f"{name}{DMAT_SUFFIX}"
 
     def _serialize_dmatrix(self, dmat: xgb.DMatrix, name: str) -> None:
         dmat_path = self._dmat_path(name)

@@ -11,7 +11,7 @@ import seaborn as sns
 import numpy as np
 import xgboost as xgb
 from datetime import datetime
-from utils import serialize, deserialize, format_duration, FunctionLogger
+from utils import serialize, deserialize, format_duration, FunctionLogger, hashed
 
 # from tqdm.auto import tqdm
 
@@ -77,7 +77,6 @@ class XGBoostModel:
         self._gen = None
         self._last_batch_id = 0
         self._max_batch_count = None
-        self._dmat_store = DMatStore(self._workspace_path / "dmatstore")
 
         # sample generator
         self._gen = ByRankGenerator(
@@ -95,6 +94,10 @@ class XGBoostModel:
         )
         self._gen.start()
 
+        self._dmat_store = DMatStore(
+            self._workspace_path / "dmatstore", signature=self.signature()
+        )
+
         # labels
         self._labels = self._gen.labels(self._rank, min_samples=min_samples_by_class)
         self._label_encoder = LabelEncoder()
@@ -108,6 +111,21 @@ class XGBoostModel:
         self._max_batch_count = self._gen.estimated_batches_count()
 
         LOG.info(f"XGBoostModel max batches: {self._max_batch_count}")
+
+    def signature(self) -> str:
+        return hashed(
+            (
+                self._seed,
+                self._rank,
+                self._normalize,
+                self._batch_size,
+                self._sample_balance_factor,
+                self._batch_balance_factor,
+                self._min_samples_by_class,
+                self._database.signature(),
+                self._gen.signature(),
+            )
+        )
 
     def train(
         self,

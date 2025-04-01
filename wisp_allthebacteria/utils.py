@@ -281,7 +281,7 @@ def cleanup_zombie_processes(pid: int | None = None):
                 child.kill()
 
 
-def hash(data: Any) -> str:
+def hashed(data: Any) -> str:
     if not isinstance(data, (tuple, list, np.array)):
         data = [data]
     hasher = hashlib.sha256()

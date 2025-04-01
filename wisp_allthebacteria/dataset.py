@@ -13,7 +13,7 @@ import numpy as np
 import xgboost as xgb
 from database import Database
 from taxdb import TaxDB
-from utils import hash, get_weights, sample_count_estimation
+from utils import hashed, get_weights, sample_count_estimation
 
 LOG = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class Dataset:
         if isinstance(tax_ids, int):
             tax_ids = [tax_ids]
 
-        idx_key = (IDX_ANALYSIS, hash(tax_ids))
+        idx_key = (IDX_ANALYSIS, hashed(tax_ids))
         analysis_result = self._db.get_index(idx_key)
         if not analysis_result:
             LOG.debug(f"Analysing {len(tax_ids)} tax_ids")
@@ -204,6 +204,7 @@ class ByRankGenerator(Dataset):
         self._buffer_threads = buffer_threads
         self._sample_balance_factor = sample_balance_factor
         self._batch_balance_factor = batch_balance_factor
+        self._min_samples_by_class = min_samples_by_class
         self._lock = threading.Lock()
         self._tax_ids_by_rank = self._get_tax_ids_by_rank(
             rank, min_samples=min_samples_by_class
@@ -239,6 +240,19 @@ class ByRankGenerator(Dataset):
             max_workers=self._buffer_threads
         )
         self._terminating = False
+
+    def signature(self) -> str:
+        return hash(
+            (
+                self._rank,
+                self._batch_size,
+                self._normalize,
+                self._seed,
+                self._sample_balance_factor,
+                self._batch_balance_factor,
+                self._min_samples_by_class,
+            )
+        )
 
     def start(self) -> None:
         LOG.debug("Start filling buffers...")
