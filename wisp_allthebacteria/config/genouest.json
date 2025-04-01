@@ -29,6 +29,7 @@
         "scientific_name": true,
         "default_models_dir": "/WORKS/microtaxo_atb/models",
         "default_workspaces_dir": "/WORKS/microtaxo_atb/workspaces",
+        "force_workspace":false,
         "batch_size": 100000,
         "generator_threads": "max_minus_2",
         "train_batch_count": "max",
@@ -38,7 +39,8 @@
         "sample_balance_factor": 0,
         "batch_balance_factor": 0.8,
         "min_samples_by_class": 1000,
-        "max_buffer_total_size": 200000 
+        "max_buffer_total_size": 200000,
+        "kfold":5
     },
     "log":{
         "log_path": "/WORKS/microtaxo_atb/logs/log.txt",

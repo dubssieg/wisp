@@ -29,16 +29,18 @@
         "scientific_name": true,
         "default_models_dir": "/data/microtaxo/models",
         "default_workspaces_dir": "/data/microtaxo/workspaces",
-        "batch_size": 100,
+        "force_workspace":"/data/microtaxo/workspaces/ws1",
+        "batch_size": 1000,
         "generator_threads": 10,
-        "train_batch_count": 5,
+        "train_batch_count": "max",
         "test_batch_count": 1,
         "eval_batch_count": 1,
-        "eval_patience": 4,
+        "eval_patience": 5,
         "sample_balance_factor":0,
-        "batch_balance_factor": 1,
+        "batch_balance_factor": 0.7,
         "min_samples_by_class": 1000,
-        "max_buffer_total_size": 1000 
+        "max_buffer_total_size": 1000,
+        "kfold":5
     },
     "log":{
         "log_path": "/data/microtaxo/logs/log.txt",

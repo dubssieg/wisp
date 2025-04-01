@@ -161,8 +161,7 @@ def train_model(
     conf: dict,
     rank: str | None,
     save_path: str | None,
-    workspace_path: str | None,
-    kfold: int | None,
+    kfold: bool,
 ):
     LOG.info("train_model")
     with SystemStatsLogger(interval=30):
@@ -188,7 +187,9 @@ def train_model(
         if not normalize:
             normalize = None
         dt = get_current_datetime_string()
-        if workspace_path is None:
+        if conf["model"]["force_workspace"]:
+            workspace_path = Path(conf["model"]["force_workspace"]).resolve()
+        else:
             workspace_path = (
                 Path(conf["model"]["default_workspaces_dir"]).resolve() / dt
             )
@@ -215,7 +216,7 @@ def train_model(
 
         if kfold:
             xgb_model.kfold(
-                k=kfold,
+                k=conf["model"]["kfold"],
                 save_path=save_path,
                 train_batch_count=train_batch_count,
                 eval_patience=conf["model"]["eval_patience"],
@@ -354,18 +355,10 @@ if __name__ == "__main__":
         type=str,
         help="Path to save results (or check config for default location)",
     )
-    parser.add_argument(
-        "--workspace-path",
-        type=str,
-        help="Path to save DMatrix and batches (or check config for default location)",
-    )
 
     parser.add_argument(
         "--kfold",
-        type=int,
-        nargs="?",
-        const=5,
-        default=None,  # Valeur par défaut si l'argument n'est pas spécifié
+        action="store_true",
         help="Number of folds for k-fold cross-validation",
     )
 
@@ -419,7 +412,6 @@ if __name__ == "__main__":
             conf=conf,
             rank=args.rank,
             save_path=args.save_path,
-            workspace_path=args.workspace_path,
             kfold=args.kfold,
         )
 
