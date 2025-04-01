@@ -123,12 +123,12 @@ class Dataset:
 
         if as_str:
             header = (
-                f"{'Batch Balance Factor':>24} "
+                f"{'Sample Balance Factor':>24} "
                 + " ".join(f"{i / 10:>6}" for i in range(11))
                 + "\n"
             )
 
-            body = f"{'Sample Balance Factor':>24} \n"
+            body = f"{'Batch Balance Factor':>24} \n"
 
             for key, values in data.items():
                 row = (
