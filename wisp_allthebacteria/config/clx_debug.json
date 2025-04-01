@@ -34,7 +34,7 @@
         "train_batch_count": 3,
         "test_batch_count": 1,
         "eval_batch_count": 1,
-        "eval_patience": 2,
+        "eval_patience": 4,
         "sample_balance_factor":0,
         "batch_balance_factor": 1,
         "min_samples_by_class": 1000,

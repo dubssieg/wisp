@@ -16,7 +16,7 @@ class DMatStore:
         return self._dmat_path(name).exists()
 
     def dmat_list(self) -> list[str]:
-        return [p.name for p in self._path.rglob(DMAT_SUFFIX)]
+        return [p.name for p in self._path.rglob(f"*{DMAT_SUFFIX}")]
 
     def clear(self) -> None:
         for dmat_name in self.dmat_list():

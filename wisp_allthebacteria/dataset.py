@@ -12,7 +12,7 @@ import numpy as np
 import xgboost as xgb
 from database import Database
 from taxdb import TaxDB
-from utils import hash, FunctionLogger, get_weights, sample_count_estimation
+from utils import hash, get_weights, sample_count_estimation
 
 LOG = logging.getLogger(__name__)
 
