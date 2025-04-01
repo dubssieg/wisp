@@ -123,6 +123,8 @@ class XGBoostModel:
             FunctionLogger(30, self._gen.batch_info),
             FunctionLogger(30, self._gen.buffers_info),
         ):
+            report["start_dt"] = datetime.now()
+            report["num_boost_round"] = num_boost_round
             save_path = Path(save_path).resolve()  # models + report
 
             splits = self._get_simple_batch_splits(
@@ -130,9 +132,6 @@ class XGBoostModel:
                 eval_batch_count=eval_batch_count,
                 test_batch_count=test_batch_count,
             )
-
-            report["start_dt"] = datetime.now()
-            report["splits"] = splits
 
             report["train"] = self._train(
                 eval_patience=eval_patience,
@@ -143,6 +142,8 @@ class XGBoostModel:
 
             report["test"] = self._evaluate(batch_ids=splits["test"])
             LOG.debug(f"Test score: {report['test']['score']:.3f}")
+
+            report["splits"] = splits
             report["end_dt"] = datetime.now()
 
             self.save(save_path)
@@ -158,26 +159,59 @@ class XGBoostModel:
         eval_patience: int = 1,
         num_boost_round: int = 100,
     ):
+        report = {}
         with (
             FunctionLogger(30, self._gen.batch_info),
             FunctionLogger(30, self._gen.buffers_info),
         ):
-            save_path = Path(save_path).resolve()  # report
+            report["start_dt"] = datetime.now()
+            report["num_boost_round"] = num_boost_round
+            save_path = Path(save_path).resolve()  # report only (no model saving)
             ksplits = self._get_kfold_batch_splits(
                 k,
                 train_batch_count=train_batch_count,
                 eval_batch_count=eval_batch_count,
             )
-            reports = []
+            kreports = []
+            ys = []
             for i, splits in enumerate(ksplits):
-                kreport = self._train_and_evaluate(
+                kreport = {}
+                kreport["start_dt"] = datetime.now()
+                kreport["num_boost_round"] = num_boost_round
+                kreport["train"] = self._train(
                     eval_patience=eval_patience,
                     num_boost_round=num_boost_round,
-                    splits=splits,
+                    train_batch_ids=splits["train"],
+                    eval_batch_ids=splits["eval"],
                 )
+                kreport["test"], y = self._evaluate(
+                    batch_ids=splits["test"], return_y=True
+                )
+                y["batch_ids"] = splits["test"]
+                ys.append(y)
+                LOG.debug(f"Test score: {kreport['test']['score']:.3f}")
+                kreport["end_dt"] = datetime.now()
+                kreport["splits"] = splits
+
                 self._generate_report(path=save_path / "folds" / str(i), report=kreport)
-                reports.append(kreport)
-            return reports  # TODO: generate aggregated report
+                kreports.append(kreport)
+
+            y = {
+                "true": np.concatenate([item["y_true"] for item in ys]),
+                "pred": np.concatenate([item["y_pred"] for item in ys]),
+                "batch_ids": np.concatenate([item["batch_ids"] for item in ys]),
+            }
+            report["test"] = self._metrics(y_true=y["true"], y_pred=y["pred"])
+            report["kfold"] = kreports
+            report["splits"] = ksplits
+            report["end_dt"] = datetime.now()
+            report["train"] = {
+                "start_dt": report["kfold"][0]["start_dt"],
+                "end_dt": report["kfold"][-1]["start_dt"],
+                "params": report["kfold"][0]["train"]["params"],
+            }
+            self._generate_report(path=save_path, report=report)
+            return report  # TODO: generate aggregated report
 
     def _train(
         self,
@@ -199,7 +233,6 @@ class XGBoostModel:
         report["params"] = params
         report["batches"] = []
         # report["total_du"] = {"total_duration": 0, "batches": []}
-        report["num_boost_round"] = num_boost_round
 
         start_total_time = time.time()
 
@@ -274,7 +307,7 @@ class XGBoostModel:
         # report["end_dt"] = datetime.now()
         return report
 
-    def _evaluate(self, batch_ids: list[int]) -> dict:
+    def _evaluate(self, batch_ids: list[int], return_y: bool = False) -> dict:
         """Evaluate the model (eval or test)"""
 
         LOG.debug("Evaluating model...")
@@ -302,27 +335,33 @@ class XGBoostModel:
         y_true = self._label_encoder.inverse_transform(all_y_true_encoded)
         y_pred = self._label_encoder.inverse_transform(all_y_pred_encoded)
 
-        # scientific names
-        y_true = [self._sn_map[tax_id] for tax_id in y_true]
-        y_pred = [self._sn_map[tax_id] for tax_id in y_pred]
-
         LOG.debug("Model evaluated, getting report...")
+        report.update(self._metrics(y_true=y_true, y_pred=y_pred))
 
-        # generate classification report and confusion matrix
+        report["eval_duration"] = time.time() - start_total_time
+
+        LOG.debug("Model evaluated")
+        if return_y:
+            return report, {"y_true": y_true, "y_pred": y_pred}
+        return report
+
+    def _metrics(self, y_true: list | np.ndarray, y_pred: list | np.ndarray) -> dict:
+        report = {}
+        # scientific names
+        y_true_sn = [self._sn_map[tax_id] for tax_id in y_true]
+        y_pred_sn = [self._sn_map[tax_id] for tax_id in y_pred]
+
         sorted_labels = sorted(self._sn_map.values())
         report["classification_report"] = classification_report(
-            y_true,
-            y_pred,
+            y_true_sn,
+            y_pred_sn,
             labels=sorted_labels,
             output_dict=True,
         )
         report["confusion_matrix"] = confusion_matrix(
-            y_true, y_pred, labels=sorted_labels
+            y_true_sn, y_pred_sn, labels=sorted_labels
         )
         report["score"] = self._score(report)
-        report["eval_duration"] = time.time() - start_total_time
-
-        LOG.debug("Model evaluated")
         return report
 
     def _generate_report(self, path: Path, report: dict):
@@ -343,7 +382,7 @@ class XGBoostModel:
 
         report_lines.append("\n=== Parameters ===")
         report_lines.append(f"Database: {self._database.get_db_path()}")
-        report_lines.append(f"Boosting rounds: {report['train']['num_boost_round']}")
+        report_lines.append(f"Boosting rounds: {report['num_boost_round']}")
         report_lines.append("Parameters:")
         report_lines.append(json.dumps(report["train"]["params"], indent=4))
         report_lines.append("")
@@ -355,9 +394,8 @@ class XGBoostModel:
         report_lines.append(f"Min samples per class: {self._min_samples_by_class}")
         report_lines.append(f"Available Batches: {self._max_batch_count}")
         report_lines.append(
-            f"Generated Batches: {self._last_batch_id} (workspace: {self._workspace_path})"
+            f"Generated Batches: {self._last_batch_id} (using workspace: {self._workspace_path})"
         )
-        report_lines.append(f"Workspace: {self._workspace_path}")
         stored_dmat = ", ".join(
             map(
                 str,
@@ -365,15 +403,34 @@ class XGBoostModel:
             )
         )
         report_lines.append(f"DMatrix storage: [{stored_dmat}]")
-        report_lines.append(
-            f"Training Batches: {len(report['train']['batches'])} (max: {len(report['splits']['train'])})"
-        )
-        report_lines.append(f"Evaluation Batches: {len(report['splits']['eval'])}")
-        report_lines.append(f"Test Batches: {len(report['splits']['test'])}")
-        report_lines.append("Batch splits:")
-        for name, batch_ids in report["splits"].items():
-            batch_ids_str = f"[{', '.join(map(str, batch_ids))}]"
-            report_lines.append(f"- {name}: {batch_ids_str}")
+
+        if "kfold" in report:
+            report_lines.append("Training batches:")
+            for i in range(len(report["kfold"])):
+                report_lines.append(f"* Fold {i+1}:")
+                for target in ("train", "eval", "test"):
+                    batch_ids = report["splits"][i][target]
+                    batch_ids_str = f"[{', '.join(map(str, batch_ids))}]"
+                    if target == "train":
+                        actual_count = len(report["kfold"][i][target]["batches"])
+                        report_lines.append(
+                            f"{target.upper()} batches: {actual_count} (max: {len(batch_ids)}) -> {batch_ids_str}"
+                        )
+                    else:
+                        report_lines.append(
+                            f"{target.upper()} batches: {len(batch_ids)} -> {batch_ids_str}"
+                        )
+
+        else:
+            report_lines.append(
+                f"Training Batches: {len(report['train']['batches'])} (max: {len(report['splits']['train'])})"
+            )
+            report_lines.append(f"Evaluation Batches: {len(report['splits']['eval'])}")
+            report_lines.append(f"Test Batches: {len(report['splits']['test'])}")
+            report_lines.append("Batch splits:")
+            for name, batch_ids in report["splits"].items():
+                batch_ids_str = f"[{', '.join(map(str, batch_ids))}]"
+                report_lines.append(f"- {name}: {batch_ids_str}")
 
         report_lines.append(f"Normalization: {self._normalize}")
         report_lines.append(f"Seed: {self._seed}")
