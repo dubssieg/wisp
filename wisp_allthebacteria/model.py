@@ -695,15 +695,11 @@ class XGBoostModel:
                 f"Not enough batches available for the specified k-fold split ({self._max_batch_count})"
             )
 
-        splits = []
         all_batches = list(range(1, self._max_batch_count + 1))
-        fold_size = (len(all_batches) + k - 1) // k
+        test_folds = np.array_split(all_batches, k)
 
-        for i in range(k):
-            start_index = i * fold_size
-            end_index = min(start_index + fold_size, len(all_batches))
-
-            test_indices = all_batches[start_index:end_index]
+        splits = []
+        for test_indices in test_folds:
             remaining_indices = [j for j in all_batches if j not in test_indices]
             eval_index = remaining_indices[:eval_batch_count]
 
@@ -715,7 +711,11 @@ class XGBoostModel:
                 ]
 
             splits.append(
-                {"train": train_indices, "eval": eval_index, "test": test_indices}
+                {
+                    "train": train_indices,
+                    "eval": eval_index,
+                    "test": [int(i) for i in test_indices],
+                }
             )
 
         return splits
