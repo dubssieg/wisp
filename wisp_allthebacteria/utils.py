@@ -323,3 +323,13 @@ def sizeof(obj: Any, detail: bool = False) -> int | str:
     if detail:
         return pympler.asizeof.asized(obj, detail=1).format()
     return pympler.asizeof.asizeof(obj)
+
+
+def merge_dicts(dict1: dict, dict2: dict) -> dict:
+    """dict1 is updated with dict2 values"""
+    for key, value in dict2.items():
+        if isinstance(value, dict) and key in dict1 and isinstance(dict1[key], dict):
+            merge_dicts(dict1[key], value)
+        else:
+            dict1[key] = value
+    return dict1

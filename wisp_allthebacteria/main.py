@@ -11,6 +11,7 @@ from metadata import Metadata
 from fastakmer import FastaKmer
 from taxdb import TaxDB, RANKS
 from model import XGBoostModel
+from supermodel import SuperModel
 from database import Database, DatabaseBuilder
 from dataset import Dataset
 from utils import (
@@ -330,18 +331,21 @@ def debug(conf):
         preload=False,
     )
     ds = Dataset(database=database, taxdb=taxdb)
-    # tids_by_rank = ds._get_tax_ids_by_rank("phylum")
-    # tids = list(tids_by_rank.values())
-    # ds.get_tax_id_analysis(tids[0])
-    rank_an = ds.get_ranks_analysis(scientific_names=False)
-    res = {}
-    for rank_tid in rank_an["kingdom"]["tax_ids"].keys():
-        res[rank_tid] = ds._get_tax_ids_by_rank(
-            "phylum", parent_filter={"kingdom": rank_tid}
-        )
 
-    print(res)
-    print(ds._get_tax_ids_by_rank("phylum"))
+    sm = SuperModel(dataset=ds, conf=conf)
+
+    tree = sm._build_tree("model1")
+    print(tree)
+
+    # rank_an = ds.get_ranks_analysis(scientific_names=False)
+    # res = {}
+    # for rank_tid in rank_an["kingdom"]["tax_ids"].keys():
+    #     res[rank_tid] = ds._get_tax_ids_by_rank(
+    #         "phylum", parent_filter={"kingdom": rank_tid}
+    #     )
+
+    # print(res)
+    # print(ds._get_tax_ids_by_rank("phylum"))
 
 
 if __name__ == "__main__":

@@ -175,11 +175,11 @@ class Dataset:
         self,
         rank: str,
         min_samples: int | None = None,
-        parent_filter: dict | None = None,  # to keep
+        parent_filter: dict | None = None,
     ) -> dict[int, list[int]]:
         """parent_filter is like: {"phylum": [phylum1, phylum2], etc.}
         We only KEEP those and remove everything else"""
-        idx_key = (IDX_TID_BY_RANK, rank)
+        idx_key = (IDX_TID_BY_RANK, hashed((rank, min_samples, parent_filter)))
         rank_mapping = self._db.get_index(idx_key)
 
         if rank_mapping is None:
