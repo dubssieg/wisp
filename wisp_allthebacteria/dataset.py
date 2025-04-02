@@ -17,7 +17,8 @@ from utils import hashed, get_weights, sample_count_estimation
 
 LOG = logging.getLogger(__name__)
 
-IDX_ANALYSIS = "_analysis_"
+IDX_TAX_IDS_ANALYSIS = "_tid_analysis_"
+IDX_RANKS_ANALYSIS = "_ranks_analysis_"
 IDX_TID_BY_RANK = "_tid_by_rank_"
 
 
@@ -32,26 +33,29 @@ class Dataset:
             name: index for index, name in enumerate(self._column_names)
         }
 
-    def get_analysis_by_rank(
+    def get_ranks_analysis(
         self, scientific_names: bool = False, min_samples_by_class: int | None = None
     ) -> dict:
-        data = {}
-        for rank in RANKS:
-            tids_by_rank = self._get_tax_ids_by_rank(
-                rank=rank, min_samples=min_samples_by_class
-            )
-            if scientific_names:
-                tids_by_rank = {
-                    self._taxdb[rank_tid].get("ScientificName", "Unknown"): tids
+        idx_key = (IDX_RANKS_ANALYSIS, hashed((scientific_names, min_samples_by_class)))
+        data = self._db.get_index(idx_key)
+        if not data:
+            data = {}
+            for rank in RANKS:
+                tids_by_rank = self._get_tax_ids_by_rank(
+                    rank=rank, min_samples=min_samples_by_class
+                )
+                if scientific_names:
+                    tids_by_rank = {
+                        self._taxdb[rank_tid].get("ScientificName", "Unknown"): tids
+                        for rank_tid, tids in tids_by_rank.items()
+                    }
+
+                counts = {
+                    rank_tid: self._db.count(tids)
                     for rank_tid, tids in tids_by_rank.items()
                 }
 
-            counts = {
-                rank_tid: self._db.count(tids)
-                for rank_tid, tids in tids_by_rank.items()
-            }
-
-            data[rank] = {"counts": counts, "tax_ids": tids_by_rank}
+                data[rank] = {"counts": counts, "tax_ids": tids_by_rank}
         return data
 
     # FIXME: Not called anymore?
@@ -62,7 +66,7 @@ class Dataset:
             tax_ids = [tax_ids]
         tax_ids = sorted(tax_ids)
 
-        idx_key = (IDX_ANALYSIS, hashed(tax_ids))
+        idx_key = (IDX_TAX_IDS_ANALYSIS, hashed(tax_ids))
         analysis_result = self._db.get_index(idx_key)
         if not analysis_result:
             LOG.debug(f"Analysing {len(tax_ids)} tax_ids")
