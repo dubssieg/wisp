@@ -172,14 +172,14 @@ def batch_count(conf: dict, rank: str):
     ds = Dataset(database=database, taxdb=taxdb)
     batch_size = conf["model"]["batch_size"]
     print(f"Batch size= {batch_size}\n")
-    if min_samples := conf["model"]["min_samples_by_class"]:
+    if min_samples := conf["model"]["min_samples_per_class"]:
 
         print(f"WITH Min samples by class = {min_samples}\n")
         print(
             ds.get_batch_counts_for_rank(
                 rank=rank,
                 batch_size=batch_size,
-                min_samples_by_class=conf["model"]["min_samples_by_class"],
+                min_samples_per_class=conf["model"]["min_samples_per_class"],
                 as_str=True,
             )
         )
@@ -189,7 +189,7 @@ def batch_count(conf: dict, rank: str):
         ds.get_batch_counts_for_rank(
             rank=rank,
             batch_size=batch_size,
-            min_samples_by_class=None,
+            min_samples_per_class=None,
             as_str=True,
         )
     )
@@ -247,7 +247,7 @@ def train(
             generator_threads=cpu_count(conf["model"]["generator_threads"]),
             sample_balance_factor=conf["model"]["sample_balance_factor"],
             batch_balance_factor=conf["model"]["batch_balance_factor"],
-            min_samples_by_class=conf["model"]["min_samples_by_class"],
+            min_samples_per_class=conf["model"]["min_samples_per_class"],
             max_buffer_total_size=conf["model"]["max_buffer_total_size"],
             workspace_path=workspace_path,
         )
@@ -425,7 +425,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--batch-count",
         type=str,
-        help="How many batches for this rank (use batch_size and min_samples_by_class). Ex: --batch_counts=phylum",
+        help="How many batches for this rank (use batch_size and min_samples_per_class). Ex: --batch_counts=phylum",
     )
     parser.add_argument(
         "--debug",

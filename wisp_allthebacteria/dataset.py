@@ -34,15 +34,18 @@ class Dataset:
         }
 
     def get_ranks_analysis(
-        self, scientific_names: bool = False, min_samples_by_class: int | None = None
+        self, scientific_names: bool = False, min_samples_per_class: int | None = None
     ) -> dict:
-        idx_key = (IDX_RANKS_ANALYSIS, hashed((scientific_names, min_samples_by_class)))
+        idx_key = (
+            IDX_RANKS_ANALYSIS,
+            hashed((scientific_names, min_samples_per_class)),
+        )
         data = self._db.get_index(idx_key)
         if not data:
             data = {}
             for rank in RANKS:
                 tids_by_rank = self._get_tax_ids_by_rank(
-                    rank=rank, min_samples=min_samples_by_class
+                    rank=rank, min_samples=min_samples_per_class
                 )
                 if scientific_names:
                     tids_by_rank = {
@@ -131,11 +134,11 @@ class Dataset:
         self,
         rank: str,
         batch_size: int,
-        min_samples_by_class: int | None = None,
+        min_samples_per_class: int | None = None,
         as_str: bool = False,
     ) -> dict | str:
         tids_by_rank = self._get_tax_ids_by_rank(
-            rank=rank, min_samples=min_samples_by_class
+            rank=rank, min_samples=min_samples_per_class
         )
         values = [i / 10 for i in range(11)]
         data = defaultdict(dict)
@@ -205,7 +208,7 @@ class Dataset:
 
         if parent_filter:
             rank_an = self.get_ranks_analysis(
-                min_samples_by_class=min_samples, scientific_names=False
+                min_samples_per_class=min_samples, scientific_names=False
             )
             tids_to_keep = set()
             for rank, rank_tids_to_keep in parent_filter.items():
@@ -251,7 +254,7 @@ class ByRankGenerator(Dataset):
         buffer_threads: int = 10,
         sample_balance_factor: float = 0.0,
         batch_balance_factor: float = 0.0,
-        min_samples_by_class: int | None = None,
+        min_samples_per_class: int | None = None,
         max_buffer_total_size: int | None = None,
     ):
         super().__init__(database=database, taxdb=taxdb)
@@ -264,10 +267,10 @@ class ByRankGenerator(Dataset):
         self._buffer_threads = buffer_threads
         self._sample_balance_factor = sample_balance_factor
         self._batch_balance_factor = batch_balance_factor
-        self._min_samples_by_class = min_samples_by_class
+        self._min_samples_per_class = min_samples_per_class
         self._lock = threading.Lock()
         self._tax_ids_by_rank = self._get_tax_ids_by_rank(
-            rank, min_samples=min_samples_by_class
+            rank, min_samples=min_samples_per_class
         )
         self._rank_tids = list(self._tax_ids_by_rank.keys())
 
@@ -310,7 +313,7 @@ class ByRankGenerator(Dataset):
                 self._seed,
                 self._sample_balance_factor,
                 self._batch_balance_factor,
-                self._min_samples_by_class,
+                self._min_samples_per_class,
             )
         )
 

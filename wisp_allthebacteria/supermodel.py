@@ -40,7 +40,7 @@ class SuperModel:
 
             tax_ids = self._dataset._get_tax_ids_by_rank(
                 rank=rank,
-                min_samples=conf["model"]["min_samples_by_class"],
+                min_samples=conf["model"]["min_samples_per_class"],
                 parent_filter=parent_filter,
             ).keys()
 

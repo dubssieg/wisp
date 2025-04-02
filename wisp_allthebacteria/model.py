@@ -56,7 +56,7 @@ class XGBoostModel:
         generator_threads: int = 10,
         sample_balance_factor: float = 0.0,
         batch_balance_factor: float = 0.0,
-        min_samples_by_class: int = 1,
+        min_samples_per_class: int = 1,
         max_buffer_total_size: int | None = None,
     ):
         LOG.debug(f"XGBoostModel({locals()})")
@@ -70,7 +70,7 @@ class XGBoostModel:
         self._generator_threads = generator_threads
         self._sample_balance_factor = sample_balance_factor
         self._batch_balance_factor = batch_balance_factor
-        self._min_samples_by_class = min_samples_by_class
+        self._min_samples_per_class = min_samples_per_class
 
         self._workspace_path = Path(workspace_path).resolve()
         self._model = None
@@ -89,7 +89,7 @@ class XGBoostModel:
             buffer_threads=self._generator_threads,
             sample_balance_factor=self._sample_balance_factor,
             batch_balance_factor=self._batch_balance_factor,
-            min_samples_by_class=min_samples_by_class,
+            min_samples_per_class=min_samples_per_class,
             max_buffer_total_size=max_buffer_total_size,
         )
         self._gen.start()
@@ -99,7 +99,7 @@ class XGBoostModel:
         )
 
         # labels
-        self._labels = self._gen.labels(self._rank, min_samples=min_samples_by_class)
+        self._labels = self._gen.labels(self._rank, min_samples=min_samples_per_class)
         self._label_encoder = LabelEncoder()
         self._label_encoder.fit(self._labels)
 
@@ -121,7 +121,7 @@ class XGBoostModel:
                 self._batch_size,
                 self._sample_balance_factor,
                 self._batch_balance_factor,
-                self._min_samples_by_class,
+                self._min_samples_per_class,
                 self._database.signature(),
                 self._gen.signature(),
             )
@@ -414,7 +414,7 @@ class XGBoostModel:
         report_lines.append(f"Samples per Batch: {self._batch_size}")
         report_lines.append(f"Sample balance factor: {self._sample_balance_factor}")
         report_lines.append(f"Batch balance factor: {self._batch_balance_factor}")
-        report_lines.append(f"Min samples per class: {self._min_samples_by_class}")
+        report_lines.append(f"Min samples per class: {self._min_samples_per_class}")
         report_lines.append(f"Available Batches: {self._max_batch_count}")
         report_lines.append(
             f"Generated Batches: {self._last_batch_id} (using workspace: {self._workspace_path})"

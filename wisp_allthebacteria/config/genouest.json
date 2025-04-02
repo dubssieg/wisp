@@ -43,7 +43,7 @@
         "eval_patience": 5,
         "sample_balance_factor": 0,
         "batch_balance_factor": 1,
-        "min_samples_by_class": 10000,
+        "min_samples_per_class": 10000,
         "max_buffer_total_size": 100000,
         "kfold": 5
     },
