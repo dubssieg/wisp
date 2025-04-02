@@ -242,7 +242,7 @@ class ByRankGenerator(Dataset):
         self._terminating = False
 
     def signature(self) -> str:
-        return hash(
+        return hashed(
             (
                 self._rank,
                 self._batch_size,
