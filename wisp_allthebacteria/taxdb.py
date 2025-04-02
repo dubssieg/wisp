@@ -176,9 +176,13 @@ class TaxDB:
             if not isinstance(records, list):
                 raise TypeError(f"Record for {tax_id=} should be a list: {records}")
             if len(records) != 1:
-                raise ValueError(f"Record for {tax_id=} have one element only")
+                raise ValueError(f"Record for {tax_id=} should have one item only")
             if not isinstance(records[0], dict):
                 raise TypeError(f"Record for {tax_id=} should be a dict: {records[0]}")
+            if not records[0]:
+                raise TypeError(
+                    f"Record for {tax_id=} should not be an empty dict: {records[0]}"
+                )
             self._cache[tax_id] = records
             return records
         except HTTPError:
