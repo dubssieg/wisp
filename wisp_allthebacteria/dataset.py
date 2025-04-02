@@ -172,12 +172,17 @@ class Dataset:
         return dict(data)
 
     def _get_tax_ids_by_rank(
-        self, rank: str, min_samples: int | None = None
+        self,
+        rank: str,
+        min_samples: int | None = None,
+        parent_filter: dict | None = None,  # to keep
     ) -> dict[int, list[int]]:
+        """parent_filter is like: {"phylum": [phylum1, phylum2], etc.}
+        We only KEEP those and remove everything else"""
         idx_key = (IDX_TID_BY_RANK, rank)
         rank_mapping = self._db.get_index(idx_key)
 
-        if not rank_mapping:
+        if rank_mapping is None:
             rank_mapping = defaultdict(list)
             for tax_id in self._db.get_tax_ids():
                 for entry in self._taxdb[tax_id].get("LineageEx", []):
@@ -197,6 +202,32 @@ class Dataset:
             }
             if removed := rm_len - len(rank_mapping):
                 LOG.debug(f"{removed} {rank}(s) removed (samples < {min_samples})")
+
+        if parent_filter:
+            rank_an = self.get_ranks_analysis(
+                min_samples_by_class=min_samples, scientific_names=False
+            )
+            tids_to_keep = set()
+            for rank, rank_tids_to_keep in parent_filter.items():
+                if isinstance(rank_tids_to_keep, int):
+                    rank_tids_to_keep = [rank_tids_to_keep]
+                for rank_tid_to_keep in rank_tids_to_keep:
+                    if rank_tid_to_keep in rank_an[rank]["tax_ids"]:
+                        tids_to_keep.update(rank_an[rank]["tax_ids"][rank_tid_to_keep])
+            rank_mapping = {
+                rank_tid: list(set(tids) & tids_to_keep)
+                for rank_tid, tids in rank_mapping.items()
+            }
+            rank_mapping = {
+                rank_tid: tids for rank_tid, tids in rank_mapping.items() if tids
+            }
+
+            # if sub_tax_id in rank_mapping:
+            #     rank_mapping[sub_tax_id] = [
+            #         tid
+            #         for tid in rank_mapping[sub_tax_id]
+            #         if tid not in rank_an[rank]["tax_ids"][tax_id]
+            #     ]
 
         return rank_mapping
 

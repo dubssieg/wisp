@@ -333,7 +333,15 @@ def debug(conf):
     # tids_by_rank = ds._get_tax_ids_by_rank("phylum")
     # tids = list(tids_by_rank.values())
     # ds.get_tax_id_analysis(tids[0])
-    ds.get_analysis_by_rank(scientific_names=True)
+    rank_an = ds.get_ranks_analysis(scientific_names=False)
+    res = {}
+    for rank_tid in rank_an["kingdom"]["tax_ids"].keys():
+        res[rank_tid] = ds._get_tax_ids_by_rank(
+            "phylum", parent_filter={"kingdom": rank_tid}
+        )
+
+    print(res)
+    print(ds._get_tax_ids_by_rank("phylum"))
 
 
 if __name__ == "__main__":
