@@ -173,6 +173,12 @@ class TaxDB:
             LOG.debug(f"Downloading taxonomy data for {tax_id}...")
             handle = Entrez.efetch(db="taxonomy", id=str(tax_id), retmode="xml")
             records = Entrez.read(handle)
+            if not isinstance(records, list):
+                raise TypeError(f"Record for {tax_id=} should be a list: {records}")
+            if len(records) != 1:
+                raise ValueError(f"Record for {tax_id=} have one element only")
+            if not isinstance(records[0], dict):
+                raise TypeError(f"Record for {tax_id=} should be a dict: {records[0]}")
             self._cache[tax_id] = records
             return records
         except HTTPError:
