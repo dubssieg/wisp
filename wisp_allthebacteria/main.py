@@ -169,11 +169,26 @@ def batch_count(conf: dict, rank: str):
         preload=False,
     )
     ds = Dataset(database=database, taxdb=taxdb)
+    batch_size = conf["model"]["batch_size"]
+    print(f"Batch size= {batch_size}\n")
+    if min_samples := conf["model"]["min_samples_by_class"]:
+
+        print(f"WITH Min samples by class = {min_samples}\n")
+        print(
+            ds.get_batch_counts_for_rank(
+                rank=rank,
+                batch_size=batch_size,
+                min_samples_by_class=conf["model"]["min_samples_by_class"],
+                as_str=True,
+            )
+        )
+
+    print("\n\nWITHOUT Min samples by class\n")
     print(
         ds.get_batch_counts_for_rank(
             rank=rank,
-            batch_size=conf["model"]["batch_size"],
-            min_samples_by_class=conf["model"]["min_samples_by_class"],
+            batch_size=batch_size,
+            min_samples_by_class=None,
             as_str=True,
         )
     )
