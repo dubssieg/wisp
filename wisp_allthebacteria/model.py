@@ -277,7 +277,12 @@ class XGBoostModel:
                 num_boost_round=num_boost_round,
                 xgb_model=self._model,
             )
-            self.save(self._workspace_path / "batches " / str(len(report["batches"])))
+            self.save(
+                self._workspace_path
+                / "batches "
+                / self.signature()
+                / str(len(report["batches"]))
+            )
             batch_report["train_duration"] = time.time() - train_start_time
 
             # 3 - evaluate training
