@@ -299,26 +299,26 @@ def debug(conf):
     """debugging, ignore it"""
     LOG.info("Debug")
 
+    database = Database(
+        kmer_sizes=conf["db"]["kmer_sizes"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=conf["db"]["path"],
+        compression=conf["db"]["compression"],
+        fanout_shards=conf["db"]["fanout_shards"],
+    )
     taxdb = TaxDB(
         cache_dir=conf["taxdb"]["cache_dir"],
         email=conf["taxdb"]["email"],
         can_download=conf["taxdb"]["can_download"],
         preload=False,
     )
-
-    db = Database(
-        kmer_sizes=conf["db"]["kmer_sizes"],
-        window_size=conf["db"]["window_size"],
-        step=conf["db"]["step"],
-        full=conf["db"]["full"],
-        dbs_path=conf["db"]["path"],
-        fanout_shards=conf["db"]["fanout_shards"],
-        compression=conf["db"]["compression"],
-    )
-
-    ds = Dataset(database=db, taxdb=taxdb)
-    for batch in ds.by_rank_generator("phylum", batch_size=100, normalize=None):
-        print(batch)
+    ds = Dataset(database=database, taxdb=taxdb)
+    # tids_by_rank = ds._get_tax_ids_by_rank("phylum")
+    # tids = list(tids_by_rank.values())
+    # ds.get_tax_id_analysis(tids[0])
+    ds.get_analysis_by_rank(scientific_names=True)
 
 
 if __name__ == "__main__":

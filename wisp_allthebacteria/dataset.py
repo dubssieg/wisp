@@ -12,7 +12,7 @@ import concurrent
 import numpy as np
 import xgboost as xgb
 from database import Database
-from taxdb import TaxDB
+from taxdb import RANKS, TaxDB
 from utils import hashed, get_weights, sample_count_estimation
 
 LOG = logging.getLogger(__name__)
@@ -32,11 +32,35 @@ class Dataset:
             name: index for index, name in enumerate(self._column_names)
         }
 
-    def analyse(self, tax_ids: int | list[int] | None = None) -> dict:
+    def get_analysis_by_rank(
+        self, scientific_names: bool = False, min_samples_by_class: int | None = None
+    ) -> dict:
+        data = {}
+        for rank in RANKS:
+            tids_by_rank = self._get_tax_ids_by_rank(
+                rank=rank, min_samples=min_samples_by_class
+            )
+            if scientific_names:
+                tids_by_rank = {
+                    self._taxdb[rank_tid].get("ScientificName", "Unknown"): tids
+                    for rank_tid, tids in tids_by_rank.items()
+                }
+
+            counts = {
+                rank_tid: self._db.count(tids)
+                for rank_tid, tids in tids_by_rank.items()
+            }
+
+            data[rank] = {"counts": counts, "tax_ids": tids_by_rank}
+        return data
+
+    # FIXME: Not called anymore?
+    def get_tax_id_analysis(self, tax_ids: int | list[int] | None = None) -> dict:
         if tax_ids is None:
             tax_ids = self._db.get_tax_ids()
         if isinstance(tax_ids, int):
             tax_ids = [tax_ids]
+        tax_ids = sorted(tax_ids)
 
         idx_key = (IDX_ANALYSIS, hashed(tax_ids))
         analysis_result = self._db.get_index(idx_key)
@@ -50,9 +74,10 @@ class Dataset:
                 ),
             }
 
+            counts = self._db.counts()
             for tax_id in tax_ids:
                 # get sample count and additional information
-                sample_count = self._db.counts()
+                count = counts[tax_id]
                 tax_info = self._taxdb[tax_id]
                 scientific_name = tax_info.get("ScientificName", "Unknown")
                 rank = tax_info.get("Rank", "Unknown")
@@ -63,9 +88,9 @@ class Dataset:
                     "scientific_name": scientific_name,
                     "rank": rank,
                     "division": division,
-                    "count": sample_count,
+                    "count": count,
                 }
-                analysis_result["total_samples"] += sample_count
+                analysis_result["total_samples"] += sum(counts.values())
 
                 # lineage information (ranks)
                 lineage_ex = tax_info.get("LineageEx", [])
@@ -79,7 +104,7 @@ class Dataset:
                     # update the rank_counts structure
                     analysis_result["rank_counts"][parent_rank][parent_scientific_name][
                         "count"
-                    ] += sample_count
+                    ] += count
                     analysis_result["rank_counts"][parent_rank][parent_scientific_name][
                         "tax_id"
                     ] = parent_tax_id

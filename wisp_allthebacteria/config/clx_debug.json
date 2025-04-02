@@ -6,7 +6,7 @@
     "taxdb":{
         "cache_dir": "/data/microtaxo/apicache",
         "can_download": true,
-        "email": "cyrille.leroux@irisa.fr"
+        "email": "cyrille.leroux.2@irisa.fr"
     },
     "db":{
         "kmer_sizes": [1, 4, 7],
@@ -49,5 +49,8 @@
         "file_size": 10000000,
         "file_count": 3,
         "ignore_list": ["matplotlib", "PIL"]
+    },
+    "custom_ranks":{
+
     }
 }
