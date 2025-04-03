@@ -256,6 +256,7 @@ class ByRankGenerator(Dataset):
         batch_balance_factor: float = 0.0,
         min_samples_per_class: int | None = None,
         max_buffer_total_size: int | None = None,
+        parent_filter: dict | None = None,
     ):
         super().__init__(database=database, taxdb=taxdb)
         LOG.debug(f"ByRankGenerator for {rank=}, {batch_size=}, {normalize=}")
@@ -268,9 +269,10 @@ class ByRankGenerator(Dataset):
         self._sample_balance_factor = sample_balance_factor
         self._batch_balance_factor = batch_balance_factor
         self._min_samples_per_class = min_samples_per_class
+        self._is_started = False
         self._lock = threading.Lock()
         self._tax_ids_by_rank = self._get_tax_ids_by_rank(
-            rank, min_samples=min_samples_per_class
+            rank, min_samples=min_samples_per_class, parent_filter=parent_filter
         )
         self._rank_tids = list(self._tax_ids_by_rank.keys())
 
@@ -319,12 +321,18 @@ class ByRankGenerator(Dataset):
 
     def start(self) -> None:
         LOG.debug("Start filling buffers...")
-        self._start_filling_buffers()
+        if not self._is_started:
+            self._start_filling_buffers()
+            self._is_started = True
 
     def stop(self) -> None:
         LOG.debug("Stopping threads")
         self._terminating = True
+        self._is_started = False
         self._executor.shutdown(wait=True)
+
+    def is_started(self) -> bool:
+        return self._is_started
 
     def get(self) -> Generator[xgb.DMatrix, None, None]:
 

@@ -58,6 +58,8 @@ class XGBoostModel:
         batch_balance_factor: float = 0.0,
         min_samples_per_class: int = 1,
         max_buffer_total_size: int | None = None,
+        parent_filter: dict | None = None,
+        start_generator: bool = False,
     ):
         LOG.debug(f"XGBoostModel({locals()})")
         self._params = params if params is not None else DEFAULT_PARAMETERS
@@ -91,8 +93,10 @@ class XGBoostModel:
             batch_balance_factor=self._batch_balance_factor,
             min_samples_per_class=min_samples_per_class,
             max_buffer_total_size=max_buffer_total_size,
+            parent_filter=parent_filter,
         )
-        self._gen.start()
+        if start_generator:
+            self._gen.start()
 
         self._dmat_store = DMatStore(
             self._workspace_path / "dmatstore", signature=self.signature()
@@ -279,7 +283,7 @@ class XGBoostModel:
             )
             self.save(
                 self._workspace_path
-                / "batches "
+                / "batches"
                 / self.signature()
                 / str(len(report["batches"]))
             )
@@ -315,7 +319,7 @@ class XGBoostModel:
         prev_scores = [br["report"]["score"] for br in report["batches"]]
         max_index, max_value = max(enumerate(prev_scores), key=lambda x: x[1])
         LOG.debug(f"Loading best model: BATCH {max_index}, score={max_value:.3f}")
-        self.load(self._workspace_path / "batches " / str(max_index))
+        self.load(self._workspace_path / "batches" / self.signature() / str(max_index))
 
         report["total_duration"] = time.time() - start_total_time
         report["best_batch"] = {"index": max_index, "score": max_value}
@@ -567,7 +571,7 @@ class XGBoostModel:
         label_encoder_path = path / "labels_encoder.pkl"
         params_path = path / "params.json"
         for f in (model_path, label_path, label_encoder_path, params_path):
-            if not f.is_file:
+            if not f.exists():
                 self._gen.stop()
                 raise FileNotFoundError(f)
 
@@ -728,6 +732,8 @@ class XGBoostModel:
     def _get_next_batch(self) -> xgb.DMatrix:
         self._last_batch_id += 1
         try:
+            if not self._gen.is_started():
+                self._gen.start()
             return next(self._gen.get())
         except StopIteration:
             LOG.exception(
