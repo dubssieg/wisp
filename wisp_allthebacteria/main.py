@@ -201,7 +201,7 @@ def load_config(json_file: Path | str):
     return conf
 
 
-def train(
+def train_model(
     conf: dict,
     rank: str | None,
     save_path: str | None,
@@ -250,6 +250,7 @@ def train(
             min_samples_per_class=conf["model"]["min_samples_per_class"],
             max_buffer_total_size=conf["model"]["max_buffer_total_size"],
             workspace_path=workspace_path,
+            start_generator=True,
         )
 
         train_batch_count = conf["model"]["train_batch_count"]
@@ -277,8 +278,35 @@ def train(
                 num_boost_round=conf["model"]["num_boost_round"],
             )
 
-        # xgb_model.generate_report()
         xgb_model.stop()
+
+
+def train_supermodel(conf, name: str):
+    LOG.info("Train supermodel")
+
+    taxdb = TaxDB(
+        cache_dir=conf["taxdb"]["cache_dir"],
+        email=conf["taxdb"]["email"],
+        can_download=conf["taxdb"]["can_download"],
+    )
+
+    database = Database(
+        kmer_sizes=conf["db"]["kmer_sizes"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=conf["db"]["path"],
+        fanout_shards=conf["db"]["fanout_shards"],
+        compression=conf["db"]["compression"],
+    )
+
+    sm = SuperModel(
+        model_conf=conf["model"],
+        supermodel_conf=conf["supermodels"][name],
+        database=database,
+        taxdb=taxdb,
+    )
+    sm.train()
 
 
 def populate_taxdb(conf: dict):
@@ -315,27 +343,31 @@ def debug(conf):
     """debugging, ignore it"""
     LOG.info("Debug")
 
+    taxdb = TaxDB(
+        cache_dir=conf["taxdb"]["cache_dir"],
+        email=conf["taxdb"]["email"],
+        can_download=conf["taxdb"]["can_download"],
+    )
+
     database = Database(
         kmer_sizes=conf["db"]["kmer_sizes"],
         window_size=conf["db"]["window_size"],
         step=conf["db"]["step"],
         full=conf["db"]["full"],
         dbs_path=conf["db"]["path"],
-        compression=conf["db"]["compression"],
         fanout_shards=conf["db"]["fanout_shards"],
+        compression=conf["db"]["compression"],
     )
-    taxdb = TaxDB(
-        cache_dir=conf["taxdb"]["cache_dir"],
-        email=conf["taxdb"]["email"],
-        can_download=conf["taxdb"]["can_download"],
-        preload=False,
+
+    # dataset = Dataset(database=database, taxdb=taxdb)
+
+    sm = SuperModel(
+        model_conf=conf["model"],
+        supermodel_conf=conf["supermodels"]["model1"],
+        database=database,
+        taxdb=taxdb,
     )
-    ds = Dataset(database=database, taxdb=taxdb)
-
-    sm = SuperModel(dataset=ds, conf=conf)
-
-    tree = sm._build_tree("model1")
-    print(tree)
+    sm.train()
 
     # rank_an = ds.get_ranks_analysis(scientific_names=False)
     # res = {}
@@ -374,7 +406,8 @@ if __name__ == "__main__":
         default=Path(__file__).resolve().parent / "config/genouest.json",
     )
     parser.add_argument("--create-db", action="store_true", help="Create a database")
-    parser.add_argument("--train", action="store_true", help="Train a model")
+    parser.add_argument("--train-model", action="store_true", help="Train a model")
+    parser.add_argument("--train-supermodel", type=str, help="Train a supermodel")
 
     parser.add_argument(
         "--populate-taxdb",
@@ -461,12 +494,14 @@ if __name__ == "__main__":
     if args.batch_count:
         batch_count(conf, rank=args.batch_count)
 
-    if args.train:
-        train(
+    if args.train_model:
+        train_model(
             conf=conf,
             rank=args.rank,
             save_path=args.save_path,
             kfold=args.kfold,
         )
+    if args.train_supermodel:
+        train_supermodel(conf=conf, name=args.train_supermodel)
 
     # train-model, save-model, evaluate-model-kfolds, load-model, evaluate-fa
