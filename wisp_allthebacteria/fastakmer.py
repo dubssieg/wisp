@@ -213,6 +213,7 @@ class FastaKmer:
                         f"{dry_str}[{archive_name}] Checking for zombie processes..."
                     )
                     cleanup_zombie_processes(os.getpid())
+                    LOG.debug(f"{dry_str}[{archive_name}] zombie cleanup done")
 
                     # free mem
                     gc.collect()
@@ -342,7 +343,8 @@ class FastaKmer:
         selected = sum(sum(d.values()) for d in file_selector.values())
         total = sum(sum(d.values()) for d in tax_id_to_file_ids.values())
         LOG.debug("Sample analysis done:")
-        LOG.debug(f"- Total: {space_format(total)}")
+        LOG.debug(f"- Files remaining: {len(file_selector)}")
+        LOG.debug(f"- Total samples: {space_format(total)}")
         LOG.debug(f"- Selected: {space_format(selected)}")
         LOG.debug(f"- Skipped:  {space_format(total - selected)}")
         LOG.debug(

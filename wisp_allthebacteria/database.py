@@ -377,7 +377,10 @@ class DatabaseBuilder(Database):
     def _push_merged_data(self, data) -> dict[int, int]:
         merged_data = data["merged_data"]
         tmp_dir = data["tmp_dir"]
-        LOG.debug(f"Adding counters to DB for {len(merged_data)} tax_id")
+
+        LOG.debug(
+            f"Adding {sum(len(c) for c in merged_data.values())} counters to DB for {len(merged_data)} tax_id"
+        )
 
         last_valid_ids = {}
         insert_counter = 0
