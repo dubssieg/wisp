@@ -8,11 +8,18 @@ LOG = logging.getLogger(__name__)
 
 
 class Metadata:
-    def __init__(self, csv_path: str | Path, taxdb: TaxDB, start_loaded: bool = False):
+    def __init__(
+        self,
+        csv_path: str | Path,
+        taxdb: TaxDB,
+        start_loaded: bool = False,
+        keep_data: bool = False,
+    ):
         LOG.debug(f"Metadata({locals()})")
         self._csv_path = Path(csv_path)
         self._md = None
         self._taxdb = taxdb
+        self._keep_data = keep_data
         if start_loaded:
             self.md
 
@@ -33,11 +40,14 @@ class Metadata:
             seq_id = seq_id.split(".")[0]
         data = self.md[seq_id]
         if not data:
-            return []
+            return {}
 
-        if not isinstance(data, dict):
+        if self._keep_data:
+            if not isinstance(data, dict):
+                data = self._taxdb[data]
+                self._md[seq_id] = data
+        else:
             data = self._taxdb[data]
-            self._md[seq_id] = data
         return data
 
     def _load(self) -> dict:
