@@ -49,9 +49,9 @@ class ConfusionMatrixTracker:
             row = {level: self.true_labels[level][i] for level in TAXO_LEVELS}  # Utiliser l'indice 'i'
             data.append(row)
         taxonomy_df = pd.DataFrame(data)
-        # print("before sorting \n", taxonomy_df)
         taxonomy_df.sort_values(by=TAXO_LEVELS, inplace=True)
         taxonomy_df = taxonomy_df.drop_duplicates().reset_index(drop=True)
+        # print("ehehe", taxonomy_df.to_markdown())
         # print("after sorting \n", taxonomy_df)
         self.taxonomy_df = taxonomy_df
         with open("conf_matrix_tracker.pkl", "wb") as f:

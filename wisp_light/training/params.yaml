@@ -2,7 +2,7 @@
 read_size: 10000 # taille des fenêtres dans le génom dans lequel ce fait le comptage
 max_sampling: 100 # nombres de fenetres dans un génome .fna,  # if null, shift_ratio should be specified
 shift_ratio: null  # if null, max_sampling should be specified
-ksize: 4 # taille des kmers
+ksize: 4
 pattern: # motif à prendre en compte dans le kmer
   - 1
   - 1

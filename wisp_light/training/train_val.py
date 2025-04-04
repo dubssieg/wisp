@@ -30,9 +30,13 @@ args.index_csv = "../dataset/complete_refseq_referent_genome_with_taxo.tsv"
 # args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq3"
 # args.exp_rootdir = '/home/hcourtei/Projects/MicroTaxo/codes/exp_refseq' #
 # args.db_json = '/home/hcourtei/Projects/MicroTaxo/codes/exp_refseq/model_base_index_03_24_15_06/databases.json'
-args.datadir = '/projects/microtaxo/data/refseq3'
-args.exp_rootdir = '/projects/microtaxo/exp_refseq'
-args.db_json  = "/projects/microtaxo/exp_refseq/model_base_index_03_21_00_13/databases.json"
+
+args.datadir = '/WORKS/microtaxo/data/refseq3' # '/scratch/hcourtei/refseq3'
+args.exp_rootdir = '/WORKS/microtaxo/exp_refseq' # '/scratch/hcourtei/exp_refseq'
+
+# args.datadir = '/projects/microtaxo/data/refseq3' # '/scratch/hcourtei/refseq3'
+# args.exp_rootdir = '/projects/microtaxo/exp_refseq' # '/scratch/hcourtei/exp_refseq'
+# args.db_json  = "/projects/microtaxo/exp_refseq/model_base_index_03_21_00_13/databases.json"
 
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
 if args.db_json:
@@ -56,7 +60,7 @@ logger.info(f"current working directory: {os.getcwd()}")
 
 with open(args.params_file, 'r') as file:
     params = yaml.safe_load(file)
-    check_parameters(params)
+    # check_parameters(params)
 
 params.update({'exp_name': args.exp_name,"day_month_min": day_month_min,
                'exp_dir':exp_dir,'datadir':args.datadir, 'db_json': args.db_json})
@@ -77,7 +81,7 @@ with mlflow.start_run():
     # dataset = BacteriaDataset(args.datadir, logger)
     # dataset.filter_family_by_min_species(min_family_threshold=params['min_family_threshold'],
     #                                      max_family_repr=params['max_family_repr'])
-    dataset = RefSeqDataset(args.index_csv, args.datadir, logger, cut= None)
+    dataset = RefSeqDataset(args.index_csv, args.datadir, logger, cut= 2000)
 
     train_dataset, val_dataset = dataset.split(test_size=params['test_size'], random_state=params['random_state'],
                                                family_strat=params['family_strat'])
@@ -90,7 +94,7 @@ with mlflow.start_run():
     else:
         logger.info(f"Starting database creation for {len(train_dataset)} genome files ")
         start_database = time.time()
-        database_json = os.path.join(exp_dir, 'databases.json')
+        database_json = os.path.join(exp_dir, f"databases.json")
         phylo_tree = build_database(train_dataset, params, database_json, logger,max_workers=params['max_workers_db'])
         database_time = round((time.time() - start_database))
         logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
