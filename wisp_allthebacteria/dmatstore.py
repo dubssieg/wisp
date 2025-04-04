@@ -41,6 +41,7 @@ class DMatStore:
     def _serialize_dmatrix(self, dmat: xgb.DMatrix, name: str) -> None:
         dmat_path = self._dmat_path(name)
         dmat_path.parent.mkdir(parents=True, exist_ok=True)
+        LOG.debug(f"Storing DMatrix to {dmat_path}")
         dmat.save_binary(dmat_path)
 
     def _deserialize_dmatrix(self, name: str) -> xgb.DMatrix:

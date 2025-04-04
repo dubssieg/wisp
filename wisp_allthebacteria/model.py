@@ -169,7 +169,7 @@ class XGBoostModel:
             report["end_dt"] = datetime.now()
 
             self.save(save_path)
-            self._generate_report(path=save_path / "report", report=report)
+            self._generate_report(path=save_path / "train_report", report=report)
         return report
 
     def kfold(
@@ -189,6 +189,7 @@ class XGBoostModel:
             report["start_dt"] = datetime.now()
             report["num_boost_round"] = num_boost_round
             save_path = Path(save_path).resolve()  # report only (no model saving)
+            save_path /= f"kfold_{k}_report"
             ksplits = self._get_kfold_batch_splits(
                 k,
                 train_batch_count=train_batch_count,
@@ -233,7 +234,7 @@ class XGBoostModel:
                 "params": report["kfold"][0]["train"]["params"],
             }
             self._generate_report(path=save_path, report=report)
-            return report  # TODO: generate aggregated report
+            return report
 
     def _train(
         self,
@@ -243,7 +244,6 @@ class XGBoostModel:
         eval_batch_ids: list[int],
     ) -> dict:
         report = {}
-        # batches_report = []
         self._model = None
 
         # params
@@ -254,7 +254,6 @@ class XGBoostModel:
 
         report["params"] = params
         report["batches"] = []
-        # report["total_du"] = {"total_duration": 0, "batches": []}
 
         start_total_time = time.time()
 
@@ -325,13 +324,6 @@ class XGBoostModel:
         report["best_batch"] = {"index": max_index, "score": max_value}
         LOG.debug("Model trained")
 
-        # 3 - TEST
-        # start_test_time = time.time()
-        # report["test"] = self._evaluate(batch_ids=test_batch_ids)
-        # LOG.debug(f"Test score: {score:.3f}")
-        # report["test"]["eval_duration"] = time.time() - start_test_time
-        # report["test"]["best_batch"] = {"index": max_index, "score": max_value}
-        # report["end_dt"] = datetime.now()
         return report
 
     def _evaluate(self, batch_ids: list[int], return_y: bool = False) -> dict:
