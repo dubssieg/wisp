@@ -1,17 +1,25 @@
 import logging
+from typing import Any
 import pandas as pd
-from api import API
+from taxdb import TaxDB
 from pathlib import Path
 
 LOG = logging.getLogger(__name__)
 
 
 class Metadata:
-    def __init__(self, csv_path: str | Path, api: API, start_loaded: bool = False):
+    def __init__(
+        self,
+        csv_path: str | Path,
+        taxdb: TaxDB,
+        start_loaded: bool = False,
+        keep_data: bool = False,
+    ):
         LOG.debug(f"Metadata({locals()})")
         self._csv_path = Path(csv_path)
         self._md = None
-        self._api = api
+        self._taxdb = taxdb
+        self._keep_data = keep_data
         if start_loaded:
             self.md
 
@@ -21,17 +29,25 @@ class Metadata:
             self._md = self._load()
         return self._md
 
+    def clean_tax_id(self, tax_id: Any) -> int:
+        """Expose TaxDB clean_tax_id"""
+        return self._taxdb.clean_tax_id(tax_id)
+
     def __getitem__(self, seq_id: str) -> dict:
-        """Example: SAMD00013333 or SAMD00013333.contig0000"""
-        if ".contig" in seq_id:
-            seq_id = seq_id.split(".contig")[0]
+        """Example: SAMD00013333 or SAMD00013333.contig0000
+        Unusual exemple: SAMEA3924086.NODE_1_length_606878_cov_39.021295_pilon"""
+        if "." in seq_id:
+            seq_id = seq_id.split(".")[0]
         data = self.md[seq_id]
         if not data:
-            return []
+            return {}
 
-        if not isinstance(data[0], dict):
-            data = [self._api[d] for d in data]
-            self._md[seq_id] = data
+        if self._keep_data:
+            if not isinstance(data, dict):
+                data = self._taxdb[data]
+                self._md[seq_id] = data
+        else:
+            data = self._taxdb[data]
         return data
 
     def _load(self) -> dict:
@@ -42,6 +58,6 @@ class Metadata:
             self._csv_path, sep="\t", usecols=columns, dtype=dtype_specification
         )
         return {
-            seq_id: API.clean_tax_id(tax_id)
+            seq_id: self.clean_tax_id(tax_id)
             for seq_id, tax_id in zip(df[columns[0]], df[columns[1]])
         }

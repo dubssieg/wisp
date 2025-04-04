@@ -1,6 +1,7 @@
 from collections import defaultdict
 import concurrent.futures
 from itertools import product
+import itertools
 import logging
 import queue
 import random
@@ -11,33 +12,64 @@ import concurrent
 import numpy as np
 import xgboost as xgb
 from database import Database
-from api import API
-from utils import hash, FunctionLogger, get_weights, sample_count_estimation
+from taxdb import RANKS, TaxDB
+from utils import hashed, get_weights, sample_count_estimation
 
 LOG = logging.getLogger(__name__)
 
-IDX_ANALYSIS = "_analysis_"
+IDX_TAX_IDS_ANALYSIS = "_tid_analysis_"
+IDX_RANKS_ANALYSIS = "_ranks_analysis_"
 IDX_TID_BY_RANK = "_tid_by_rank_"
 
 
 class Dataset:
-    def __init__(self, database: Database, api: API):
+    def __init__(self, database: Database, taxdb: TaxDB):
         LOG.debug(f"Database({locals()})")
         self._db = database
-        self._api = api
+        self._taxdb = taxdb
 
-        self._column_names = ["".join(p) for p in product("ATGC", repeat=4)]
+        self._column_names = self._get_column_names()
         self._column_index = {
             name: index for index, name in enumerate(self._column_names)
         }
 
-    def analyse(self, tax_ids: int | list[int] | None = None) -> dict:
+    def get_ranks_analysis(
+        self, scientific_names: bool = False, min_samples_per_class: int | None = None
+    ) -> dict:
+        idx_key = (
+            IDX_RANKS_ANALYSIS,
+            hashed((scientific_names, min_samples_per_class)),
+        )
+        data = self._db.get_index(idx_key)
+        if not data:
+            data = {}
+            for rank in RANKS:
+                tids_by_rank = self._get_tax_ids_by_rank(
+                    rank=rank, min_samples=min_samples_per_class
+                )
+                if scientific_names:
+                    tids_by_rank = {
+                        self._taxdb[rank_tid].get("ScientificName", "Unknown"): tids
+                        for rank_tid, tids in tids_by_rank.items()
+                    }
+
+                counts = {
+                    rank_tid: self._db.count(tids)
+                    for rank_tid, tids in tids_by_rank.items()
+                }
+
+                data[rank] = {"counts": counts, "tax_ids": tids_by_rank}
+        return data
+
+    # FIXME: Not called anymore?
+    def get_tax_id_analysis(self, tax_ids: int | list[int] | None = None) -> dict:
         if tax_ids is None:
             tax_ids = self._db.get_tax_ids()
         if isinstance(tax_ids, int):
             tax_ids = [tax_ids]
+        tax_ids = sorted(tax_ids)
 
-        idx_key = (IDX_ANALYSIS, hash(tax_ids))
+        idx_key = (IDX_TAX_IDS_ANALYSIS, hashed(tax_ids))
         analysis_result = self._db.get_index(idx_key)
         if not analysis_result:
             LOG.debug(f"Analysing {len(tax_ids)} tax_ids")
@@ -49,11 +81,11 @@ class Dataset:
                 ),
             }
 
+            counts = self._db.counts()
             for tax_id in tax_ids:
-                db_info = self._db.get_info()
                 # get sample count and additional information
-                sample_count = db_info["counters"][tax_id]
-                tax_info = self._api[tax_id]
+                count = counts[tax_id]
+                tax_info = self._taxdb[tax_id]
                 scientific_name = tax_info.get("ScientificName", "Unknown")
                 rank = tax_info.get("Rank", "Unknown")
                 division = tax_info.get("Division", "Unknown")
@@ -63,9 +95,9 @@ class Dataset:
                     "scientific_name": scientific_name,
                     "rank": rank,
                     "division": division,
-                    "count": sample_count,
+                    "count": count,
                 }
-                analysis_result["total_samples"] += sample_count
+                analysis_result["total_samples"] += sum(counts.values())
 
                 # lineage information (ranks)
                 lineage_ex = tax_info.get("LineageEx", [])
@@ -79,7 +111,7 @@ class Dataset:
                     # update the rank_counts structure
                     analysis_result["rank_counts"][parent_rank][parent_scientific_name][
                         "count"
-                    ] += sample_count
+                    ] += count
                     analysis_result["rank_counts"][parent_rank][parent_scientific_name][
                         "tax_id"
                     ] = parent_tax_id
@@ -92,23 +124,71 @@ class Dataset:
         return analysis_result
 
     def total_samples(self) -> int:
-        db_info = self._db.get_info()
-        return db_info["total_samples"]
+        return sum(self._db.counts())
 
-    def labels(self, rank: str) -> list[str]:
+    def labels(self, rank: str, min_samples: int | None = None) -> list[str]:
         """All labels in this DB, for this rank"""
-        return list(self._get_tax_ids_by_rank(rank).keys())
+        return list(self._get_tax_ids_by_rank(rank, min_samples=min_samples).keys())
+
+    def get_batch_counts_for_rank(
+        self,
+        rank: str,
+        batch_size: int,
+        min_samples_per_class: int | None = None,
+        as_str: bool = False,
+    ) -> dict | str:
+        tids_by_rank = self._get_tax_ids_by_rank(
+            rank=rank, min_samples=min_samples_per_class
+        )
+        values = [i / 10 for i in range(11)]
+        data = defaultdict(dict)
+        for batch_balance_factor, sample_balance_factor in list(
+            itertools.product(values, values)
+        ):
+            counts = [
+                self._db.get_sample_count_estimation(tids, sample_balance_factor)
+                for tids in tids_by_rank.values()
+            ]
+            total_samples = sample_count_estimation(counts, batch_balance_factor)
+            batch_count = (total_samples + batch_size - 1) // batch_size
+            data[batch_balance_factor][sample_balance_factor] = batch_count
+
+        if as_str:
+            header = (
+                f"{'Sample Balance Factor':>24} "
+                + " ".join(f"{i / 10:>6}" for i in range(11))
+                + "\n"
+            )
+
+            body = f"{'Batch Balance Factor':>24} \n"
+
+            for key, values in data.items():
+                row = (
+                    f"{key:>24} "
+                    + " ".join(f"{values[j]:>6}" for j in sorted(values))
+                    + "\n"
+                )
+                body += row
+
+            table = header + body
+            return table
+        return dict(data)
 
     def _get_tax_ids_by_rank(
-        self, rank: str, min_samples: int | None = None
+        self,
+        rank: str,
+        min_samples: int | None = None,
+        parent_filter: dict | None = None,
     ) -> dict[int, list[int]]:
-        idx_key = (IDX_TID_BY_RANK, rank)
+        """parent_filter is like: {"phylum": [phylum1, phylum2], etc.}
+        We only KEEP those and remove everything else"""
+        idx_key = (IDX_TID_BY_RANK, hashed((rank, min_samples, parent_filter)))
         rank_mapping = self._db.get_index(idx_key)
 
-        if not rank_mapping:
+        if rank_mapping is None:
             rank_mapping = defaultdict(list)
             for tax_id in self._db.get_tax_ids():
-                for entry in self._api[tax_id].get("LineageEx", []):
+                for entry in self._taxdb[tax_id].get("LineageEx", []):
                     if entry["Rank"] == rank:
                         rank_mapping[int(entry["TaxId"])].append(tax_id)
                         break
@@ -117,24 +197,56 @@ class Dataset:
 
         if min_samples:
             rm_len = len(rank_mapping)
-            db_info = self._db.get_info()
+            counts = self._db.counts()
             rank_mapping = {
                 key: tax_ids
                 for key, tax_ids in rank_mapping.items()
-                if sum(db_info["counters"].get(tax_id, 0) for tax_id in tax_ids)
-                >= min_samples
+                if sum(counts.get(tax_id, 0) for tax_id in tax_ids) >= min_samples
             }
             if removed := rm_len - len(rank_mapping):
-                LOG.info(f"{removed} {rank}(s) removed (samples < {min_samples})")
+                LOG.debug(f"{removed} {rank}(s) removed (samples < {min_samples})")
+
+        if parent_filter:
+            rank_an = self.get_ranks_analysis(
+                min_samples_per_class=min_samples, scientific_names=False
+            )
+            tids_to_keep = set()
+            for rank, rank_tids_to_keep in parent_filter.items():
+                if isinstance(rank_tids_to_keep, int):
+                    rank_tids_to_keep = [rank_tids_to_keep]
+                for rank_tid_to_keep in rank_tids_to_keep:
+                    if rank_tid_to_keep in rank_an[rank]["tax_ids"]:
+                        tids_to_keep.update(rank_an[rank]["tax_ids"][rank_tid_to_keep])
+            rank_mapping = {
+                rank_tid: list(set(tids) & tids_to_keep)
+                for rank_tid, tids in rank_mapping.items()
+            }
+            rank_mapping = {
+                rank_tid: tids for rank_tid, tids in rank_mapping.items() if tids
+            }
+
+            # if sub_tax_id in rank_mapping:
+            #     rank_mapping[sub_tax_id] = [
+            #         tid
+            #         for tid in rank_mapping[sub_tax_id]
+            #         if tid not in rank_an[rank]["tax_ids"][tax_id]
+            #     ]
 
         return rank_mapping
+
+    def _get_column_names(self) -> list[str]:
+        kmer_sizes = self._db.kmer_sizes()
+        column_names = []
+        for size in kmer_sizes:
+            column_names.extend("".join(p) for p in product("ATGC", repeat=size))
+        return sorted(column_names)
 
 
 class ByRankGenerator(Dataset):
     def __init__(
         self,
         database: Database,
-        api: API,
+        taxdb: TaxDB,
         rank: str,
         batch_size: int,
         normalize: str | None = None,
@@ -142,9 +254,11 @@ class ByRankGenerator(Dataset):
         buffer_threads: int = 10,
         sample_balance_factor: float = 0.0,
         batch_balance_factor: float = 0.0,
-        min_samples_by_class: int | None = None,
+        min_samples_per_class: int | None = None,
+        max_buffer_total_size: int | None = None,
+        parent_filter: dict | None = None,
     ):
-        super().__init__(database=database, api=api)
+        super().__init__(database=database, taxdb=taxdb)
         LOG.debug(f"ByRankGenerator for {rank=}, {batch_size=}, {normalize=}")
         self._rank = rank
         self._batch_size = batch_size
@@ -154,12 +268,16 @@ class ByRankGenerator(Dataset):
         self._buffer_threads = buffer_threads
         self._sample_balance_factor = sample_balance_factor
         self._batch_balance_factor = batch_balance_factor
+        self._min_samples_per_class = min_samples_per_class
+        self._is_started = False
         self._lock = threading.Lock()
         self._tax_ids_by_rank = self._get_tax_ids_by_rank(
-            rank, min_samples=min_samples_by_class
+            rank, min_samples=min_samples_per_class, parent_filter=parent_filter
         )
         self._rank_tids = list(self._tax_ids_by_rank.keys())
-        self._max_buffer_size = max(32, 2 * batch_size // len(self._rank_tids))
+
+        self._max_buffer_size = int(max_buffer_total_size / len(self._rank_tids))
+
         self._buffers = {rank_tid: queue.Queue() for rank_tid in self._rank_tids}
         self._exhausted = {rank_tid: False for rank_tid in self._rank_tids}
         self._filling = {rank_tid: False for rank_tid in self._rank_tids}
@@ -188,68 +306,91 @@ class ByRankGenerator(Dataset):
         )
         self._terminating = False
 
+    def signature(self) -> str:
+        return hashed(
+            (
+                self._rank,
+                self._batch_size,
+                self._normalize,
+                self._seed,
+                self._sample_balance_factor,
+                self._batch_balance_factor,
+                self._min_samples_per_class,
+            )
+        )
+
     def start(self) -> None:
         LOG.debug("Start filling buffers...")
-        self._start_filling_buffers()
+        if not self._is_started:
+            self._start_filling_buffers()
+            self._is_started = True
 
     def stop(self) -> None:
         LOG.debug("Stopping threads")
         self._terminating = True
+        self._is_started = False
         self._executor.shutdown(wait=True)
+
+    def is_started(self) -> bool:
+        return self._is_started
 
     def get(self) -> Generator[xgb.DMatrix, None, None]:
 
         random_instance = random.Random(self._seed)
+        force_next_rank_tid = None
 
-        with (
-            FunctionLogger(30, self._batch_info),
-            FunctionLogger(30, self._buffers_info),
+        while not (
+            self._all_generator_done()
+            and self._all_buffers_done()
+            and self._terminating
         ):
-
-            while not (
-                self._all_generator_done()
-                and self._all_buffers_done()
-                and self._terminating
-            ):
+            if force_next_rank_tid is None:
                 rank_tid = random_instance.choices(
                     self._rank_tids, weights=self._weights, k=1
                 )[0]
-                try:
-                    counter = self._buffers[rank_tid].get()
-                except queue.Empty:
-                    if self._is_done(rank_tid):
-                        LOG.debug(f"{self._rank} {rank_tid} is DONE - Cleaning")
-                        self._remove(rank_tid)
-                        continue
+            else:
+                rank_tid = force_next_rank_tid
+                force_next_rank_tid = None
+            try:
+                counter = self._buffers[rank_tid].get(timeout=1)
+            except queue.Empty:
+                if self._is_rank_done(rank_tid):
+                    LOG.debug(f"{self._rank} {rank_tid} is DONE - Cleaning")
+                    self._remove(rank_tid)
+                else:
+                    LOG.debug(f"Empty buffer for {rank_tid}, wait and retry...")
+                    time.sleep(5)
+                    force_next_rank_tid = rank_tid
+                continue
 
-                # prepare data and labels for DMatrix
-                row = self._counter_to_row(counter=counter, normalize=self._normalize)
-                self._data_batch.append(row)
-                self._labels_batch.append(rank_tid)
+            # prepare data and labels for DMatrix
+            row = self._counter_to_row(counter=counter, normalize=self._normalize)
+            self._data_batch.append(row)
+            self._labels_batch.append(rank_tid)
 
-                # yield a DMatrix if batch is filled
-                if len(self._data_batch) >= self._batch_size:
-                    dmatrix = self._data2DMatrix(self._data_batch, self._labels_batch)
-                    self._batch_count += 1
-                    LOG.debug(
-                        f"Sending batch {self._batch_count} / (max: {self._max_batch_count}) - {len(self._labels_batch)} samples"
-                    )
-                    self._data_batch = []
-                    self._labels_batch = []
-                    yield dmatrix
-
-            # yield any remaining data as a final DMatrix
-            if self._data_batch:
-                self._batch_count += 1
+            # yield a DMatrix if batch is filled
+            if len(self._data_batch) >= self._batch_size:
                 dmatrix = self._data2DMatrix(self._data_batch, self._labels_batch)
+                self._batch_count += 1
                 LOG.debug(
-                    f"Sending (last) batch {self._batch_count} - {len(self._labels_batch)} samples"
+                    f"Sending batch {self._batch_count} / (max: {self._max_batch_count}) - {len(self._labels_batch)} samples"
                 )
+                self._data_batch = []
+                self._labels_batch = []
                 yield dmatrix
 
-    def _buffers_info(self) -> str:
+        # yield any remaining data as a final DMatrix
+        if self._data_batch:
+            self._batch_count += 1
+            dmatrix = self._data2DMatrix(self._data_batch, self._labels_batch)
+            LOG.debug(
+                f"Sending (last) batch {self._batch_count} - {len(self._labels_batch)} samples"
+            )
+            yield dmatrix
+
+    def buffers_info(self) -> str:
         buffer_info = []
-        for tid in self._rank_tids:
+        for tid in self._tax_ids_by_rank.keys():
             qsize = str(self._buffers[tid].qsize())
             filling = self._filling[tid]
             exhausted = self._exhausted[tid]
@@ -266,7 +407,7 @@ class ByRankGenerator(Dataset):
             + "|".join(buffer_info)
         )
 
-    def _batch_info(self) -> None:
+    def batch_info(self) -> None:
         perc = 100 * len(self._labels_batch) / self._batch_size
         return f"BATCH {self._batch_count + 1}: {len(self._labels_batch)} / {self._batch_size} ({perc:.1f} %)"
 
@@ -343,8 +484,8 @@ class ByRankGenerator(Dataset):
     def _remove(self, rank_tid: int):
         with self._lock:
             del self._generators[rank_tid]
-            self._rank_tids.remove(rank_tid)
             self._counts.pop(self._rank_tids.index(rank_tid))
+            self._rank_tids.remove(rank_tid)
             self._weights = get_weights(self._counts, self._batch_balance_factor)
 
     @staticmethod
@@ -365,6 +506,10 @@ class ByRankGenerator(Dataset):
 
     def _counter_to_row(self, counter: dict, normalize: str) -> np.array:
         row = np.zeros(len(self._column_names))
+
+        # merge kmer counts
+        counter = {k: v for d in counter.values() for k, v in d.items()}
+
         if normalize == "sum":
             counter = self._normalize_sum(counter)
         elif normalize == "min_max":

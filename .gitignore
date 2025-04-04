@@ -137,3 +137,4 @@ sandbox.py
 memo.txt
 wisp_allthebacteria/out/*
 wisp_allthebacteria/*_deprecated.py
+out/*.pkl

@@ -8,10 +8,11 @@ from pathlib import Path
 import argparse
 from tqdm.auto import tqdm
 from metadata import Metadata
-from reader import Reader
-from api import API
+from fastakmer import FastaKmer
+from taxdb import TaxDB, RANKS
 from model import XGBoostModel
-from database import Database, DatabaseBuilder, RANKS
+from supermodel import SuperModel
+from database import Database, DatabaseBuilder
 from dataset import Dataset
 from utils import (
     SystemStatsLogger,
@@ -28,7 +29,7 @@ METADATA_FILENAME = "ena_metadata.tsv"
 
 
 def create_db(conf: dict):
-    LOG.info("create_db")
+    LOG.info("Create DB")
     with SystemStatsLogger(interval=30, pid=os.getpid()):  # TODO: conf + level
         input_path = Path(conf["allthebacteria"]["assembly_dir"])
         output_path = Path(conf["db"]["path"])
@@ -37,32 +38,38 @@ def create_db(conf: dict):
 
         archives = list(input_path.glob("*.xz"))
 
-        api = API(
-            api_cache_dir=conf["api"]["cache_dir"],
-            email=conf["api"]["email"],
-            can_download=conf["api"]["can_download"],
+        taxdb = TaxDB(
+            cache_dir=conf["taxdb"]["cache_dir"],
+            email=conf["taxdb"]["email"],
+            can_download=conf["taxdb"]["can_download"],
             preload=False,
         )
-        md = Metadata(csv_path=metadata_path, api=api, start_loaded=True)
+        md = Metadata(csv_path=metadata_path, taxdb=taxdb, start_loaded=True)
         num_workers = cpu_count(conf["db"]["create_db_workers"])
         num_threads = cpu_count(conf["db"]["db_insert_threads"])
         LOG.info(
             f"Max CPUs: {cpu_count('max')}, using {num_workers} fasta workers and {num_threads} DB insertion threads"
         )
-        reader = Reader(md, num_workers=num_workers)
 
+        fasta_kmer = FastaKmer(
+            md,
+            num_workers=num_workers,
+            taxdb=taxdb,
+            tmp_path=conf["db"]["tmp_path"],
+        )
         db = DatabaseBuilder(
-            kmer_size=conf["db"]["kmer_size"],
+            kmer_sizes=conf["db"]["kmer_sizes"],
             window_size=conf["db"]["window_size"],
             step=conf["db"]["step"],
             full=conf["db"]["full"],
             dbs_path=output_path,
             fanout_shards=conf["db"]["fanout_shards"],
-            reader=reader,
+            fasta_kmer=fasta_kmer,
             fasta_batch_size=conf["db"]["fasta_batch_size"],
             insert_threads=num_threads,
-            compressed=conf["db"]["compressed"],
+            compression=conf["db"]["compression"],
             merged_data_as_db=conf["db"]["merged_data_as_db"],
+            species_count_limit=conf["db"]["species_count_limit"],
         )
 
         json_create_db_path = db.get_db_path() / "create_db.json"
@@ -93,10 +100,10 @@ def create_db(conf: dict):
                         LOG.info(f"Retrying {archive_path.name}...")
 
                     if db.has_archive(archive_path):
-                        LOG.warning(f"{archive_path.name} already in DB, skipping.")
+                        LOG.warning(f"{archive_path.name} already in DB - SKIP.")
                     else:
 
-                        db.push_file(archive_path)
+                        db.push_archive(archive_path)
                         gc.collect()
 
                     complete.add(archive_str)
@@ -133,16 +140,59 @@ def db_info(conf: dict):
     LOG.info("DB info")
 
     db = Database(
-        kmer_size=conf["db"]["kmer_size"],
+        kmer_sizes=conf["db"]["kmer_sizes"],
         window_size=conf["db"]["window_size"],
         step=conf["db"]["step"],
         full=conf["db"]["full"],
         dbs_path=conf["db"]["path"],
-        compressed=conf["db"]["compressed"],
+        compression=conf["db"]["compression"],
         fanout_shards=conf["db"]["fanout_shards"],
     )
 
     print(db.get_info(as_str=True))
+
+
+def batch_count(conf: dict, rank: str):
+    LOG.info("Batch counts")
+    database = Database(
+        kmer_sizes=conf["db"]["kmer_sizes"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=conf["db"]["path"],
+        compression=conf["db"]["compression"],
+        fanout_shards=conf["db"]["fanout_shards"],
+    )
+    taxdb = TaxDB(
+        cache_dir=conf["taxdb"]["cache_dir"],
+        email=conf["taxdb"]["email"],
+        can_download=conf["taxdb"]["can_download"],
+        preload=False,
+    )
+    ds = Dataset(database=database, taxdb=taxdb)
+    batch_size = conf["model"]["batch_size"]
+    print(f"Batch size= {batch_size}\n")
+    if min_samples := conf["model"]["min_samples_per_class"]:
+
+        print(f"WITH Min samples by class = {min_samples}\n")
+        print(
+            ds.get_batch_counts_for_rank(
+                rank=rank,
+                batch_size=batch_size,
+                min_samples_per_class=conf["model"]["min_samples_per_class"],
+                as_str=True,
+            )
+        )
+
+    print("\n\nWITHOUT Min samples by class\n")
+    print(
+        ds.get_batch_counts_for_rank(
+            rank=rank,
+            batch_size=batch_size,
+            min_samples_per_class=None,
+            as_str=True,
+        )
+    )
 
 
 def load_config(json_file: Path | str):
@@ -151,121 +201,119 @@ def load_config(json_file: Path | str):
     return conf
 
 
-def train_model(conf: dict, rank: str | None, save_path: str | None, kfold: int | None):
-    LOG.info("train_model")
+def train_model(
+    conf: dict,
+    rank: str | None,
+    save_path: str | None,
+    kfold: bool,
+):
+    LOG.info("Train")
     with SystemStatsLogger(interval=30):
         if rank not in RANKS:
             raise ValueError(f"Invalid rank {rank}")
 
-        if save_path is None:
-            save_path = (
-                Path(conf["model"]["default_models_dir"])
-                / get_current_datetime_string()
-            )
-
-        api = API(
-            api_cache_dir=conf["api"]["cache_dir"],
-            email=conf["api"]["email"],
-            can_download=conf["api"]["can_download"],
+        taxdb = TaxDB(
+            cache_dir=conf["taxdb"]["cache_dir"],
+            email=conf["taxdb"]["email"],
+            can_download=conf["taxdb"]["can_download"],
         )
         database = Database(
-            kmer_size=conf["db"]["kmer_size"],
+            kmer_sizes=conf["db"]["kmer_sizes"],
             window_size=conf["db"]["window_size"],
             step=conf["db"]["step"],
             full=conf["db"]["full"],
             dbs_path=conf["db"]["path"],
             fanout_shards=conf["db"]["fanout_shards"],
-            compressed=conf["db"]["compressed"],
+            compression=conf["db"]["compression"],
+        )
+
+        normalize = conf["model"]["normalize"]
+        if not normalize:
+            normalize = None
+        dt = get_current_datetime_string()
+        if conf["model"]["force_workspaces_dir"]:
+            workspace_path = Path(conf["model"]["force_workspaces_dir"]).resolve()
+        else:
+            workspace_path = (
+                Path(conf["model"]["default_workspaces_dir"]).resolve() / dt
+            )
+
+        xgb_model = XGBoostModel(
+            rank=rank,
+            database=database,
+            normalize=normalize,
+            batch_size=conf["model"]["batch_size"],
+            taxdb=taxdb,
+            generator_threads=cpu_count(conf["model"]["generator_threads"]),
+            sample_balance_factor=conf["model"]["sample_balance_factor"],
+            batch_balance_factor=conf["model"]["batch_balance_factor"],
+            min_samples_per_class=conf["model"]["min_samples_per_class"],
+            max_buffer_total_size=conf["model"]["max_buffer_total_size"],
+            workspace_path=workspace_path,
+            start_generator=True,
         )
 
         train_batch_count = conf["model"]["train_batch_count"]
         if train_batch_count == "max":
             train_batch_count = None
+        if save_path is None:
+            save_path = Path(conf["model"]["default_models_dir"]) / dt
 
-        xgb_model = XGBoostModel(
-            rank=rank,
-            database=database,
-            normalize=conf["model"]["normalize"],
-            batch_size=conf["model"]["batch_size"],
-            api=api,
-            generator_threads=cpu_count(conf["model"]["generator_threads"]),
-            save_path=save_path,
-            sample_balance_factor=conf["model"]["sample_balance_factor"],
-            batch_balance_factor=conf["model"]["batch_balance_factor"],
-            train_batch_count=train_batch_count,
-            eval_batch_count=conf["model"]["eval_batch_count"],
-            test_batch_count=conf["model"]["test_batch_count"],
-            min_samples_by_class=conf["model"]["min_samples_by_class"],
-        )
+        if kfold:
+            xgb_model.kfold(
+                k=conf["model"]["kfold"],
+                save_path=save_path,
+                train_batch_count=train_batch_count,
+                eval_patience=conf["model"]["eval_patience"],
+                eval_batch_count=conf["model"]["eval_batch_count"],
+                num_boost_round=conf["model"]["num_boost_round"],
+            )
+        else:
+            xgb_model.train(
+                save_path=save_path,
+                train_batch_count=train_batch_count,
+                eval_patience=conf["model"]["eval_patience"],
+                eval_batch_count=conf["model"]["eval_batch_count"],
+                test_batch_count=conf["model"]["test_batch_count"],
+                num_boost_round=conf["model"]["num_boost_round"],
+            )
 
-        xgb_model.train(
-            eval_patience=conf["model"]["eval_patience"],
-        )
-
-        report = xgb_model.evaluate()
         xgb_model.stop()
 
-    # dgf = DMatrixGeneratorFactory(
-    #     database=db,
-    #     rank=rank,
-    #     normalize=conf["model"]["normalize"],
-    #     sample_limit_by_tax_id=None,
-    #     batch_size=batch_size,
-    #     max_samples=conf["model"]["max_samples"],
-    # )
-    # dmat = db.make_dmatrix(
-    #     rank=rank,
-    #     normalize=conf["model"]["normalize"],
-    # )
-    # tax_id_classes = db.get_tax_id_classes(rank)
 
-    # report = model.train(
-    #     # dtrain=dmat_generator,
-    #     # dtrain_factory=dgf,
-    #     dtrain=dmat,
-    #     tax_id_classes=tax_id_classes,
-    #     kfold=kfold,
-    #     num_boost_round=conf["model"]["num_boost_round"],
-    # )
-    # train mode
-    # if kfold is None:
-    #     if save_path is None:
-    #         save_path = (
-    #             Path(conf["model"]["default_models_dir"])
-    #             / get_current_datetime_string()
-    #         )
-    #     model.save(save_path)
-    # # evaluate mode with kfold
-    # else:
-    #     if save_path is None:
-    #         save_path = (
-    #             Path(conf["report"]["default_reports_dir"])
-    #             / get_current_datetime_string()
-    #         )
-    # report_header = {"header": {"Rang": rank, "batch_size": batch_size}}
+def train_supermodel(conf, name: str):
+    LOG.info("Train supermodel")
 
-    # model.save_report(dir_path=save_path, additional_data=report_header)
-    # print(report)
+    taxdb = TaxDB(
+        cache_dir=conf["taxdb"]["cache_dir"],
+        email=conf["taxdb"]["email"],
+        can_download=conf["taxdb"]["can_download"],
+    )
+
+    database = Database(
+        kmer_sizes=conf["db"]["kmer_sizes"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=conf["db"]["path"],
+        fanout_shards=conf["db"]["fanout_shards"],
+        compression=conf["db"]["compression"],
+    )
+
+    sm = SuperModel(
+        model_conf=conf["model"],
+        supermodel_conf=conf["supermodels"][name],
+        database=database,
+        taxdb=taxdb,
+    )
+    sm.train()
 
 
-# def evaluate_model(conf: dict, nfolds: int, model_path: str|Path|None):
-#     if model_path is None:
-#             raise ValueError("Need --load-model argument")
-
-#     api = API(
-#         api_cache_dir=Path(conf["api"]["cache_dir"]),
-#         email=conf["api"]["email"],
-#         can_download=conf["api"]["can_download"],
-#     )
-#     model = XGBoostModel(api=api, use_gpu=conf["model"]["gpu"])
-#     model.load(model_path)
-
-
-def populate_api_cache(conf: dict):
-    LOG.info("populate_api_cache")
-    API(
-        api_cache_dir=Path(conf["api"]["cache_dir"]),
-        email=conf["api"]["email"],
+def populate_taxdb(conf: dict):
+    LOG.info("Populate_taxdb")
+    TaxDB(
+        cache_dir=Path(conf["taxdb"]["cache_dir"]),
+        email=conf["taxdb"]["email"],
         can_download=True,
     ).populate_api_cache(
         metadata_csv_path=Path(conf["allthebacteria"]["metadata_dir"])
@@ -273,19 +321,19 @@ def populate_api_cache(conf: dict):
     )
 
 
-def export_api_cache(conf: dict):
-    LOG.info("export_apt_cache")
-    API(
-        api_cache_dir=Path(conf["api"]["cache_dir"]),
+def export_taxdb(conf: dict):
+    LOG.info("Export_taxdb")
+    TaxDB(
+        cache_dir=Path(conf["taxdb"]["cache_dir"]),
         email="",
         can_download=False,
     ).export_db()
 
 
-def import_apt_cache(conf: dict):
-    LOG.info("import_apt_cache")
-    API(
-        api_cache_dir=Path(conf["api"]["cache_dir"]),
+def import_taxdb(conf: dict):
+    LOG.info("Import_taxdb")
+    TaxDB(
+        cache_dir=Path(conf["taxdb"]["cache_dir"]),
         email="",
         can_download=False,
     ).import_db()
@@ -293,87 +341,43 @@ def import_apt_cache(conf: dict):
 
 def debug(conf):
     """debugging, ignore it"""
-    LOG.info("debug")
+    LOG.info("Debug")
 
-    api = API(
-        api_cache_dir=conf["api"]["cache_dir"],
-        email=conf["api"]["email"],
-        can_download=conf["api"]["can_download"],
-        preload=False,
+    taxdb = TaxDB(
+        cache_dir=conf["taxdb"]["cache_dir"],
+        email=conf["taxdb"]["email"],
+        can_download=conf["taxdb"]["can_download"],
     )
 
-    db = Database(
-        kmer_size=conf["db"]["kmer_size"],
+    database = Database(
+        kmer_sizes=conf["db"]["kmer_sizes"],
         window_size=conf["db"]["window_size"],
         step=conf["db"]["step"],
         full=conf["db"]["full"],
         dbs_path=conf["db"]["path"],
         fanout_shards=conf["db"]["fanout_shards"],
-        compressed=conf["db"]["compressed"],
+        compression=conf["db"]["compression"],
     )
 
-    ds = Dataset(database=db, api=api)
-    for batch in ds.by_rank_generator("phylum", batch_size=100, normalize=None):
-        print(batch)
+    # dataset = Dataset(database=database, taxdb=taxdb)
 
-    # tids = ds._get_tax_ids_by_rank("phylum")
+    sm = SuperModel(
+        model_conf=conf["model"],
+        supermodel_conf=conf["supermodels"]["model1"],
+        database=database,
+        taxdb=taxdb,
+    )
+    sm.train()
+
+    # rank_an = ds.get_ranks_analysis(scientific_names=False)
     # res = {}
-    # for rank_tax_id, tax_ids in tids.items():
-    #     sids = list(db.tax_ids_to_sample_ids_generator(tax_ids))
-    #     res[rank_tax_id] = sids
-    # print({k: len(v) for k, v in res.items()})
-
-    # for rank_tax_id, tax_ids in tids.items():
-    #     res[rank_tax_id] = ds.analyse(tax_ids)
+    # for rank_tid in rank_an["kingdom"]["tax_ids"].keys():
+    #     res[rank_tid] = ds._get_tax_ids_by_rank(
+    #         "phylum", parent_filter={"kingdom": rank_tid}
+    #     )
 
     # print(res)
-
-    # ds.by_rank_generator("phylum")
-
-    # print(db.get_info(as_str=True))
-    # tids = ds._get_tax_ids_by_rank("phylum")
-    # res = dict()
-    # for rank_tax_id, tax_ids in tids.items():
-    #     sids = list(db.tax_ids_to_sample_ids_generator(tax_ids))
-    #     res[rank_tax_id] = sids
-
-    # print({k: len(v) for k, v in res.items()})
-
-    # pass
-
-    # mat = Database.deserialize_dmatrix("wisp_allthebacteria/out/mat2.pkl")
-
-    # api = API("/data/microtaxo/apicache", "cyrille.leroux@irisa.fr", True)
-    # db = Database("/data/microtaxo/db_full_4", api)
-    # db.index_by_rank("phylum")
-    # matgen = db.make_dmatrix(rank="phylum", normalize="min_max", batch_size=100)
-    # tax_id_classes = db.get_tax_id_classes("phylum")
-    # model = XGBoostModel(api=api, use_gpu=False)
-    # res = model.train(matgen, kfold=None, tax_id_classes=tax_id_classes)
-
-    # report_header = {
-    #     "header": {
-    #         "Rang": "phylum",
-    #     }
-    # }
-    # model.save_report(
-    #     dir_path="wisp_allthebacteria/out/report1", additional_data=report_header
-    # )
-    # print(res)
-
-    # db = Database("/data/microtaxo/db_full_4", api)
-    # mat = db.make_dmatrix("phylum", sample_limit_by_tax_id=None, normalize="min_max")
-    # db.serialize_dmatrix(mat, "wisp_allthebacteria/out/mat2.pkl")
-    # print((mat.num_row(), mat.num_col()))
-
-    # api.export()
-    # print(db.get_tax_ids_by_rank("phylum"))
-    # data = db._get_tax_id_data(222)
-
-    # writer = Writer(path="/data/microtaxo/db_full_4")
-    # with open("/data/microtaxo/merged_data.pkl", "rb") as file:
-    #     merged_data = pickle.load(file)
-    # writer.save_data(merged_data)
+    # print(ds._get_tax_ids_by_rank("phylum"))
 
 
 if __name__ == "__main__":
@@ -386,48 +390,39 @@ if __name__ == "__main__":
             python main.py --create-db
 
         Create a database (local machine/debug)
-            python main.py -- create-db --json="wisp_allthebacteria/config/clx_debug.json"
+            python main.py -- create-db --conf="config/clx_debug.json"
+
+        Evaluate a model for phylum classification
+            python main.py --train --kfold --rank="phylum"
 
         Train a model for phylum classification
-            python main.py --train-model --rank="phylum"
-
-        Evaluate a model for phylum classification 1
-            python main.py --evaluate-model-kfold --rank="phylum"
-
-        Evaluate a model for phylum classification 2
-            python main.py --evaluate-model-kfold=5 --rank="phylum" --save-path="report_1"
-
+            python main.py --train --rank="phylum"
         """,
     )
     parser.add_argument(
-        "--json",
+        "--conf",
         type=str,
         help="Path to the JSON file containing script configuration",
         default=Path(__file__).resolve().parent / "config/genouest.json",
     )
     parser.add_argument("--create-db", action="store_true", help="Create a database")
-    parser.add_argument("--train", action="store_true", help="Train a model")
+    parser.add_argument("--train-model", action="store_true", help="Train a model")
+    parser.add_argument("--train-supermodel", type=str, help="Train a supermodel")
 
     parser.add_argument(
-        "--populate-api-cache",
+        "--populate-taxdb",
         action="store_true",
-        help="get most of needed data from Entry (but you should use import/export api-cache instead)",
+        help="get most of needed data from Entrez",
     )
     parser.add_argument(
-        "--import-api-cache",
+        "--import-taxdb",
         action="store_true",
-        help="pickle api cache to out/cache_dump.pkl",
+        help="pickle taxdb to out/cache_dump.pkl",
     )
     parser.add_argument(
-        "--export-api-cache",
+        "--export-taxdb",
         action="store_true",
-        help="unpickle api cache from out/cache_dump.pkl",
-    )
-
-    parser.add_argument(
-        "--train-model",
-        action="store_true",
-        help="Train a new model (may need --save-model)",
+        help="unpickle taxdb from out/cache_dump.pkl",
     )
 
     parser.add_argument(
@@ -440,11 +435,9 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--evaluate-model-kfolds",
-        type=int,
-        nargs="?",
-        const=-1,
-        help="Number of folds for k-fold cross-validation (check config for report location)",
+        "--kfold",
+        action="store_true",
+        help="Number of folds for k-fold cross-validation",
     )
 
     parser.add_argument(
@@ -461,6 +454,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Show database informations",
     )
+
+    parser.add_argument(
+        "--batch-count",
+        type=str,
+        help="How many batches for this rank (use batch_size and min_samples_per_class). Ex: --batch_counts=phylum",
+    )
     parser.add_argument(
         "--debug",
         action="store_true",
@@ -469,7 +468,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    conf = load_config(Path(args.json))
+    conf = load_config(Path(args.conf))
 
     config_logger(**conf["log"])
 
@@ -477,14 +476,14 @@ if __name__ == "__main__":
         debug(conf)
         sys.exit("debug")
 
-    if args.populate_api_cache:
-        populate_api_cache(conf)
+    if args.populate_taxdb:
+        populate_taxdb(conf)
 
-    if args.export_api_cache:
-        export_api_cache(conf)
+    if args.export_taxdb:
+        export_taxdb(conf)
 
-    if args.import_api_cache:
-        import_apt_cache(conf)
+    if args.import_taxdb:
+        import_taxdb(conf)
 
     if args.create_db:
         create_db(conf)
@@ -492,15 +491,17 @@ if __name__ == "__main__":
     if args.db_info:
         db_info(conf)
 
-    if args.train_model:
-        train_model(conf=conf, rank=args.rank, save_path=args.save_path, kfold=None)
+    if args.batch_count:
+        batch_count(conf, rank=args.batch_count)
 
-    if args.evaluate_model_kfolds:
+    if args.train_model:
         train_model(
             conf=conf,
             rank=args.rank,
             save_path=args.save_path,
-            kfold=args.evaluate_model_kfolds,
+            kfold=args.kfold,
         )
+    if args.train_supermodel:
+        train_supermodel(conf=conf, name=args.train_supermodel)
 
     # train-model, save-model, evaluate-model-kfolds, load-model, evaluate-fa

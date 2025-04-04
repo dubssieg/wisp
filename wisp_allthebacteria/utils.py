@@ -1,16 +1,21 @@
-from datetime import datetime
+import concurrent.futures
 import hashlib
 import logging
-from logging.handlers import RotatingFileHandler
 import os
-from pathlib import Path
 import pickle
 import threading
-from typing import Any
-import concurrent.futures
 import zlib
+from datetime import datetime
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from typing import Any, Literal
+
+import lz4.frame
+import msgpack
 import numpy as np
 import psutil
+import pympler
+import pympler.asizeof
 from tqdm.auto import tqdm
 
 LOG = logging.getLogger(__name__)
@@ -132,17 +137,32 @@ def cpu_count(needed: str | int = 8) -> int:
         raise RuntimeError(f"Cannot get cpu count with: {needed}")
 
 
-def compress(data: Any, as_list: bool = False) -> str | list[str]:
+def compress(
+    data: Any, as_list: bool = False, format: Literal["zlib", "msgpack"] = "msgpack"
+) -> bytes | list[bytes]:
     if as_list:
-        return [compress(i) for i in data]
-    return zlib.compress(pickle.dumps(data))
-
-
-def decompress(data: str | list[str], as_list: bool = False) -> Any:
-    if as_list:
-        return [decompress(i) for i in data]
+        return [compress(i, as_list=False, format=format) for i in data]
+    if format == "zlib":
+        return zlib.compress(pickle.dumps(data))
+    elif format == "msgpack":
+        return lz4.frame.compress(msgpack.packb(data, use_bin_type=True))
     else:
+        raise ValueError(format)
+
+
+def decompress(
+    data: bytes | list[bytes],
+    as_list: bool = False,
+    format: Literal["zlib", "msgpack"] = "msgpack",
+) -> Any:
+    if as_list:
+        return [decompress(i, as_list=False, format=format) for i in data]
+    if format == "zlib":
         return pickle.loads(zlib.decompress(data))
+    elif format == "msgpack":
+        return msgpack.unpackb(lz4.frame.decompress(data), raw=False)
+    else:
+        raise ValueError(format)
 
 
 class BrokenProcessPoolFilter(logging.Filter):
@@ -168,7 +188,8 @@ def config_logger(
     if not logger.hasHandlers():
         logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter(
-            "%(asctime)s :: %(levelname)s :: %(name)s.%(funcName)s[%(lineno)s] :: %(process)d :: %(message)s"
+            # "%(asctime)s :: %(levelname)s :: %(name)s.%(funcName)s[%(lineno)s] :: %(process)d :: %(message)s"
+            "%(asctime)s :: %(levelname)s :: %(name)s.%(funcName)s[%(lineno)s] :: %(message)s"
         )
 
         # terminal config
@@ -260,7 +281,7 @@ def cleanup_zombie_processes(pid: int | None = None):
                 child.kill()
 
 
-def hash(data: Any) -> str:
+def hashed(data: Any) -> str:
     if not isinstance(data, (tuple, list, np.array)):
         data = [data]
     hasher = hashlib.sha256()
@@ -298,6 +319,17 @@ def sample_count_estimation(counts: list[int], balance_factor: float) -> int:
     return int(min(weighted_samples))
 
 
-if __name__ == "__main__":
-    print(system_stats())
-    print(system_stats(as_str=True))
+def sizeof(obj: Any, detail: bool = False) -> int | str:
+    if detail:
+        return pympler.asizeof.asized(obj, detail=1).format()
+    return pympler.asizeof.asizeof(obj)
+
+
+def merge_dicts(dict1: dict, dict2: dict) -> dict:
+    """dict1 is updated with dict2 values"""
+    for key, value in dict2.items():
+        if isinstance(value, dict) and key in dict1 and isinstance(dict1[key], dict):
+            merge_dicts(dict1[key], value)
+        else:
+            dict1[key] = value
+    return dict1

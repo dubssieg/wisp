@@ -8,43 +8,16 @@ from pathlib import Path
 from typing import Any, Generator, Literal
 
 from diskcache import FanoutCache
-from reader import Reader
-from utils import decompress, space_format, get_weights, sample_count_estimation
+from fastakmer import FastaKmer
+from utils import decompress, space_format, get_weights, sample_count_estimation, hashed
 
 LOG = logging.getLogger(__name__)
 
-DB_TYPE = Literal["counter", "source", "index", "md"]
-LAST_VALID_ID = "_last_valid_id_"
-CURRENT_TRANSACTION = "_current_transaction_"
+DB_TYPE = Literal["counter", "index", "md"]
+LAST_VALID_IDS = "_last_valid_ids_"
+ARCHIVE_TRANSACTION = "_archive_transaction_"
 ARCHIVES = "_archives_"
-COMMON = "_common_"
 
-RANKS = [
-    "no rank",
-    "superkingdom",
-    "kingdom",
-    "clade",
-    "phylum",
-    "class",
-    "subclass",
-    "order",
-    "suborder",
-    "family",
-    "subfamily",
-    "tribe",
-    "genus",
-    "subgenus",
-    "species",
-    "species group",
-    "subspecies",
-    "species subgroup",
-    "strain",
-    # ?
-    "biotype",
-    "pathogroup",
-    "serogroup",
-    "serotype",
-]
 
 IDX_DB_INFO = "_idx_db_info_"
 
@@ -52,37 +25,54 @@ IDX_DB_INFO = "_idx_db_info_"
 class Database:
     def __init__(
         self,
-        kmer_size: int,
+        kmer_sizes: int | list[int],
         window_size: int,
         step: int,
         full: bool,
         dbs_path: str | Path,
         fanout_shards: int,
-        compressed: bool,
+        compression: str | None | bool,
     ):
         LOG.debug(f"Database({locals()})")
         self._dbs_path = Path(dbs_path).resolve()
-        self._kmer_size = kmer_size
         self._window_size = window_size
         self._step = step
         self._full = full
         self._fanout_shards = fanout_shards
-        self._compressed = compressed
+        self._compression = compression if compression else None
+        if isinstance(kmer_sizes, int):
+            kmer_sizes = [kmer_sizes]
+        self._kmer_sizes = sorted(kmer_sizes)
+        self._last_valid_ids = None  # cache
 
-    def get_data(
-        self, tax_id: int, num: int, target: Literal["counter", "source"] = "counter"
-    ) -> dict | None:
-        db = self._get_db(db_type=target, tax_id=tax_id)
+    def signature(self) -> str:
+        return hashed(
+            (
+                self._dbs_path,
+                self._window_size,
+                self._step,
+                self._full,
+                self._compression,
+                self._kmer_sizes,
+            )
+        )
+
+    def get_data(self, tax_id: int, num: int) -> dict | None:
+        db = self._get_db(tax_id)
         data = db.get(num, None)
-        if data and self._compressed:
-            return decompress(data)
+        if data and self._compression:
+            return decompress(data, format=self._compression)
         return data
 
-    def count(self, tax_ids: int | list[int]) -> int:
+    def count(self, tax_ids: int | str | list[int | str]) -> int:
         """sample count"""
-        if isinstance(tax_ids, int):
+        if isinstance(tax_ids, (int, str)):
             tax_ids = [tax_ids]
         return sum(self._get_last_valid_id(tax_id) + 1 for tax_id in tax_ids)
+
+    def counts(self) -> dict:
+        """All counts"""
+        return {tid: lvi + 1 for tid, lvi in self._get_last_valid_ids().items()}
 
     def tax_ids_to_sample_ids(self, tax_ids: int | list[int]) -> list[tuple[int, int]]:
         """Given a tax_id or a list of tax_id, get available samples_ids: DB(tax_id, num)
@@ -92,10 +82,7 @@ class Database:
 
         sample_ids = []
         for tax_id in tax_ids:
-            self._get_last_valid_id(tax_id)
-            sample_ids.extend(
-                (tax_id, i) for i in range(self._get_last_valid_id(tax_id) + 1)
-            )
+            sample_ids.extend((tax_id, i) for i in range(self.count(tax_id)))
         return sample_ids
 
     def get_sample_count_estimation(
@@ -103,15 +90,14 @@ class Database:
     ) -> int:
         if isinstance(tax_ids, int):
             tax_ids = [tax_ids]
-        db_info = self.get_info()
-        counts = [db_info["counters"][tax_id] for tax_id in tax_ids]
+        counts = [self.count(tax_id) for tax_id in tax_ids]
         return sample_count_estimation(counts, balance_factor)
 
     def sample_generator(
         self,
         tax_ids: int | list[int],
         seed: int = 2025,
-        target: Literal["counter", "source", "sample_id"] = "counter",
+        target: Literal["counter", "md", "sample_id"] = "counter",
         balance_factor: float = 0.0,
     ) -> Generator[tuple[int, int], None, None]:
         """Generator version of tax_ids_to_sample_ids, with proportional sampling."""
@@ -120,8 +106,7 @@ class Database:
         random_instance = random.Random(seed)
 
         LOG.debug(f"Initializing sample generator using {len(tax_ids)} tax_ids")
-        db_info = self.get_info()
-        counts = [db_info["counters"][tax_id] for tax_id in tax_ids]
+        counts = [self.count(tax_id) for tax_id in tax_ids]
         weights = get_weights(counts, balance_factor)
 
         # initialize a list of iterators for each tax_id with random order
@@ -146,8 +131,8 @@ class Database:
                 num = next(iterator)
                 sample_id = (tax_id, num)
                 match target:
-                    case "counter" | "source":
-                        yield self.get_data(*sample_id, target=target)
+                    case "counter" | "md":
+                        yield self.get_data(*sample_id)[target]
                     case "sample_id":
                         yield sample_id
                     case _:
@@ -162,7 +147,7 @@ class Database:
         LOG.debug("Sample generator exhausted")
 
     def get_tax_ids(self) -> list:
-        """Get available tax_ids - TODO: in MD DB"""
+        """Get available tax_ids"""
         counters_dir = self.get_db_path() / "counter"
         return [
             int(dir.name)
@@ -182,9 +167,7 @@ class Database:
             archives = self.get_archives()
 
             # counters for each tax_id
-            counters = {}
-            for tax_id in tax_ids:
-                counters[tax_id] = self.count(tax_id)
+            counters = self.counts()
             total_samples = sum(counters.values())
 
             # path
@@ -202,10 +185,13 @@ class Database:
             info_lines.append("\n=== Paths/Config ===")
             info_lines.append(f"Current base path: {self.get_db_path()}")
             info_lines.append("\n=== Sequences ===")
-            info_lines.append(f"{len(tax_ids)} tax_ids -> [tax_id] sample_count:")
+            info_lines.append(
+                f"{len(info['tax_ids'])} tax_ids -> [tax_id] sample_count:"
+            )
             items_per_line = 5
             counters_str = {
-                tax_id: space_format(num) for tax_id, num in sorted(counters.items())
+                tax_id: space_format(num)
+                for tax_id, num in sorted(info["counters"].items())
             }
             sorted_items = sorted(counters_str.items())
             max_tax_id_len = max(len(str(tax_id)) for tax_id, _ in sorted_items)
@@ -221,10 +207,10 @@ class Database:
                 info_lines.append(line)
 
             info_lines.append("")
-            info_lines.append(f"Total: {space_format(total_samples)} samples")
+            info_lines.append(f"Total: {space_format(info['total_samples'])} samples")
 
-            info_lines.append("\n==== Archives pushed ====")
-            info_lines.append(", ".join(sorted(archives)))
+            info_lines.append(f"\n==== Archives pushed ({len(info['archives'])}) ====")
+            info_lines.append(", ".join(sorted(info["archives"])))
 
             return "\n".join(info_lines)
 
@@ -243,8 +229,8 @@ class Database:
 
     def clear_index(self) -> None:
         LOG.debug("Clearing INDEX DB...")
-        in_db = self._get_db(db_type="index")
-        in_db.clear()
+        idx_db = self._get_db(db_type="index")
+        idx_db.clear()
         LOG.debug("INDEX DB is now empty")
 
     def get_archives(self) -> list[str]:
@@ -256,13 +242,21 @@ class Database:
         """Check if archive already was pushed in base."""
         return self._archive_stem(path) in self.get_archives()
 
+    def kmer_sizes(self) -> list[int]:
+        return self._kmer_sizes
+
     def _archive_stem(self, path: str | Path) -> str:
         return Path(path).stem.split(".")[0]
 
+    def _get_last_valid_ids(self) -> dict:
+        """Get last inserted ids"""
+        if self._last_valid_ids is None:
+            md_db = self._get_db(db_type="md")
+            self._last_valid_ids = md_db.get(LAST_VALID_IDS, {})
+        return self._last_valid_ids
+
     def _get_last_valid_id(self, tax_id: int) -> int:
-        """Get last inserted id"""
-        md_db = self._get_db(db_type="md", tax_id=tax_id)
-        return md_db.get(LAST_VALID_ID, -1)
+        return self._get_last_valid_ids().get(tax_id, -1)
 
     def _parse_tax_id(self, tax_id: str | int) -> str | int:
         try:
@@ -271,36 +265,32 @@ class Database:
             return tax_id
 
     @lru_cache(maxsize=1)
-    def _get_db(self, db_type: DB_TYPE, tax_id: int | None = None) -> FanoutCache:
+    def _get_db(
+        self, tax_id: int | str | None = None, db_type: DB_TYPE = "counter"
+    ) -> FanoutCache:
         """Get sub DB"""
-        # <base_dbs>/md/common
-        # <base_dbs>/md/<tax_id>
-        # <base_dbs>/md/counters/<tax_id>
-        # <base_dbs>/md/sources/<tax_id>
-
         path = self.get_db_path()
         path /= db_type
-        if tax_id:
-            path /= str(tax_id)
-        else:
-            path /= COMMON
+        if db_type == "counter":
+            if tax_id:
+                path /= str(tax_id)
+            else:
+                raise ValueError("tax_id needed")
 
         path.mkdir(parents=True, exist_ok=True)
-
         return FanoutCache(path, size_limit=sys.maxsize, shards=self._fanout_shards)
 
     def get_db_path(self):
-
-        dir_name = f"km_{self._kmer_size}"
+        dir_name = f"kmr_{'_'.join(map(str, self._kmer_sizes))}"
         if self._full:
             dir_name += "__full"
         else:
-            dir_name += f"__ws_{self._window_size}__st_{self._step}"
+            dir_name += f"__wsz_{self._window_size}__stp_{self._step}"
 
-        if self._compressed:
-            dir_name += "__comp"
+        if self._compression:
+            dir_name += f"__comp_{self._compression}"
 
-        dir_name += f"__sh_{self._fanout_shards}"
+        dir_name += f"__shd_{self._fanout_shards}"
 
         return self._dbs_path / dir_name
 
@@ -308,97 +298,94 @@ class Database:
 class DatabaseBuilder(Database):
     def __init__(
         self,
-        kmer_size: int,
+        kmer_sizes: int | list[int],
         window_size: int,
         step: int,
         full: bool,
         dbs_path: str | Path,
         fanout_shards: int,
-        reader: Reader,
+        fasta_kmer: FastaKmer,
         insert_threads: int,
-        compressed: bool,
+        compression: str | bool | None,
         fasta_batch_size: int | None = None,
         merged_data_as_db: bool = False,
+        species_count_limit: int | None = None,
     ):
         LOG.debug(f"DatabaseBuilder({locals()})")
         super().__init__(
-            kmer_size=kmer_size,
+            kmer_sizes=kmer_sizes,
             window_size=window_size,
             step=step,
             full=full,
             fanout_shards=fanout_shards,
             dbs_path=dbs_path,
-            compressed=compressed,
+            compression=compression,
         )
-        self._reader = reader
+        self._fasta_kmer = fasta_kmer
         self._fasta_batch_size = fasta_batch_size
         self._insert_threads = insert_threads
         self._merged_data_as_db = merged_data_as_db
-        self.clean()
+        self._species_count_limit = species_count_limit
+        self._cancel_transaction()  # if needed
 
-    def clean(self):
-        """Undo unfinished transactions"""
-        md_db = self._get_db(db_type="md")
-        if CURRENT_TRANSACTION in md_db:
-            LOG.warning(
-                f"Cleaning database {self.get_db_path()} (last transaction failed)"
-            )
-            data = md_db[CURRENT_TRANSACTION]
-            merged_data = data["merged_data"]
-            for tax_id in merged_data.keys():
-                counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-                source_db = self._get_db(db_type="source", tax_id=tax_id)
-                current_id = self._get_last_valid_id(tax_id)
-                deleting = True
-                while deleting:
-                    current_id += 1
-                    deleting = False
-                    if current_id in counter_db:
-                        del counter_db[current_id]
-                        deleting = True
-                    if current_id in source_db:
-                        del source_db[current_id]
-                        deleting = True
-            del md_db[CURRENT_TRANSACTION]
-            LOG.warning("Database cleaned")
-
-    def push_file(self, file_path: str | Path):
+    def push_archive(self, archive_path: str | Path):
         """Add content."""
-        file_path = Path(file_path).resolve()
-        LOG.info(f"Pushing file: {file_path.name}")
+        archive_path = Path(archive_path).resolve()
+        LOG.info(f"Pushing file: {archive_path.name}")
 
-        data = self._reader.process_file(
-            file_path=file_path,
-            kmer_size=self._kmer_size,
+        self._start_transaction()
+        for data in self._fasta_kmer.process_archive(
+            archive_path=archive_path,
+            kmer_sizes=self._kmer_sizes,
             window_size=self._window_size,
             step=self._step,
             full=self._full,
             batch_size=self._fasta_batch_size,
-            compressed=self._compressed,
+            compression=self._compression,
             merged_data_as_db=self._merged_data_as_db,
-        )
+            max_count=self._species_count_limit,
+            current_counts=self.counts(),
+        ):
+            if data:
+                self._push_merged_data(data)
 
         self.clear_index()
-        self._push_merged_data(data)
+        self._end_transaction(archive_path)
 
-    def _push_merged_data(self, data):
-        LOG.debug("Adding counter & sources - get DB metadata")
-        md_db = self._get_db(db_type="md")
-        md_db[CURRENT_TRANSACTION] = data
-        archives = md_db.get(ARCHIVES, [])
-        archive = self._archive_stem(data["archive"])
+    def _apply_count_limit(self, data: dict) -> dict:
+        """deprecated?"""
+        if self._species_count_limit:
+            new_merged_data = {}
+            for tid, counters in data["merged_data"].items():
+                current_count = self.count(tid)
+                new_count_limit = self._species_count_limit - current_count
+                if new_count_limit > 0:
+                    new_merged_data[tid] = counters[:new_count_limit]
+                    if len(counters) > new_count_limit:
+                        LOG.debug(
+                            f"Filtered {len(counters) - new_count_limit} counters for specie {tid}"
+                        )
+                else:
+                    LOG.debug(
+                        f"All {len(counters)} counters filtered for specie {tid} due to count limit"
+                    )
 
-        # warning, tax_id is a str
+            data["merged_data"] = new_merged_data
+
+        return data
+
+    def _push_merged_data(self, data) -> dict[int, int]:
         merged_data = data["merged_data"]
+        tmp_dir = data["tmp_dir"]
+
         LOG.debug(
-            f"Adding counters & sources to DB for {len(merged_data)} tax_id(s): {self.get_db_path()}"
+            f"Adding {sum(len(c) for c in merged_data.values())} counters to DB for {len(merged_data)} tax_id"
         )
 
         last_valid_ids = {}
         insert_counter = 0
         is_db = data["tmp_dir"] is not None
 
-        # 1 - update counters & sources
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self._insert_threads
         ) as executor:
@@ -414,94 +401,85 @@ class DatabaseBuilder(Database):
                     tax_id, last_valid_id = future.result()
                     last_valid_ids[tax_id] = last_valid_id
                     insert_counter += 1
-                    LOG.debug(f"DB insertions: {insert_counter} / {len(merged_data)}")
+                    LOG.debug(f"[{tax_id}] DB: {insert_counter} / {len(merged_data)}")
                 except Exception:
-                    LOG.exception(
-                        f"Pushing counters & sources to DB for tax_id {tax_id}"
-                    )
+                    LOG.exception(f"Pushing counters to DB for tax_id {tax_id}")
                     raise
-
-        LOG.debug("All counters & sources added - ending transaction")
-
-        # 2 - update MD
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self._insert_threads
-        ) as executor:
-            future_to_taxid = {
-                executor.submit(
-                    self._set_last_valid_id, tax_id=tax_id, last_valid_id=last_valid_id
-                ): tax_id
-                for tax_id, last_valid_id in last_valid_ids.items()
-            }
-
-            for future in concurrent.futures.as_completed(future_to_taxid):
-                tax_id = future_to_taxid[future]
-                try:
-                    future.result()
-                except Exception:
-                    LOG.exception(f"Error updating last valid ID for tax_id {tax_id}")
-                    raise
-
-        archives.append(archive)
-        md_db[ARCHIVES] = archives
-        # ending transaction
-        del md_db[CURRENT_TRANSACTION]
-        LOG.debug("Transaction ended successfully")
-
         if is_db:
-            LOG.debug(f"Deleting temporary directory {data['tmp_dir']} ...")
-            shutil.rmtree(data["tmp_dir"])
+            LOG.debug(f"Deleting temporary directory {tmp_dir} ...")
+            shutil.rmtree(tmp_dir)
             LOG.debug("Temporary files deleted")
 
+        self._set_last_valid_ids(last_valid_ids)
+
     def _push_batch(self, tax_id: int, tdata: dict, is_db: bool):
-        LOG.debug(f"Processing tax_id: {tax_id}")
-        tax_id = self._parse_tax_id(tax_id)
+        # LOG.debug(f"Pushing tax_id {tax_id} to DB")
         last_valid_id = self._get_last_valid_id(tax_id)
-        counters = tdata["counters"]
-        sources = tdata["sources"]
-        counter_db = self._get_db(db_type="counter", tax_id=tax_id)
-        source_db = self._get_db(db_type="source", tax_id=tax_id)
+        dst_db = self._get_db(db_type="counter", tax_id=tax_id)
 
         if is_db:
-            merged_data_last_id = tdata["last_id"]
-            LOG.debug(
-                f"Starting DB transactions with {merged_data_last_id} counters & sources for tax_id {tax_id}"
-            )
+            src_db = tdata["db"]
+            src_last_id = tdata["last_id"]
+            # LOG.debug(f"[{tax_id}] Pushing {src_last_id} counters to DB")
 
-            with counter_db.transact():
-                for j in range(merged_data_last_id):
-                    counter_db[last_valid_id + j + 1] = counters[j]
-            with source_db.transact():
-                for j in range(merged_data_last_id):
-                    source_db[last_valid_id + j + 1] = sources[j]
+            with dst_db.transact():
+                for j in range(src_last_id):
+                    dst_db[last_valid_id + j + 1] = src_db[j]
 
-            new_last_valid_id = last_valid_id + merged_data_last_id
+            new_last_valid_id = last_valid_id + src_last_id
 
         else:
             batch_counters = {
-                last_valid_id + j + 1: counter for j, counter in enumerate(counters)
+                last_valid_id + j + 1: counter for j, counter in enumerate(tdata)
             }
-            batch_sources = {
-                last_valid_id + j + 1: source for j, source in enumerate(sources)
-            }
+            # LOG.debug(f"[{tax_id}] Pushing {len(batch_counters)} counters to DB")
 
-            LOG.debug(
-                f"Starting DB transactions with {len(batch_counters)} counters & sources for tax_id {tax_id}"
-            )
-
-            with counter_db.transact():
+            with dst_db.transact():
                 for current_id, counter in batch_counters.items():
-                    counter_db[current_id] = counter
-            with source_db.transact():
-                for current_id, source in batch_sources.items():
-                    source_db[current_id] = source
+                    dst_db[current_id] = counter
 
             new_last_valid_id = last_valid_id + len(batch_counters)
 
-        LOG.debug(f"Finished tax_id: {tax_id}")
+        # LOG.debug(f"Finished specie: {tax_id}")
         return tax_id, new_last_valid_id
 
-    def _set_last_valid_id(self, tax_id: int, last_valid_id: int) -> None:
-        """Get last inserted id"""
-        md_db = self._get_db(db_type="md", tax_id=tax_id)
-        md_db[LAST_VALID_ID] = last_valid_id
+    def _set_last_valid_id(self, tax_id: int | str, last_valid_id: int) -> None:
+        """Set last inserted id
+        WARNING: not thread safe (self._last_valid_ids)"""
+        last_valid_ids = self._get_last_valid_ids()
+        last_valid_ids[tax_id] = last_valid_id
+        md_db = self._get_db(db_type="md")
+        md_db[LAST_VALID_IDS] = last_valid_ids
+        self._last_valid_ids = None
+
+    def _set_last_valid_ids(self, updated_last_valid_ids: dict[int | str, int]) -> None:
+        """Update last inserted ids
+        WARNING: not thread safe (self._last_valid_ids)"""
+        last_valid_ids = self._get_last_valid_ids()
+        last_valid_ids.update(updated_last_valid_ids)
+        md_db = self._get_db(db_type="md")
+        md_db[LAST_VALID_IDS] = last_valid_ids
+        self._last_valid_ids = None
+
+    def _start_transaction(self) -> None:
+        LOG.debug("starting transaction")
+        md_db = self._get_db(db_type="md")
+        md_db[ARCHIVE_TRANSACTION] = self._get_last_valid_ids()
+
+    def _end_transaction(self, archive: str | Path) -> None:
+        LOG.debug(f"ending transaction for {archive}")
+        md_db = self._get_db(db_type="md")
+        archives: list = md_db.get(ARCHIVES, [])
+        archive = self._archive_stem(archive)
+        archives.append(archive)
+        md_db[ARCHIVES] = archives
+        del md_db[ARCHIVE_TRANSACTION]
+
+    def _cancel_transaction(self):
+        md_db = self._get_db(db_type="md")
+        if ARCHIVE_TRANSACTION in md_db:
+            LOG.warning("Cancel transaction - Restoring...")
+            last_valid_ids = md_db[ARCHIVE_TRANSACTION]
+            self._set_last_valid_ids(last_valid_ids)
+            del md_db[ARCHIVE_TRANSACTION]
+            LOG.warning("Transaction canceled")

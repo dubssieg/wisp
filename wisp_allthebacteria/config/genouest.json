@@ -1,52 +1,61 @@
 {
-    "allthebacteria":{
+    "allthebacteria": {
         "metadata_dir": "/projects/microtaxo/exp_allthebacteria",
         "assembly_dir": "/projects/microtaxo/data/AllTheBacteria/assembly"
     },
-    "api":{
-        "cache_dir": "/projects/microtaxo/exp_allthebacteria/apicache",
+    "taxdb": {
+        "cache_dir": "/WORKS/microtaxo_atb/apicache",
         "can_download": true,
         "email": "cyrille.leroux@irisa.fr"
     },
-    "db":{
-        "kmer_size": 4,
-        "path": "/projects/microtaxo/exp_allthebacteria/dbs",
+    "db": {
+        "kmer_sizes": [
+            1,
+            4,
+            7
+        ],
+        "path": "/WORKS/microtaxo_atb/dbs",
+        "tmp_path": "/WORKS/microtaxo_atb/tmp",
         "full": false,
         "window_size": 10000,
         "step": 8000,
+        "species_count_limit": 10000,
         "create_db_workers": "max_minus_2",
         "db_insert_threads": "max_minus_2",
-        "fanout_shards": 16,
+        "fanout_shards": 1,
         "fasta_batch_size": 1000,
-        "compressed": true,
+        "compression": "zlib",
         "merged_data_as_db": false
     },
-    "model":{
-        "gpu": false,
-        "normalize": "min_max",
-        "num_boost_round":100,
+    "model": {
+        "normalize": false,
+        "num_boost_round": 100,
         "scientific_name": true,
         "default_models_dir": "/projects/microtaxo/exp_allthebacteria/models",
-        "kfold": 5,
-        "batch_size": 1000000,
+        "default_workspaces_dir": "/WORKS/microtaxo_atb/workspaces",
+        "force_workspaces_dir": false,
+        "force_models_dir": false,
+        "batch_size": 10000,
         "generator_threads": "max_minus_2",
         "train_batch_count": "max",
-        "test_batch_count": 4,
-        "eval_batch_count": 2,
+        "test_batch_count": 1,
+        "eval_batch_count": 1,
         "eval_patience": 5,
-        "sample_balance_factor": 0.1,
-        "batch_balance_factor": 0.8,
-        "min_samples_by_class": 1000
+        "sample_balance_factor": 0,
+        "batch_balance_factor": 1,
+        "min_samples_per_class": 10000,
+        "max_buffer_total_size": 100000,
+        "kfold": 5
     },
-    "report":{
-        "default_reports_dir": "/projects/microtaxo/exp_allthebacteria/reports"
-    },
-    "log":{
-        "log_path": "/projects/microtaxo/exp_allthebacteria/logs/log.txt",
-        "terminal_level": "warning",
+    "log": {
+        "log_path": "/WORKS/microtaxo_atb/logs/log.txt",
+        "terminal_level": "debug",
         "file_level": "debug",
         "file_size": 100000000,
         "file_count": 2,
-        "ignore_list": ["matplotlib"]
+        "ignore_list": [
+            "matplotlib",
+            "PIL"
+        ]
     }
 }

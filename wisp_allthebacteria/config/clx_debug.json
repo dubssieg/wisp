@@ -1,52 +1,127 @@
 {
-    "allthebacteria":{
+    "allthebacteria": {
         "metadata_dir": "/data/microtaxo/allthebacteria_sample/metadata",
         "assembly_dir": "/data/microtaxo/allthebacteria_sample/assembly"
     },
-    "api":{
+    "taxdb": {
         "cache_dir": "/data/microtaxo/apicache",
         "can_download": true,
-        "email": "cyrille.leroux@irisa.fr"
+        "email": "cyrille.leroux.2@irisa.fr"
     },
-    "db":{
-        "kmer_size": 4,
+    "db": {
+        "kmer_sizes": [
+            1,
+            4,
+            7
+        ],
         "path": "/data/microtaxo/dbs",
+        "tmp_path": "/data/microtaxo/tmp/db",
         "full": false,
         "window_size": 10000,
-        "step": 8000,
+        "step": 9000,
+        "species_count_limit": 10000,
         "create_db_workers": "max_minus_2",
         "db_insert_threads": "max_minus_2",
-        "fanout_shards": 4,
-        "fasta_batch_size": 1000,        
-        "compressed": true,
+        "fanout_shards": 1,
+        "fasta_batch_size": 1000,
+        "compression": "zlib",
         "merged_data_as_db": false
     },
-    "model":{
-        "gpu": false,
-        "normalize": "min_max",
-        "num_boost_round":10,
+    "model": {
+        "normalize": false,
+        "num_boost_round": 10,
         "scientific_name": true,
         "default_models_dir": "/data/microtaxo/models",
-        "kfold": 3,
+        "default_workspaces_dir": "/data/microtaxo/workspaces",
+        "force_workspaces_dir": false,
+        "force_models_dir": false,
         "batch_size": 1000,
         "generator_threads": 10,
         "train_batch_count": "max",
-        "test_batch_count": 5,
-        "eval_batch_count": 2,
-        "eval_patience": 10,
-        "sample_balance_factor": 0.1,
-        "batch_balance_factor": 0.5,
-        "min_samples_by_class": 1000
+        "test_batch_count": 1,
+        "eval_batch_count": 1,
+        "eval_patience": 5,
+        "sample_balance_factor": 0,
+        "batch_balance_factor": 1,
+        "min_samples_per_class": 1000,
+        "max_buffer_total_size": 1000,
+        "kfold": 5
     },
-    "report":{
-        "default_reports_dir": "/data/microtaxo/reports"
-    },
-    "log":{
+    "log": {
         "log_path": "/data/microtaxo/logs/log.txt",
-        "terminal_level": "info",
+        "terminal_level": "debug",
         "file_level": "debug",
         "file_size": 10000000,
         "file_count": 3,
-        "ignore_list": ["matplotlib"]
+        "ignore_list": [
+            "matplotlib",
+            "PIL"
+        ]
+    },
+    "supermodels": {
+        "model0": [
+            {
+                "rank": "kingdom",
+                "config": {
+                    "force_workspaces_dir": "/data/microtaxo/workspaces/model0",
+                    "force_models_dir": "/data/microtaxo/models/model0",
+                    "min_samples_per_class": 1000,
+                    "batch_size": 100,
+                    "eval_patience": 2
+                }
+            },
+            {
+                "rank": "phylum",
+                "config": {
+                    "force_workspaces_dir": "/data/microtaxo/workspaces/model0",
+                    "force_models_dir": "/data/microtaxo/models/model0",
+                    "min_samples_per_class": 1000,
+                    "batch_size": 100,
+                    "eval_patience": 2
+                }
+            }
+        ],
+        "model1": [
+            {
+                "rank": "kingdom",
+                "config": {
+                    "force_workspaces_dir": "/data/microtaxo/workspaces/model1",
+                    "force_models_dir": "/data/microtaxo/models/model1",
+                    "min_samples_per_class": 0
+                }
+            },
+            {
+                "rank": "phylum",
+                "config": {
+                    "force_workspaces_dir": "/data/microtaxo/workspaces/model1",
+                    "force_models_dir": "/data/microtaxo/models/model1",
+                    "min_samples_per_class": 0
+                }
+            },
+            {
+                "rank": "class",
+                "config": {
+                    "force_workspaces_dir": "/data/microtaxo/workspaces/model1",
+                    "force_models_dir": "/data/microtaxo/models/model1",
+                    "min_samples_per_class": 0
+                }
+            },
+            {
+                "rank": "order",
+                "config": {
+                    "force_workspaces_dir": "/data/microtaxo/workspaces/model1",
+                    "force_models_dir": "/data/microtaxo/models/model1",
+                    "min_samples_per_class": 0
+                }
+            },
+            {
+                "rank": "family",
+                "config": {
+                    "force_workspaces_dir": "/data/microtaxo/workspaces/model1",
+                    "force_models_dir": "/data/microtaxo/models/model1",
+                    "min_samples_per_class": 0
+                }
+            }
+        ]
     }
 }

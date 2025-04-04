@@ -1,15 +1,24 @@
 import json
 import logging
 from pathlib import Path
-from typing import Generator
+import time
+
+# from typing import Generator, Iterator
+from matplotlib import pyplot as plt
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.preprocessing import LabelEncoder
+import seaborn as sns
+import numpy as np
 import xgboost as xgb
-from utils import serialize, deserialize
+from datetime import datetime
+from utils import serialize, deserialize, format_duration, FunctionLogger, hashed
+
+# from tqdm.auto import tqdm
 
 from dataset import ByRankGenerator
-from api import API
+from taxdb import TaxDB
 from database import Database
+from dmatstore import DMatStore
 
 LOG = logging.getLogger(__name__)
 
@@ -38,46 +47,43 @@ class XGBoostModel:
         self,
         rank: str,
         database: Database,
-        save_path: str | Path,
         batch_size: int,
-        test_batch_count: int,
-        train_batch_count: int | None = None,  # None = max
-        eval_batch_count: int = 0,
+        workspace_path: str | Path,
         params: dict | None = None,
         normalize: str | None = None,
         seed: int = 2025,
-        api: API | None = None,
+        taxdb: TaxDB | None = None,
         generator_threads: int = 10,
         sample_balance_factor: float = 0.0,
         batch_balance_factor: float = 0.0,
-        min_samples_by_class: int = 1,
+        min_samples_per_class: int = 1,
+        max_buffer_total_size: int | None = None,
+        parent_filter: dict | None = None,
+        start_generator: bool = False,
     ):
         LOG.debug(f"XGBoostModel({locals()})")
         self._params = params if params is not None else DEFAULT_PARAMETERS
-        self._train_batch_count = train_batch_count
-        self._test_batch_count = test_batch_count
-        self._eval_batch_count = eval_batch_count
         self._seed = seed
         self._rank = rank
         self._normalize = normalize
         self._batch_size = batch_size
-        self._api = api
+        self._taxdb = taxdb
         self._database = database
         self._generator_threads = generator_threads
         self._sample_balance_factor = sample_balance_factor
         self._batch_balance_factor = batch_balance_factor
-        self._save_path = save_path = Path(save_path).resolve()
+        self._min_samples_per_class = min_samples_per_class
+
+        self._workspace_path = Path(workspace_path).resolve()
         self._model = None
         self._gen = None
-        self._last_batch_id = None
+        self._last_batch_id = 0
         self._max_batch_count = None
-        self._batch_reports = []
-        self._label_encoder = LabelEncoder()
 
         # sample generator
         self._gen = ByRankGenerator(
             database=self._database,
-            api=self._api,
+            taxdb=self._taxdb,
             rank=self._rank,
             batch_size=self._batch_size,
             normalize=self._normalize,
@@ -85,59 +91,160 @@ class XGBoostModel:
             buffer_threads=self._generator_threads,
             sample_balance_factor=self._sample_balance_factor,
             batch_balance_factor=self._batch_balance_factor,
-            min_samples_by_class=min_samples_by_class,
+            min_samples_per_class=min_samples_per_class,
+            max_buffer_total_size=max_buffer_total_size,
+            parent_filter=parent_filter,
         )
-        self._gen.start()
+        if start_generator:
+            self._gen.start()
 
+        self._dmat_store = DMatStore(
+            self._workspace_path / "dmatstore", signature=self.signature()
+        )
+
+        # labels
+        self._labels = self._gen.labels(self._rank, min_samples=min_samples_per_class)
+        self._label_encoder = LabelEncoder()
+        self._label_encoder.fit(self._labels)
+
+        self._sn_map = {
+            tax_id: self._taxdb[tax_id]["ScientificName"] for tax_id in self._labels
+        }
+
+        # batches
         self._max_batch_count = self._gen.estimated_batches_count()
-        if self._train_batch_count is None:
-            self._train_batch_count = max(
-                1,
-                self._max_batch_count - self._test_batch_count - self._eval_batch_count,
-            )
 
-        needed_batches = (
-            self._train_batch_count + self._eval_batch_count + self._test_batch_count
-        )
-        if needed_batches > self._max_batch_count:
-            raise ValueError(
-                f"not enough batches available: {needed_batches} > {self._max_batch_count}"
-            )
+        LOG.info(f"XGBoostModel max batches: {self._max_batch_count}")
 
-        LOG.info(
-            f"XGBoostModel batches (size: {self._batch_size}): max: {self._max_batch_count}, train: {self._train_batch_count}, eval: {self._eval_batch_count}, test: {self._test_batch_count}"
-        )
-
-    def _store_eval_and_test_batches(self) -> None:
-        # store eval batches
-        if self._eval_batch_count:
-            LOG.debug(
-                f"Generating and storing {self._eval_batch_count} eval batches..."
+    def signature(self) -> str:
+        return hashed(
+            (
+                self._seed,
+                self._rank,
+                self._normalize,
+                self._batch_size,
+                self._sample_balance_factor,
+                self._batch_balance_factor,
+                self._min_samples_per_class,
+                self._database.signature(),
+                self._gen.signature(),
             )
-            self._store_batches(
-                batch_count=self._eval_batch_count, storage_name=EVAL_STORAGE
-            )
-            LOG.debug(f"{self._eval_batch_count} eval batches stored")
-        LOG.debug(f"Generating and storing {self._test_batch_count} test batches...")
-        self._store_batches(
-            batch_count=self._test_batch_count, storage_name=TEST_STORAGE
         )
-        LOG.debug(f"{self._test_batch_count} test batches stored")
 
     def train(
         self,
+        save_path: str | Path,
+        train_batch_count: int | None = None,
+        test_batch_count: int = 1,
+        eval_batch_count: int = 1,
         eval_patience: int = 1,
         num_boost_round: int = 100,
-    ) -> None:
-        """Train a model"""
+    ) -> dict:
+        report = {}
+        with (
+            FunctionLogger(30, self._gen.batch_info),
+            FunctionLogger(30, self._gen.buffers_info),
+        ):
+            report["start_dt"] = datetime.now()
+            report["num_boost_round"] = num_boost_round
+            save_path = Path(save_path).resolve()  # models + report
 
-        self._store_eval_and_test_batches()
+            splits = self._get_simple_batch_splits(
+                train_batch_count=train_batch_count,
+                eval_batch_count=eval_batch_count,
+                test_batch_count=test_batch_count,
+            )
 
-        LOG.debug("Training model...")
+            report["train"] = self._train(
+                eval_patience=eval_patience,
+                num_boost_round=num_boost_round,
+                train_batch_ids=splits["train"],
+                eval_batch_ids=splits["eval"],
+            )
 
-        # labels
-        self._labels = self._gen.labels(self._rank)
-        self._label_encoder.fit(self._labels)
+            report["test"] = self._evaluate(batch_ids=splits["test"])
+            LOG.debug(f"Test score: {report['test']['score']:.3f}")
+
+            report["splits"] = splits
+            report["end_dt"] = datetime.now()
+
+            self.save(save_path)
+            self._generate_report(path=save_path / "report", report=report)
+        return report
+
+    def kfold(
+        self,
+        k: int,
+        save_path: str | Path,
+        train_batch_count: int | None = None,
+        eval_batch_count: int = 1,
+        eval_patience: int = 1,
+        num_boost_round: int = 100,
+    ):
+        report = {}
+        with (
+            FunctionLogger(30, self._gen.batch_info),
+            FunctionLogger(30, self._gen.buffers_info),
+        ):
+            report["start_dt"] = datetime.now()
+            report["num_boost_round"] = num_boost_round
+            save_path = Path(save_path).resolve()  # report only (no model saving)
+            ksplits = self._get_kfold_batch_splits(
+                k,
+                train_batch_count=train_batch_count,
+                eval_batch_count=eval_batch_count,
+            )
+            kreports = []
+            ys = []
+            for i, splits in enumerate(ksplits):
+                kreport = {}
+                kreport["start_dt"] = datetime.now()
+                kreport["num_boost_round"] = num_boost_round
+                kreport["train"] = self._train(
+                    eval_patience=eval_patience,
+                    num_boost_round=num_boost_round,
+                    train_batch_ids=splits["train"],
+                    eval_batch_ids=splits["eval"],
+                )
+                kreport["test"], y = self._evaluate(
+                    batch_ids=splits["test"], return_y=True
+                )
+                y["batch_ids"] = splits["test"]
+                ys.append(y)
+                LOG.debug(f"Test score: {kreport['test']['score']:.3f}")
+                kreport["end_dt"] = datetime.now()
+                kreport["splits"] = splits
+
+                self._generate_report(path=save_path / "folds" / str(i), report=kreport)
+                kreports.append(kreport)
+
+            y = {
+                "true": np.concatenate([item["y_true"] for item in ys]),
+                "pred": np.concatenate([item["y_pred"] for item in ys]),
+                "batch_ids": np.concatenate([item["batch_ids"] for item in ys]),
+            }
+            report["test"] = self._metrics(y_true=y["true"], y_pred=y["pred"])
+            report["kfold"] = kreports
+            report["splits"] = ksplits
+            report["end_dt"] = datetime.now()
+            report["train"] = {
+                "start_dt": report["kfold"][0]["start_dt"],
+                "end_dt": report["kfold"][-1]["start_dt"],
+                "params": report["kfold"][0]["train"]["params"],
+            }
+            self._generate_report(path=save_path, report=report)
+            return report  # TODO: generate aggregated report
+
+    def _train(
+        self,
+        eval_patience: int,
+        num_boost_round: int,
+        train_batch_ids: list[int],
+        eval_batch_ids: list[int],
+    ) -> dict:
+        report = {}
+        # batches_report = []
+        self._model = None
 
         # params
         params = self._params.copy()
@@ -145,79 +252,109 @@ class XGBoostModel:
             params["seed"] = self._seed
         params["num_class"] = len(self._labels)
 
-        # model
-        self._model = None
-        for i in range(self._train_batch_count):
-            dtrain = self._get_next_batch()
-            LOG.debug(f"Train batch {i + 1} / {self._train_batch_count}")
+        report["params"] = params
+        report["batches"] = []
+        # report["total_du"] = {"total_duration": 0, "batches": []}
 
+        start_total_time = time.time()
+
+        for i, batch_id in enumerate(train_batch_ids):
+            LOG.debug(f"Train : {i+1} / {len(train_batch_ids)} - batch ID: {batch_id}")
+
+            batch_report = {"batch_id": batch_id}
+
+            # 1-a - get batch
+            get_batch_start_time = time.time()
+            dtrain = self._get_batch(batch_id)
+
+            # 1-b - extract data from batch
             y = dtrain.get_label().astype(int)
             y_encoded = self._label_encoder.transform(y)
             dtrain_encoded = xgb.DMatrix(dtrain.get_data(), label=y_encoded)
+            batch_report["get_batch_duration"] = time.time() - get_batch_start_time
+
+            # 2 - train + save model
+            train_start_time = time.time()
             self._model = xgb.train(
                 params,
                 dtrain_encoded,
                 num_boost_round=num_boost_round,
                 xgb_model=self._model,
             )
-            if self._eval_batch_count:
-                report = self.evaluate(storage_name=EVAL_STORAGE)
-                score = report["score"]
-                LOG.debug(f"Evaluation score: {score:.3f}")
-                self.save(f"batch_models/{len(self._batch_reports)}")
+            self.save(
+                self._workspace_path
+                / "batches"
+                / self.signature()
+                / str(len(report["batches"]))
+            )
+            batch_report["train_duration"] = time.time() - train_start_time
 
-                prev_scores = [br["score"] for br in self._batch_reports]
+            # 3 - evaluate training
+            if eval_batch_ids:
+                eval_report = self._evaluate(batch_ids=eval_batch_ids)
+
+                prev_scores = [br["report"]["score"] for br in report["batches"]]
                 prev_scores_str = ", ".join(f"{ps:.2f}" for ps in prev_scores)
                 LOG.debug(
-                    f"Batch score: {score:.2f}, previous scores: {prev_scores_str}"
+                    f"Batch score: {eval_report['score']:.2f}, previous scores: {prev_scores_str}"
                 )
-                self._batch_reports.append(report)
 
-                if len(self._batch_reports) >= eval_patience:
+                batch_report["report"] = eval_report
+                report["batches"].append(batch_report)
+
+                # 4 - early stopping
+                if len(report["batches"]) > eval_patience:
                     patience_prev_scores = prev_scores[-eval_patience:]
                     min_improvement = 0.001  # TODO: conf
-                    if score < all(
-                        prev_score > score + min_improvement
+                    if eval_report["score"] < all(
+                        prev_score > eval_report["score"] + min_improvement
                         for prev_score in patience_prev_scores
                     ):
                         LOG.info(
                             f"Early stopping: no improvement in the last {eval_patience} evaluations"
                         )
-
                         break
-        self._load_best_model()
+
+        LOG.debug("Loading best model...")
+        prev_scores = [br["report"]["score"] for br in report["batches"]]
+        max_index, max_value = max(enumerate(prev_scores), key=lambda x: x[1])
+        LOG.debug(f"Loading best model: BATCH {max_index}, score={max_value:.3f}")
+        self.load(self._workspace_path / "batches" / self.signature() / str(max_index))
+
+        report["total_duration"] = time.time() - start_total_time
+        report["best_batch"] = {"index": max_index, "score": max_value}
         LOG.debug("Model trained")
 
-    def evaluate(
-        self, batches: list[xgb.DMatrix] | None = None, storage_name: str | None = None
-    ) -> dict:
-        """Evaluate the model on the next available batches."""
+        # 3 - TEST
+        # start_test_time = time.time()
+        # report["test"] = self._evaluate(batch_ids=test_batch_ids)
+        # LOG.debug(f"Test score: {score:.3f}")
+        # report["test"]["eval_duration"] = time.time() - start_test_time
+        # report["test"]["best_batch"] = {"index": max_index, "score": max_value}
+        # report["end_dt"] = datetime.now()
+        return report
+
+    def _evaluate(self, batch_ids: list[int], return_y: bool = False) -> dict:
+        """Evaluate the model (eval or test)"""
 
         LOG.debug("Evaluating model...")
-        if self._model is None:
-            raise ValueError("Model has not been trained yet.")
+        start_total_time = time.time()
 
-        self._report = {}
         all_y_true_encoded = []
         all_y_pred_encoded = []
-
-        if batches:
-            if isinstance(batches, xgb.DMatrix):
-                batches = [batches]
-            batch_iterator = iter(batches)
-        else:
-            if storage_name is None:
-                storage_name = TEST_STORAGE
-            batch_iterator = self._stored_batches_generator(storage_name)
+        report = {}
 
         # evaluate
-        for i, dtest in enumerate(batch_iterator):
-            LOG.debug(f"Evaluation batch {i + 1} / {self._test_batch_count})")
+        for i, batch_id in enumerate(batch_ids):
+            deval = self._get_batch(batch_id)
+            LOG.debug(
+                f"Evaluation batch {i + 1} / {len(batch_ids)}) - batch ID: {batch_id}"
+            )
 
-            y_true = dtest.get_label().astype(int)
+            y_true = deval.get_label().astype(int)
             y_true_encoded = self._label_encoder.transform(y_true)
-            dtest_encoded = xgb.DMatrix(dtest.get_data(), label=y_true_encoded)
-            y_pred_encoded = self._model.predict(dtest_encoded).astype(int)
+            dteval_encoded = xgb.DMatrix(deval.get_data(), label=y_true_encoded)
+            y_pred_encoded = self._model.predict(dteval_encoded).astype(int)
 
             all_y_true_encoded.extend(y_true_encoded)
             all_y_pred_encoded.extend(y_pred_encoded)
@@ -225,40 +362,217 @@ class XGBoostModel:
         y_true = self._label_encoder.inverse_transform(all_y_true_encoded)
         y_pred = self._label_encoder.inverse_transform(all_y_pred_encoded)
 
-        # scientific names
-        if self._api:
-            sn_map = {
-                tax_id: self._api[tax_id]["ScientificName"] for tax_id in self._labels
-            }
-            y_true = [sn_map[tax_id] for tax_id in y_true]
-            y_pred = [sn_map[tax_id] for tax_id in y_pred]
-
         LOG.debug("Model evaluated, getting report...")
+        report.update(self._metrics(y_true=y_true, y_pred=y_pred))
 
-        # generate classification report and confusion matrix
-        self._report["classification_report"] = classification_report(
-            y_true,
-            y_pred,
-            output_dict=True,
-        )
-        self._report["confusion_matrix"] = confusion_matrix(y_true, y_pred)
-        self._report["score"] = self._score(self._report)
+        report["eval_duration"] = time.time() - start_total_time
 
         LOG.debug("Model evaluated")
-        return self._report
+        if return_y:
+            return report, {"y_true": y_true, "y_pred": y_pred}
+        return report
 
-    def load(self, sub_dir: str | None = None) -> None:
+    def _metrics(self, y_true: list | np.ndarray, y_pred: list | np.ndarray) -> dict:
+        report = {}
+        # scientific names
+        y_true_sn = [self._sn_map[tax_id] for tax_id in y_true]
+        y_pred_sn = [self._sn_map[tax_id] for tax_id in y_pred]
+
+        sorted_labels = sorted(self._sn_map.values())
+        report["classification_report"] = classification_report(
+            y_true_sn,
+            y_pred_sn,
+            labels=sorted_labels,
+            output_dict=True,
+        )
+        report["confusion_matrix"] = confusion_matrix(
+            y_true_sn, y_pred_sn, labels=sorted_labels
+        )
+        report["score"] = self._score(report)
+        return report
+
+    def _generate_report(self, path: Path, report: dict):
+        report_lines = []
+        dt_format = "%Y-%m-%d %H:%M:%S"
+
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+
+        # 1 - main report
+        report_lines.append("=== Training / Evaluation Report ===")
+        report_lines.append(f"Rank: {self._rank}")
+        report_lines.append(f"Start Date: {report['start_dt'].strftime(dt_format)}")
+        report_lines.append(f"End Date: {report['end_dt'].strftime(dt_format)}")
+        total_duration_s = (report["end_dt"] - report["start_dt"]).total_seconds()
+        report_lines.append(f"Total Duration: {format_duration(total_duration_s)}")
+        report_lines.append("")
+
+        report_lines.append("\n=== Parameters ===")
+        report_lines.append(f"Database: {self._database.get_db_path()}")
+        report_lines.append(f"Boosting rounds: {report['num_boost_round']}")
+        report_lines.append("Parameters:")
+        report_lines.append(json.dumps(report["train"]["params"], indent=4))
+        report_lines.append("")
+
+        report_lines.append("\n=== Training Data ===")
+        report_lines.append(f"Samples per Batch: {self._batch_size}")
+        report_lines.append(f"Sample balance factor: {self._sample_balance_factor}")
+        report_lines.append(f"Batch balance factor: {self._batch_balance_factor}")
+        report_lines.append(f"Min samples per class: {self._min_samples_per_class}")
+        report_lines.append(f"Available Batches: {self._max_batch_count}")
+        report_lines.append(
+            f"Generated Batches: {self._last_batch_id} (using workspace: {self._workspace_path})"
+        )
+        stored_dmat = ", ".join(
+            map(
+                str,
+                sorted(int(Path(dmat).stem) for dmat in self._dmat_store.dmat_list()),
+            )
+        )
+        report_lines.append(f"DMatrix storage: [{stored_dmat}]")
+
+        if "kfold" in report:
+            report_lines.append("Training batches:")
+            for i in range(len(report["kfold"])):
+                report_lines.append(f"* Fold {i+1}:")
+                for target in ("train", "eval", "test"):
+                    batch_ids = report["splits"][i][target]
+                    batch_ids_str = f"[{', '.join(map(str, batch_ids))}]"
+                    if target == "train":
+                        actual_count = len(report["kfold"][i][target]["batches"])
+                        report_lines.append(
+                            f"{target.upper()} batches: {actual_count} (max: {len(batch_ids)}) -> {batch_ids_str}"
+                        )
+                    else:
+                        report_lines.append(
+                            f"{target.upper()} batches: {len(batch_ids)} -> {batch_ids_str}"
+                        )
+
+        else:
+            report_lines.append(
+                f"Training Batches: {len(report['train']['batches'])} (max: {len(report['splits']['train'])})"
+            )
+            report_lines.append(f"Evaluation Batches: {len(report['splits']['eval'])}")
+            report_lines.append(f"Test Batches: {len(report['splits']['test'])}")
+            report_lines.append("Batch splits:")
+            for name, batch_ids in report["splits"].items():
+                batch_ids_str = f"[{', '.join(map(str, batch_ids))}]"
+                report_lines.append(f"- {name}: {batch_ids_str}")
+
+        report_lines.append(f"Normalization: {self._normalize}")
+        report_lines.append(f"Seed: {self._seed}")
+        report_lines.append("")
+
+        report_lines.append("\n=== Classification Report ===")
+        for label, metrics in report["test"]["classification_report"].items():
+            if isinstance(metrics, dict):
+                report_lines.append(f"Label : {label}")
+                for metric_name, value in metrics.items():
+                    report_lines.append(f"  {metric_name} : {value:.4f}")
+            else:
+                report_lines.append(f"{label} : {metrics:.4f}")
+
+        report_lines.append("\n=== Confusion Matrix ===")
+        report_lines.append(
+            self._confusion_matrix_to_ascii(report["test"]["confusion_matrix"])
+        )
+        self._plot_and_save_confusion_matrix(
+            report["test"]["confusion_matrix"],
+            path / "confusion_matrix.png",
+        )
+
+        report_str = "\n".join(report_lines)
+
+        report_file = path / "report.txt"
+        report_file.write_text(report_str, encoding="utf-8")
+
+        # 2 - tax_id report
+        tid_report = self._get_tax_id_report()
+        tid_report_lines = []
+
+        non_skipped_ranks = [info for info in tid_report if not info["skipped"]]
+        skipped_ranks = [info for info in tid_report if info["skipped"]]
+
+        for info in non_skipped_ranks:
+            rank_name = info["name"]
+            rank_tid = info["tax_id"]
+            tid_report_lines.append(
+                f"{self._rank}: {rank_name} [{rank_tid}] (Total count: {info['count']})"
+            )
+            tid_report_lines.extend(
+                f"  - {tax_info['name']} [{tax_id}] (count: {tax_info['count']})"
+                for tax_id, tax_info in info["tax_ids"].items()
+            )
+
+        if skipped_ranks:
+            tid_report_lines.append("\nSkipped Ranks:")
+            for info in skipped_ranks:
+                rank_name = info["name"]
+                rank_tid = info["tax_id"]
+                tid_report_lines.append(
+                    f"Rank: {rank_name} [{rank_tid}] (Total count: {info['count']})"
+                )
+                tid_report_lines.extend(
+                    f"  - {tax_info['name']} [{tax_id}] (count: {tax_info['count']})"
+                    for tax_id, tax_info in info["tax_ids"].items()
+                )
+
+        tid_report_str = "\n".join(tid_report_lines)
+        tid_report_file = path / "tax_report.txt"
+        tid_report_file.write_text(tid_report_str, encoding="utf-8")
+
+        # 3 - raw report (json)
+        raw_report_path = path / "raw_report.txt"
+        raw_report_path.write_text(
+            json.dumps(
+                report,
+                indent=4,
+                default=lambda obj: (
+                    obj.isoformat() if isinstance(obj, datetime) else None
+                ),
+            )
+        )
+
+    def _get_tax_id_report(self) -> list[dict]:
+        tid_by_rank = self._gen._get_tax_ids_by_rank(self._rank)
+        gen_tid_by_rank = self._gen._tax_ids_by_rank
+        counts = self._database.counts()
+        report = []
+
+        for rank_tid, tax_ids in tid_by_rank.items():
+            rank_report = {
+                "name": self._taxdb[rank_tid].get("ScientificName"),
+                "tax_id": rank_tid,
+                "skipped": rank_tid not in gen_tid_by_rank,
+            }
+
+            tax_ids_report = {}
+            for tax_id in tax_ids:
+                tax_ids_report[tax_id] = {
+                    "name": self._taxdb[tax_id].get("ScientificName", "Unknown"),
+                    "count": counts.get(tax_id, 0),
+                    "tax_id": tax_id,
+                }
+
+            rank_report["tax_ids"] = tax_ids_report
+            rank_report["count"] = sum(
+                tax_id["count"] for tax_id in tax_ids_report.values()
+            )
+            report.append(rank_report)
+
+        return report
+
+    def load(self, path: str | Path) -> None:
         """Load model from file."""
-        save_path = self._save_path
-        if sub_dir:
-            save_path /= sub_dir
-        LOG.debug(f"Loading model: {save_path}")
-        model_path = save_path / "model.bin"
-        label_path = save_path / "labels.pkl"
-        label_encoder_path = save_path / "labels_encoder.pkl"
-        params_path = save_path / "params.json"
+        path = Path(path).resolve()
+        LOG.debug(f"Loading model: {path}...")
+        model_path = path / "model.bin"
+        label_path = path / "labels.pkl"
+        label_encoder_path = path / "labels_encoder.pkl"
+        params_path = path / "params.json"
         for f in (model_path, label_path, label_encoder_path, params_path):
-            if not f.is_file:
+            if not f.exists():
+                self._gen.stop()
                 raise FileNotFoundError(f)
 
         self._model = xgb.Booster()
@@ -267,24 +581,15 @@ class XGBoostModel:
         self._label_encoder = deserialize(label_encoder_path)
         self._params = json.loads(params_path.read_text())
 
-    def _load_best_model(self) -> None:
-        LOG.debug("Loading best model...")
-        prev_scores = [br["score"] for br in self._batch_reports]
-        max_index, max_value = max(enumerate(prev_scores), key=lambda x: x[1])
-        LOG.debug(f"Loading best model: BATCH {max_index} => {max_value:.3f}")
-        self.load(f"batch_models/{max_index}")
-
-    def save(self, sub_dir: str | None = None) -> None:
+    def save(self, path: str | Path) -> None:
         """Save model to directory."""
-        save_path = self._save_path
-        if sub_dir:
-            save_path /= sub_dir
-            LOG.debug(f"Saving model: {save_path}")
-        save_path.mkdir(parents=True, exist_ok=True)
-        model_path = save_path / "model.bin"
-        label_path = save_path / "labels.pkl"
-        label_encoder_path = save_path / "labels_encoder.pkl"
-        params_path = save_path / "params.json"
+        path = Path(path).resolve()
+        LOG.debug(f"Saving model: {path}...")
+        path.mkdir(parents=True, exist_ok=True)
+        model_path = path / "model.bin"
+        label_path = path / "labels.pkl"
+        label_encoder_path = path / "labels_encoder.pkl"
+        params_path = path / "params.json"
 
         if self._model is not None:
             self._model.save_model(str(model_path))
@@ -296,69 +601,6 @@ class XGBoostModel:
 
     def stop(self) -> None:
         self._gen.stop()
-
-    @staticmethod
-    def _serialize_dmatrix(dmatrix: xgb.DMatrix, file_path: str | Path) -> None:
-        file_path = Path(file_path)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        dmatrix.save_binary(file_path)
-
-    @staticmethod
-    def _deserialize_dmatrix(file_path: str | Path) -> xgb.DMatrix:
-        file_path = Path(file_path)
-        if not file_path.exists():
-            raise FileNotFoundError(f"{file_path} DMatrix not found.")
-        return xgb.DMatrix(file_path)
-
-    def _store_batches(
-        self, batch_count: int, storage_name: str, return_dmats: bool = False
-    ) -> list[xgb.DMatrix] | None:
-        storage_dir = self._save_path / "dmats" / storage_name
-        dmats = []
-        for i in range(batch_count):
-            dmat = self._get_next_batch()
-            dmat_path = storage_dir / f"{i+1:04}.dmat"
-
-            counter = 1
-            while dmat_path.exists():
-                # change name if needed
-                dmat_path = storage_dir / f"{i+1:04}_{counter:04}.dmat"
-                counter += 1
-
-            self._serialize_dmatrix(dmat, dmat_path)
-            if return_dmats:
-                dmats.append(dmat)
-        if return_dmats:
-            return dmats
-
-    def _stored_batches_generator(
-        self, storage_name: str
-    ) -> Generator[xgb.DMatrix, None, None]:
-        storage_dir = self._save_path / "dmats" / storage_name
-        if not storage_dir.is_dir():
-            raise NotADirectoryError(f"{storage_dir} is not a directory.")
-
-        for file_path in storage_dir.iterdir():
-            if file_path.is_file():
-                dmatrix = self._deserialize_dmatrix(file_path)
-                yield dmatrix
-
-    def _get_next_batch(self, storage_name: str | None = None) -> xgb.DMatrix:
-        if self._last_batch_id is None:
-            self._last_batch_id = -1
-        self._last_batch_id += 1
-        try:
-            if storage_name:
-                # store before returning
-                return self._store_batches(
-                    batch_count=1, storage_name=storage_name, return_dmats=True
-                )[0]
-            return next(self._gen.get())
-        except StopIteration:
-            LOG.exception(
-                f"No more batch available: {self._last_batch_id + 1} / {self._max_batch_count}"
-            )
-            raise
 
     def _score(self, report: dict, lambda_penalty: float = 0.5) -> float:
         """Custom metric: f1 avg, but add penalty according to rank position"""
@@ -381,3 +623,128 @@ class XGBoostModel:
         penalty = sum((1 - f) for f in f1_normalized) / len(f1_scores)
 
         return f1_macro_avg - lambda_penalty * penalty
+
+    def _confusion_matrix_to_ascii(self, conf_matrix: list) -> str:
+        sorted_labels = sorted(self._sn_map.values())
+        max_label_length = max(len(label) for label in sorted_labels)
+        header = f"{'':>{max_label_length+2}} " + " ".join(
+            f"{label:>{max_label_length}}" for label in sorted_labels
+        )
+        lines = [header]
+
+        for i, label in enumerate(sorted_labels):
+            line = f"{label:{max_label_length}}: " + " ".join(
+                f"{conf_matrix[i, j]:{max_label_length}}"
+                for j in range(len(sorted_labels))
+            )
+            lines.append(line)
+        return "\n".join(lines)
+
+    def _plot_and_save_confusion_matrix(
+        self, conf_matrix: list, file_path: Path
+    ) -> None:
+        sorted_labels = sorted(self._sn_map.values())
+        _, ax = plt.subplots(figsize=(10, 7))
+        sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues", ax=ax, cbar=False)
+
+        ax.set_xlabel("Predicted Labels")
+        ax.set_ylabel("True Labels")
+        ax.set_title("Confusion Matrix")
+
+        ax.set_xticks(np.arange(len(sorted_labels)) + 0.5)
+        ax.set_yticks(np.arange(len(sorted_labels)) + 0.5)
+        ax.set_xticklabels(sorted_labels, rotation=45, ha="right")
+        ax.set_yticklabels(sorted_labels, rotation=0)
+
+        plt.tight_layout()
+        plt.savefig(file_path)
+        plt.close()
+
+    def _get_simple_batch_splits(
+        self,
+        train_batch_count: int | None,
+        test_batch_count: int,
+        eval_batch_count: int,
+    ) -> dict[str, list[int]]:
+        min_required_batches = 1 + eval_batch_count + test_batch_count
+        if train_batch_count is None:
+            min_required_batches += 1
+        else:
+            min_required_batches += train_batch_count
+
+        if self._max_batch_count < min_required_batches:
+            raise ValueError(
+                f"Not enough batches available for the specified split ({self._max_batch_count})"
+            )
+
+        test_indices = list(range(1, test_batch_count + 1))
+        eval_indices = list(
+            range(
+                test_batch_count + 1,
+                test_batch_count + eval_batch_count + 1,
+            )
+        )
+
+        train_start_index = test_batch_count + eval_batch_count + 1
+
+        if train_batch_count is None:
+            train_indices = list(range(train_start_index, self._max_batch_count + 1))
+        else:
+            train_indices = list(
+                range(train_start_index, train_start_index + train_batch_count)
+            )
+
+        return {"train": train_indices, "eval": eval_indices, "test": test_indices}
+
+    def _get_kfold_batch_splits(
+        self, k: int, train_batch_count: int | None, eval_batch_count: int
+    ):
+        if self._max_batch_count < k + eval_batch_count:
+            raise ValueError(
+                f"Not enough batches available for the specified k-fold split ({self._max_batch_count})"
+            )
+
+        all_batches = list(range(1, self._max_batch_count + 1))
+        test_folds = np.array_split(all_batches, k)
+
+        splits = []
+        for test_indices in test_folds:
+            remaining_indices = [j for j in all_batches if j not in test_indices]
+            eval_index = remaining_indices[:eval_batch_count]
+
+            if train_batch_count is None:
+                train_indices = remaining_indices[eval_batch_count:]
+            else:
+                train_indices = remaining_indices[
+                    eval_batch_count : eval_batch_count + train_batch_count
+                ]
+
+            splits.append(
+                {
+                    "train": train_indices,
+                    "eval": eval_index,
+                    "test": [int(i) for i in test_indices],
+                }
+            )
+
+        return splits
+
+    def _get_next_batch(self) -> xgb.DMatrix:
+        self._last_batch_id += 1
+        try:
+            if not self._gen.is_started():
+                self._gen.start()
+            return next(self._gen.get())
+        except StopIteration:
+            LOG.exception(
+                f"No more batch available: {self._last_batch_id} / {self._max_batch_count}"
+            )
+            self._last_batch_id -= 1
+            raise
+
+    def _get_batch(self, batch_id: int) -> xgb.DMatrix:
+        while not self._dmat_store.has_dmat(batch_id):
+            batch = self._get_next_batch()
+            self._dmat_store[self._last_batch_id] = batch
+
+        return self._dmat_store[batch_id]
