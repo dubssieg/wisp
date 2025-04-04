@@ -34,58 +34,58 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=4):
     with open(f'{exp_dir}/databases.json', 'r', encoding='utf-8') as jdb:
         database = json.load(jdb)  # Loading data => should be put in the main call to escape loading it at each iteration
 
-    with Manager() as manager:
-        shared_database = manager.dict(database)  # Crée un dictionnaire partagé
+    # with Manager() as manager:
+    #     shared_database = manager.dict(database)  # Crée un dictionnaire partagé
 
-        logger.info("Starting model creation")
-        # datas = {'datas': list_59_data,'mappings': taxa_code_by_level}
-        classif_targets = [(taxo_level, taxo_target)
-                           for taxo_level, targets in nodes_per_level.items()
-                           for taxo_target in targets
-                           ]
+    logger.info("Starting model creation")
+    # datas = {'datas': list_59_data,'mappings': taxa_code_by_level}
+    classif_targets = [(taxo_level, taxo_target)
+                       for taxo_level, targets in nodes_per_level.items()
+                       for taxo_target in targets
+                       ]
 
-        make_model_partial = partial(make_model, exp_dir, shared_database, params, logger)
-        logger.info(f"Lancement de {len(classif_targets)} modèles avec num_processes={max_workers}")
-        nb_model_fail = 0  # Compteur de modèles non générés
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(make_model_partial, *classif_target): classif_target for classif_target in
-                       classif_targets}
+    make_model_partial = partial(make_model, exp_dir, database, params, logger)
+    logger.info(f"Lancement de {len(classif_targets)} modèles avec num_processes={max_workers}")
+    nb_model_fail = 0  # Compteur de modèles non générés
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(make_model_partial, *classif_target): classif_target for classif_target in
+                   classif_targets}
 
-            for idx, future in enumerate(as_completed(futures)):  # Gestion des tâches dès qu'elles terminent
-                taxo_level, taxo_target = futures[future]
+        for idx, future in enumerate(as_completed(futures)):  # Gestion des tâches dès qu'elles terminent
+            taxo_level, taxo_target = futures[future]
 
-                try:
-                    model_path = future.result()  # Récupération du chemin du modèle généré
+            try:
+                model_path = future.result()  # Récupération du chemin du modèle généré
 
-                    if model_path is not None:
-                        key = f"{taxo_target.lower()}_{taxo_level}"
-                        try:
-                            node = phylo_tree[key]
-                            node.data.model_path = os.path.basename(model_path)  # Stockage du chemin relatif
-                            logger.info(f"✅ [{idx}/{len(futures)}] Modèle   pour le niveau {taxo_level}: {taxo_target} ")
+                if model_path is not None:
+                    key = f"{taxo_target.lower()}_{taxo_level}"
+                    try:
+                        node = phylo_tree[key]
+                        node.data.model_path = os.path.basename(model_path)  # Stockage du chemin relatif
+                        logger.info(f"✅ [{idx}/{len(futures)}] Modèle   pour le niveau {taxo_level}: {taxo_target} ")
 
-                        except KeyError:
-                            logger.error(f"❌ [{idx}/{len(futures)}] Clé manquante dans l'arbre phylogénétique : {key}."
-                                         f" Suppression du nœud {taxo_target.lower()}")
-                            phylo_tree.remove_node(taxo_target.lower())
+                    except KeyError:
+                        logger.error(f"❌ [{idx}/{len(futures)}] Clé manquante dans l'arbre phylogénétique : {key}."
+                                     f" Suppression du nœud {taxo_target.lower()}")
+                        phylo_tree.remove_node(taxo_target.lower())
 
-                    else:
-                        logger.warning(f"⚠ [{idx}/{len(futures)}] Modèle non généré , model_path=None {taxo_target} ({taxo_level})")
-                        nb_model_fail += 1
-                except Exception as e:
-                    logger.error(f"🔥 Erreur lors de l'entraînement du modèle pour {taxo_target} ({taxo_level}) : {e}")
+                else:
+                    logger.warning(f"⚠ [{idx}/{len(futures)}] Modèle non généré , model_path=None {taxo_target} ({taxo_level})")
+                    nb_model_fail += 1
+            except Exception as e:
+                logger.error(f"🔥 Erreur lors de l'entraînement du modèle pour {taxo_target} ({taxo_level}) : {e}")
 
-            logger.info(f"📊 Modèles non générés : {nb_model_fail}/{ len(futures) }")
+        logger.info(f"📊 Modèles non générés : {nb_model_fail}/{ len(futures) }")
 
-        phylo_path = f"{exp_dir}/phylo_tree.txt"
-        os.makedirs(os.path.dirname(phylo_path), exist_ok=True)
+    phylo_path = f"{exp_dir}/phylo_tree.txt"
+    os.makedirs(os.path.dirname(phylo_path), exist_ok=True)
 
-        with open(phylo_path, 'wb') as jtree:
-            pickle.dump(phylo_tree, jtree)
+    with open(phylo_path, 'wb') as jtree:
+        pickle.dump(phylo_tree, jtree)
 
-        model_time = round((time.time() - start_model))
-        logger.info(f"Finished make_model in {model_time} s  tree @ {phylo_path} ")
-        mlflow.log_metric("model_time", model_time)
+    model_time = round((time.time() - start_model))
+    logger.info(f"Finished make_model in {model_time} s  tree @ {phylo_path} ")
+    mlflow.log_metric("model_time", model_time)
 
 
 
