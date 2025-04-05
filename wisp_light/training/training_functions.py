@@ -12,6 +12,7 @@ import mlflow
 
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
+# from multiprocessing import Manager
 from create_model import make_model
 from create_prediction import prediction
 from utils import  extract_majority_classification, setup_logger
@@ -33,6 +34,11 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=4):
     with open(f'{exp_dir}/databases.json', 'r', encoding='utf-8') as jdb:
         database = json.load(jdb)  # Loading data => should be put in the main call to escape loading it at each iteration
 
+    # with Manager() as manager:
+    #     shared_database = manager.dict(database)  # Crée un dictionnaire partagé
+    mappings_data = database['mappings']
+    all_data = database['datas']
+
     logger.info("Starting model creation")
     # datas = {'datas': list_59_data,'mappings': taxa_code_by_level}
     classif_targets = [(taxo_level, taxo_target)
@@ -40,12 +46,20 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=4):
                        for taxo_target in targets
                        ]
 
-    make_model_partial = partial(make_model, exp_dir, database, params, logger)
+    make_model_base = partial(
+        make_model, output_dir=exp_dir, mappings_data=mappings_data,  params=params, logger=logger  )
+    # make_model_partial = partial(make_model, exp_dir, database, params, logger)
     logger.info(f"Lancement de {len(classif_targets)} modèles avec num_processes={max_workers}")
     nb_model_fail = 0  # Compteur de modèles non générés
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(make_model_partial, *classif_target): classif_target for classif_target in
-                   classif_targets}
+        # futures = {executor.submit(make_model_partial, *classif_target): classif_target for classif_target in
+        #            classif_targets}
+        futures = {
+            executor.submit(
+                make_model_base,
+                filtered_reads=[(data_by_genome, read) for data_by_genome in all_data if taxo_level == "root" or data_by_genome.get(taxo_level) == taxo_target for read in data_by_genome['datas']],
+                taxo_level=taxo_level,  taxo_target=taxo_target): (taxo_level, taxo_target)  for taxo_level, taxo_target in classif_targets
+        }
 
         for idx, future in enumerate(as_completed(futures)):  # Gestion des tâches dès qu'elles terminent
             taxo_level, taxo_target = futures[future]

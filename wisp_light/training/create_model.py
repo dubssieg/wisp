@@ -8,9 +8,10 @@ import sys
 sys.path.append('..')
 from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
-# TAXO_LEVELS  = ['root', 'phylum', 'class', 'order', 'family']
 
-def make_model(output_dir: str, database: dict, params: dict, logger,  taxo_level: str, taxo_target: str) :
+def make_model(output_dir: str, filtered_reads, mappings_data,
+               # database: dict
+               params: dict, logger,  taxo_level: str, taxo_target: str) :
     """Builds the model and saves it"""
     # Creating the booster
     # levels_old = ["root", "domain", "phylum", "group", "order", "family", "specie"]
@@ -18,10 +19,10 @@ def make_model(output_dir: str, database: dict, params: dict, logger,  taxo_leve
     level_up: int = levels.index(taxo_level) + 1
     next_level: str = levels[level_up]
 
-    if not taxo_level in database['mappings'] and not taxo_level == 'root':
+    if not taxo_level in mappings_data and not taxo_level == 'root':
         raise ValueError(f"Database does not contain {taxo_level} level.")
 
-    mappings: dict = copy(database['mappings'][next_level])
+    mappings: dict = copy(mappings_data[next_level])
     try:
         number_taxa = mappings.pop('number_taxa')
     except KeyError:
@@ -39,15 +40,25 @@ def make_model(output_dir: str, database: dict, params: dict, logger,  taxo_leve
     temp_dataset = f"{temp_dir}/{taxo_target}_{taxo_level}_{uuid.uuid4().hex}.txt"
 
     with open(temp_dataset, 'w', encoding='utf-8') as libsvm_writer:
-        for data_by_genome in database['datas']:
-            if taxo_level == 'root' or data_by_genome[taxo_level] == taxo_target: # aps de root dans data_by_genome
+        for data_by_genome, read in filtered_reads:
+            try:
+                label_next_level = data_by_genome[next_level]
+                id_label_next_level = mappings[label_next_level]
+                kmer_pairs = ' '.join(f"{k}:{v}" for k, v in read.items())
+                line = f"{id_label_next_level} {kmer_pairs} #{label_next_level}\n"
+                libsvm_writer.write(line)
+            except KeyError as e:
+                logger.warning(f"Missing mapping for label {e} in {next_level} — skipping read.")
 
-                for read in data_by_genome['datas']:
-                    id_label_next_level = mappings[data_by_genome[next_level]]
-                    label_next_level = data_by_genome[next_level]
-                    kmer_pairs = ' '.join([str(k) + ':' + str(v) for k, v in read.items()]) # Each read is a dict with code:count for kmer
-                    line = f"{id_label_next_level} {kmer_pairs} #{label_next_level}\n" # sert pour l'eval et non xgboost
-                    libsvm_writer.write(line)
+        # for data_by_genome in database['datas']:
+        #     if taxo_level == 'root' or data_by_genome[taxo_level] == taxo_target: # aps de root dans data_by_genome
+        #
+        #         for read in data_by_genome['datas']:
+        #             id_label_next_level = mappings[data_by_genome[next_level]]
+        #             label_next_level = data_by_genome[next_level]
+        #             kmer_pairs = ' '.join([str(k) + ':' + str(v) for k, v in read.items()]) # Each read is a dict with code:count for kmer
+        #             line = f"{id_label_next_level} {kmer_pairs} #{label_next_level}\n" # sert pour l'eval et non xgboost
+        #             libsvm_writer.write(line)
 
     model_output_path = f"{model_dir}/{taxo_target}_{taxo_level}.json"
     config_output_path = model_output_path.replace('.json', '_params.json')
@@ -56,6 +67,7 @@ def make_model(output_dir: str, database: dict, params: dict, logger,  taxo_leve
                     {"eval_metric", "tree_method", "device", "booster", "objective",  "eta", "max_depth", "random_state"}
                     if key in params}
     model_params['num_class'] = number_taxa
+    model_params['nthread'] = 1
 
     try:
         # Creating the model
