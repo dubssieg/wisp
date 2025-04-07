@@ -67,7 +67,7 @@ def make_model(output_dir: str, filtered_reads, mappings_data,
                     {"eval_metric", "tree_method", "device", "booster", "objective",  "eta", "max_depth", "random_state"}
                     if key in params}
     model_params['num_class'] = number_taxa
-    model_params['nthread'] = 1
+    # model_params['nthread'] = 1
 
     try:
         # Creating the model

@@ -16,9 +16,11 @@ from tqdm import tqdm
 from collections import defaultdict
 sys.path.append('..')
 from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
+from wisp.wisp_light.training.utils import log_resource_usage
 
 
 def load_phylo_tree(databse_json: str) :
+
     with open(databse_json, 'r', encoding='utf-8') as f:
         db_data = json.load(f)  # Charge le fichier JSON
 
@@ -58,6 +60,8 @@ def load_phylo_tree(databse_json: str) :
 def build_database(train_dataset: list[str], params: dict, database_json: str , logger, max_workers) ->  Tree:
     """Builds a json file with taxa levels as dict information"""
     # creating encoder
+    log_resource_usage(logger, "build_database (start)")
+
     my_encoder: dict = encoder(ksize=params['ksize'])
     # creating phylogenetic tree
     phylo_tree: Tree = Tree()
@@ -133,6 +137,7 @@ def build_database(train_dataset: list[str], params: dict, database_json: str , 
         avg_dna_length = int(total_dna_length / len(train_dataset))
         avg_nb_count_win = int(total_nb_count_win / len(train_dataset))
         logger.info(f"avg_nb_count_win {avg_nb_count_win} avg_dna_length {avg_dna_length:,d}".replace(",", " "))
+        log_resource_usage(logger, "build_database (end)")
     return phylo_tree
 
 

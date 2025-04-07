@@ -5,10 +5,11 @@ import time
 import yaml
 import logging
 import mlflow
+import psutil
 from datetime import datetime
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
+# os.environ["OMP_NUM_THREADS"] = "1"
+# os.environ["OPENBLAS_NUM_THREADS"] = "1"
+# os.environ["MKL_NUM_THREADS"] = "1"
 
 from utils import setup_logger
 from create_database import check_parameters, build_database, load_phylo_tree
@@ -103,9 +104,10 @@ with mlflow.start_run():
         logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
         mlflow.log_metric("database_time", database_time)
 
-    train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=params['max_workers_trainval'])
+    model_time = train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=params['max_workers_trainval'])
     #
-    validate(val_dataset, exp_dir, params, logger, max_workers=params['max_workers_trainval'])
+    validation_time = validate(val_dataset, exp_dir, params, logger, max_workers=params['max_workers_trainval'])
 
+    print(f"Times: \n - database {database_time} s\n - model {model_time} s\n - validation {validation_time} s")
 
 
