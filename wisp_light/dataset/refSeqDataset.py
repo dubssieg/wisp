@@ -9,9 +9,9 @@ sys.path.append('../../..')
 TAXO_LEVELS =  ['phylum', 'class', 'order', 'family']
 
 class RefSeqDataset:
-    def __init__(self, index_csv, datadir, logger=None, cut=None):
+    def __init__(self, index_csv, datadir, logger=None, cut=-1):
         self.index_with_label = pd.read_csv(index_csv, sep='\t')
-        if cut:
+        if cut > 0:
             self.index_with_label = self.index_with_label.head(cut)
         self.datadir = datadir
         self.logger = logger

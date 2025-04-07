@@ -5,7 +5,7 @@ import time
 import yaml
 import logging
 import mlflow
-import psutil
+
 from datetime import datetime
 # os.environ["OMP_NUM_THREADS"] = "1"
 # os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -41,6 +41,7 @@ args.exp_rootdir = '/WORKS/microtaxo/exp_refseq' # '/scratch/hcourtei/exp_refseq
 
 # args.datadir = '/projects/microtaxo/data/refseq3' # '/scratch/hcourtei/refseq3'
 # args.exp_rootdir = '/projects/microtaxo/exp_refseq' # '/scratch/hcourtei/exp_refseq'
+CUT = 2000
 
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
 if args.db_json:
@@ -85,7 +86,7 @@ with mlflow.start_run():
     # dataset = BacteriaDataset(args.datadir, logger)
     # dataset.filter_family_by_min_species(min_family_threshold=params['min_family_threshold'],
     #                                      max_family_repr=params['max_family_repr'])
-    dataset = RefSeqDataset(args.index_csv, args.datadir, logger, cut= 1000)
+    dataset = RefSeqDataset(args.index_csv, args.datadir, logger, cut= CUT)
 
     train_dataset, val_dataset = dataset.split(test_size=params['test_size'], random_state=params['random_state'],
                                                family_strat=params['family_strat'])
