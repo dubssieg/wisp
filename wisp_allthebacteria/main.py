@@ -36,8 +36,6 @@ def create_db(conf: dict):
         metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
         output_path.mkdir(parents=True, exist_ok=True)
 
-        archives = list(input_path.glob("*.xz"))
-
         taxdb = TaxDB(
             cache_dir=conf["taxdb"]["cache_dir"],
             email=conf["taxdb"]["email"],
@@ -84,6 +82,12 @@ def create_db(conf: dict):
         incomplete = set(json_create_db["incomplete"])
         duration = json_create_db["duration"]
 
+        archives = [
+            archive
+            for archive in input_path.glob("*.xz")
+            if not db.has_archive(archive)
+        ]
+
         try:
             for i, archive_path in tqdm(
                 enumerate(archives),
@@ -99,12 +103,8 @@ def create_db(conf: dict):
                     if archive_str in incomplete:
                         LOG.info(f"Retrying {archive_path.name}...")
 
-                    if db.has_archive(archive_path):
-                        LOG.warning(f"{archive_path.name} already in DB - SKIP.")
-                    else:
-
-                        db.push_archive(archive_path)
-                        gc.collect()
+                    db.push_archive(archive_path)
+                    gc.collect()
 
                     complete.add(archive_str)
                     incomplete.discard(archive_str)
