@@ -379,7 +379,7 @@ class DatabaseBuilder(Database):
         tmp_dir = data["tmp_dir"]
 
         LOG.debug(
-            f"Adding {sum(len(c) for c in merged_data.values())} counters to DB for {len(merged_data)} tax_id"
+            f"Adding {sum(len(c) for c in merged_data.values())} counters to DB for tax_id(s): {', '.join(map(str, merged_data.keys()))} "
         )
 
         last_valid_ids = {}
