@@ -91,9 +91,10 @@ def build_database(train_dataset: list[str], params: dict, database_json: str , 
             all_reads = splitting(dna_sequence, params['read_size'], params['max_sampling'], shift_ratio=params['shift_ratio'])
             # l = list(all_reads)
             # Counting kmers inside each read
-            log_resource_usage(logger, "build_database (Pool)")
             with ProcessPoolExecutor(max_workers= max_workers) as executor:
                 counters = list(executor.map(count_kmers_partial, all_reads))
+                if id_genome== 10 :
+                    log_resource_usage(logger, "build_database (Pool)")
 
             # counters: list[Counter] = [counter_kmer(read,params['ksize'],params['pattern']) for read in all_reads]
             total_nb_count_win += len(counters)
