@@ -60,7 +60,6 @@ def load_phylo_tree(databse_json: str) :
 def build_database(train_dataset: list[str], params: dict, database_json: str , logger, max_workers) ->  Tree:
     """Builds a json file with taxa levels as dict information"""
     # creating encoder
-    log_resource_usage(logger, "build_database (start)")
 
     my_encoder: dict = encoder(ksize=params['ksize'])
     # creating phylogenetic tree
@@ -94,6 +93,8 @@ def build_database(train_dataset: list[str], params: dict, database_json: str , 
             # Counting kmers inside each read
             with ProcessPoolExecutor(max_workers= max_workers) as executor:
                 counters = list(executor.map(count_kmers_partial, all_reads))
+                log_resource_usage(logger, "build_database (Pool)")
+
             # counters: list[Counter] = [counter_kmer(read,params['ksize'],params['pattern']) for read in all_reads]
             total_nb_count_win += len(counters)
             del all_reads

@@ -41,7 +41,7 @@ args.exp_rootdir = '/WORKS/microtaxo/exp_refseq' # '/scratch/hcourtei/exp_refseq
 
 # args.datadir = '/projects/microtaxo/data/refseq3' # '/scratch/hcourtei/refseq3'
 # args.exp_rootdir = '/projects/microtaxo/exp_refseq' # '/scratch/hcourtei/exp_refseq'
-CUT = 2000
+CUT = 300
 
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
 if args.db_json:
