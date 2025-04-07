@@ -57,7 +57,7 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=4):
     logger.info(f"Lancement de {len(classif_targets)} modèles avec num_processes={max_workers}")
     nb_model_fail = 0  # Compteur de modèles non générés
 
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(
                 make_model,

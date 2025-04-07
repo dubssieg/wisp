@@ -7,9 +7,9 @@ import logging
 import mlflow
 
 from datetime import datetime
-# os.environ["OMP_NUM_THREADS"] = "1"
-# os.environ["OPENBLAS_NUM_THREADS"] = "1"
-# os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
 
 from utils import setup_logger
 from create_database import check_parameters, build_database, load_phylo_tree
@@ -20,7 +20,7 @@ from wisp.wisp_light.dataset.refSeqDataset import RefSeqDataset
 # from wisp.wisp_light.dataset.bactero_set import BacteriaDataset
 
 parser = argparse.ArgumentParser(description="Script d'entraînement pour le modèle bactérien.")
-parser.add_argument("--exp_name", type=str, default="model_base_testval", help="Nom de l'expérience.")
+parser.add_argument("--exp_name", type=str, default="model_base_complete", help="Nom de l'expérience.")
 parser.add_argument("--datadir", type=str, default="/projects/microtaxo/data/refseq_with_taxo_merged", help="Répertoire des données.")
 parser.add_argument("--params_file", type=str, default="params.yaml", help="Chemin du fichier de paramètres.")
 parser.add_argument("--exp_rootdir", type=str, default=os.path.abspath('../../exp/'), help="Répertoire racine des expériences.")
@@ -41,7 +41,7 @@ args.exp_rootdir = '/WORKS/microtaxo/exp_refseq' # '/scratch/hcourtei/exp_refseq
 
 # args.datadir = '/projects/microtaxo/data/refseq3' # '/scratch/hcourtei/refseq3'
 # args.exp_rootdir = '/projects/microtaxo/exp_refseq' # '/scratch/hcourtei/exp_refseq'
-CUT = 300
+CUT = -1
 
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
 if args.db_json:
