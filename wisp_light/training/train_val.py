@@ -10,10 +10,11 @@ from datetime import datetime
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
+from Bio import SeqIO
 
 from utils import setup_logger
 from create_database import check_parameters, build_database, load_phylo_tree
-from training_functions import train_model_targets, validate
+from training_functions import train_model_targets, validate, count_seq
 
 sys.path.append('../../..')
 from wisp.wisp_light.dataset.refSeqDataset import RefSeqDataset
@@ -91,6 +92,8 @@ with mlflow.start_run():
     train_dataset, val_dataset = dataset.split(test_size=params['test_size'], random_state=params['random_state'],
                                                family_strat=params['family_strat'])
 
+    nb_seq = count_seq(val_dataset)
+"""
     if  args.db_json:
 
         phylo_tree, nb_genome_indexed = load_phylo_tree(args.db_json)
@@ -111,4 +114,5 @@ with mlflow.start_run():
 
     print(f"Times: \n - database {database_time} s\n - model {model_time} s\n - validation {validation_time} s")
 
+"""
 

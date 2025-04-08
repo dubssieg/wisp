@@ -234,6 +234,19 @@ def log_val_metrics(metrics, val_dir, logger):
         plot_conf_mat(conf_mat_level, level, separator_indices, filename=plot_path)
         mlflow.log_artifact(plot_path)
 
+def count_seq(dataset):
+    nb_seq = 0
+    for sample in dataset:
+        genome, gt_taxons = sample
+        with open(genome, 'r', encoding='utf-8') as freader:
+            genome_data = {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')}
+
+        sequences = [(id_sequence, dna_sequence) for id_sequence, dna_sequence in genome_data.items()]
+        for seq_id, seq_data in sequences:
+            nb_seq += 1
+
+    print(f" nb sequence {nb_seq} for nb val genome {len(dataset)}")
+    return nb_seq
 
 if __name__=='__main__':
     logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=None)
