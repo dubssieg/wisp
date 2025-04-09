@@ -195,6 +195,33 @@ def batch_count(conf: dict, rank: str):
     )
 
 
+def get_counters(conf: dict, tax_id: int, limit: int | None):
+
+    taxdb = TaxDB(
+        cache_dir=conf["taxdb"]["cache_dir"],
+        email=conf["taxdb"]["email"],
+        can_download=conf["taxdb"]["can_download"],
+        preload=False,
+    )
+    name = taxdb[tax_id]["ScientificName"]
+    name = name.replace(" ", "_").lower()
+    path = Path(name).with_suffix(".csv")
+
+    database = Database(
+        kmer_sizes=conf["db"]["kmer_sizes"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=conf["db"]["path"],
+        compression=conf["db"]["compression"],
+        fanout_shards=conf["db"]["fanout_shards"],
+    )
+    df = database.get_tax_id_samples(tax_id, as_dataframe=True, limit=limit)
+
+    LOG.info(f"Writing file {path}...")
+    df.to_csv(path, index=False)
+
+
 def load_config(json_file: Path | str):
     with open(json_file, "r") as file:
         conf = json.load(file)
@@ -460,6 +487,20 @@ if __name__ == "__main__":
         type=str,
         help="How many batches for this rank (use batch_size and min_samples_per_class). Ex: --batch_counts=phylum",
     )
+
+    parser.add_argument(
+        "--get-counters",
+        type=int,
+        help="Get counters for this tax-id. Ex: --get-counters=1464 --limit=30000",
+        default=None,
+    )
+
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help="Limit (--get-counters only for now)",
+    )
+
     parser.add_argument(
         "--debug",
         action="store_true",
@@ -493,6 +534,9 @@ if __name__ == "__main__":
 
     if args.batch_count:
         batch_count(conf, rank=args.batch_count)
+
+    if args.get_counters:
+        get_counters(conf=conf, tax_id=args.get_counters, limit=args.limit)
 
     if args.train_model:
         train_model(

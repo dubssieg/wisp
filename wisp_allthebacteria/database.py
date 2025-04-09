@@ -1,4 +1,5 @@
 import concurrent
+from itertools import product
 import logging
 import random
 import shutil
@@ -8,6 +9,8 @@ from pathlib import Path
 from typing import Any, Generator, Literal
 
 from diskcache import FanoutCache
+import pandas as pd
+from tqdm.auto import tqdm
 from fastakmer import FastaKmer
 from utils import decompress, space_format, get_weights, sample_count_estimation, hashed
 
@@ -244,6 +247,41 @@ class Database:
 
     def kmer_sizes(self) -> list[int]:
         return self._kmer_sizes
+
+    def get_tax_id_samples(
+        self, tax_id: int, limit: int | None = None, as_dataframe: bool = False
+    ) -> list[dict] | pd.DataFrame:
+        count = self.count(tax_id)
+        if limit is not None:
+            count = min(count, limit)
+        samples = [
+            self.get_data(tax_id=tax_id, num=i)
+            for i in tqdm(range(count), desc="Reading data...")
+        ]
+        if as_dataframe:
+            cols = []
+            for size in self._kmer_sizes:
+                kmers = sorted("".join(p) for p in product("ATGC", repeat=size))
+                cols.extend(kmers)
+
+            rows = []
+
+            for sample in tqdm(samples, desc="Sorting data..."):
+                md_values = list(sample["md"].values())
+                merged_counter = {
+                    k: v
+                    for counter_dict in sample["counter"].values()
+                    for k, v in counter_dict.items()
+                }
+
+                row = md_values + [merged_counter.get(col, 0) for col in cols]
+                rows.append(row)
+
+            columns = list(samples[0]["md"].keys()) + cols
+            LOG.info("Generating DataFrame...")
+            samples = pd.DataFrame(rows, columns=columns)
+
+        return samples
 
     def _archive_stem(self, path: str | Path) -> str:
         return Path(path).stem.split(".")[0]
