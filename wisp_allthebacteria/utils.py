@@ -241,6 +241,8 @@ class FunctionLogger:
     def _log_function_result(self):
         while not self._stop_event.is_set():
             result = self._func(*self._args, **self._kwargs)
+            if result is None:
+                break
             LOG.log(self._level, result)
             self._stop_event.wait(self._interval)
 

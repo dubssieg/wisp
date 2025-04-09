@@ -326,10 +326,14 @@ class ByRankGenerator(Dataset):
             self._is_started = True
 
     def stop(self) -> None:
-        LOG.debug("Stopping threads")
+        LOG.debug("Stopping buffer threads")
         self._terminating = True
         self._is_started = False
-        self._executor.shutdown(wait=True)
+        try:
+            self._executor.shutdown(wait=True)
+        except Exception:
+            LOG.exception("Stopping buffer threads")
+            pass
 
     def is_started(self) -> bool:
         return self._is_started
@@ -387,6 +391,7 @@ class ByRankGenerator(Dataset):
                 f"Sending (last) batch {self._batch_count} - {len(self._labels_batch)} samples"
             )
             yield dmatrix
+        self.stop()
 
     def buffers_info(self) -> str:
         buffer_info = []
@@ -408,6 +413,9 @@ class ByRankGenerator(Dataset):
         )
 
     def batch_info(self) -> None:
+        if self._batch_count == self._max_batch_count:
+            # Stop logging at the end
+            return None
         perc = 100 * len(self._labels_batch) / self._batch_size
         return f"BATCH {self._batch_count + 1}: {len(self._labels_batch)} / {self._batch_size} ({perc:.1f} %)"
 
