@@ -21,6 +21,8 @@ from metrics import ConfusionMatrixTracker, compute_accuracy_from_conf_matrix_df
 sys.path.append('../../..')
 from wisp.wisp_light.visu.plots_tools import plot_conf_mat
 from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
+from wisp.wisp_light.training.utils import log_resource_usage
+
 
 
 def train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=4):
@@ -31,35 +33,45 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=4):
         for i, level in enumerate(['root']+ TAXO_LEVELS[:-1])}  # jusqu'à order (drop family level)
 
     # display_json_preview(output_file, num_elements=1)
-    with open(f'{exp_dir}/databases.json', 'r', encoding='utf-8') as jdb:
-        database = json.load(jdb)  # Loading data => should be put in the main call to escape loading it at each iteration
-
-    # with Manager() as manager:
-    #     shared_database = manager.dict(database)  # Crée un dictionnaire partagé
-    mappings_data = database['mappings']
-    all_data = database['datas']
-
-    logger.info("Starting model creation")
-    # datas = {'datas': list_59_data,'mappings': taxa_code_by_level}
     classif_targets = [(taxo_level, taxo_target)
                        for taxo_level, targets in nodes_per_level.items()
                        for taxo_target in targets
                        ]
 
-    make_model_base = partial(
-        make_model, output_dir=exp_dir, mappings_data=mappings_data,  params=params, logger=logger  )
+    with open(f'{exp_dir}/databases.json', 'r', encoding='utf-8') as jdb:
+        database = json.load(jdb)  # Loading data => should be put in the main call to escape loading it at each iteration
+
+    mappings_data = database['mappings']
+    all_data = database['datas']
+
+    logger.info("Starting model creation")
+
+    def get_filtered_reads(all_data, taxo_level, taxo_target):
+        return [
+            (data_by_genome, read)
+            for data_by_genome in all_data
+            if taxo_level == "root" or data_by_genome.get(taxo_level) == taxo_target
+            for read in data_by_genome['datas']
+        ]
     # make_model_partial = partial(make_model, exp_dir, database, params, logger)
     logger.info(f"Lancement de {len(classif_targets)} modèles avec num_processes={max_workers}")
     nb_model_fail = 0  # Compteur de modèles non générés
+
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # futures = {executor.submit(make_model_partial, *classif_target): classif_target for classif_target in
-        #            classif_targets}
         futures = {
             executor.submit(
-                make_model_base,
-                filtered_reads=[(data_by_genome, read) for data_by_genome in all_data if taxo_level == "root" or data_by_genome.get(taxo_level) == taxo_target for read in data_by_genome['datas']],
-                taxo_level=taxo_level,  taxo_target=taxo_target): (taxo_level, taxo_target)  for taxo_level, taxo_target in classif_targets
+                make_model,
+                output_dir=exp_dir,
+                filtered_reads=get_filtered_reads(all_data, taxo_level, taxo_target),
+                mappings_data=mappings_data,
+                params=params,
+                logger=logger,
+                taxo_level=taxo_level,
+                taxo_target=taxo_target
+            ): (taxo_level, taxo_target)
+            for taxo_level, taxo_target in classif_targets
         }
+        log_resource_usage(logger, "train_model_targets (Pool)")
 
         for idx, future in enumerate(as_completed(futures)):  # Gestion des tâches dès qu'elles terminent
             taxo_level, taxo_target = futures[future]
@@ -96,6 +108,8 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=4):
     model_time = round((time.time() - start_model))
     logger.info(f"Finished make_model in {model_time} s  tree @ {phylo_path} ")
     mlflow.log_metric("model_time", model_time)
+    log_resource_usage(logger, "train_model_targets (end)")
+    return model_time
 
 
 
@@ -122,6 +136,7 @@ def validate(val_dataset, exp_dir, params, logger, max_workers=4, save_raw_pred=
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         # Submit the processing of each genome as a task to the executor
         futures = [executor.submit(process_genome_partial, sample) for sample in val_dataset]
+        log_resource_usage(logger, "validate (Pool)")
 
         for future in tqdm(as_completed(futures), total=len(futures), desc="Predicting Genomes", disable=not sys.stdout.isatty()):
             metrics_sample = future.result()  #Handle exceptions by raising them if any
@@ -134,6 +149,8 @@ def validate(val_dataset, exp_dir, params, logger, max_workers=4, save_raw_pred=
     validation_time = round((time.time() - start_validation))
     logger.info(f"Finished validation  in {validation_time} s")
     mlflow.log_metric("validation_time", validation_time)
+    log_resource_usage(logger, "validate (end)")
+    return validation_time
 
 
 def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, save_raw_pred):
@@ -217,6 +234,19 @@ def log_val_metrics(metrics, val_dir, logger):
         plot_conf_mat(conf_mat_level, level, separator_indices, filename=plot_path)
         mlflow.log_artifact(plot_path)
 
+def count_seq(dataset):
+    nb_seq = 0
+    for sample in dataset:
+        genome, gt_taxons = sample
+        with open(genome, 'r', encoding='utf-8') as freader:
+            genome_data = {fasta.id: str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta')}
+
+        sequences = [(id_sequence, dna_sequence) for id_sequence, dna_sequence in genome_data.items()]
+        for seq_id, seq_data in sequences:
+            nb_seq += 1
+
+    print(f" nb sequence {nb_seq} for nb val genome {len(dataset)}")
+    return nb_seq
 
 if __name__=='__main__':
     logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=None)

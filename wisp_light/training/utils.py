@@ -1,8 +1,12 @@
 import json
 import logging
-from numpy import argmax, amax, mean, ndarray,array, vectorize
+import os
+import psutil
 import sys
+
+from numpy import argmax, amax, mean, ndarray,array, vectorize
 sys.path.append('../../..')
+
 from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 
@@ -84,6 +88,26 @@ def softmax(predictions: ndarray, func: str, reads_threshold: float) -> list:
 #
 #
 #     return ret
+
+
+
+def log_resource_usage(logger: logging.Logger, label: str = ""):
+    pid = os.getpid()
+    process = psutil.Process(pid)
+    num_threads = process.num_threads()
+    num_children = len(process.children(recursive=True))
+    memory = process.memory_info().rss / 1024 / 1024  # in MB
+    cpu_percent = process.cpu_percent(interval=0.1)
+
+    green = "\033[92m"
+    reset = "\033[0m"
+    msg = (
+        f"{green}[{label}] PID={pid} 🧵 Threads: {num_threads} | 👶 Subprocesses: {num_children} | "
+        f"🧠 RAM: {memory:.2f} MB | 🔥 CPU%: {cpu_percent}{reset}"
+    )
+
+    logger.info(msg)
+
 
 def extract_majority_classification(sequence):
     """

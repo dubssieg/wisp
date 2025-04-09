@@ -68,7 +68,7 @@ def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_di
     sample_output_path = f"{val_dir}/temp/{file}"
     build_sample(params, dna_sequence, id_sequence, sample_output_path)
     # Evaluate at one level
-    results: list[dict] = [{} for _ in range(5)] # FIXME  : why 5
+    results: list[dict] = [{} for _ in range(5)] # FIXME  : why 5, change in TAXO_LEVELS
     kept_taxas = ['Root']
 
     for id_level, level in enumerate(['root'] + TAXO_LEVELS[:-1]):
