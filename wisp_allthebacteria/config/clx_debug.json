@@ -33,9 +33,12 @@
         "scientific_name": true,
         "default_models_dir": "/data/microtaxo/models",
         "default_workspaces_dir": "/data/microtaxo/workspaces",
-        "force_workspaces_dir": false,
-        "force_models_dir": false,
-        "batch_size": 1000,
+        "force_workspace_dir": "/data/microtaxo/workspaces/test1",
+        "force_model_dir": false,
+        "batch_size": "adapt_splits",
+        "batch_max_size": 200,
+        "adapt_batch_size_splits": 500,
+        "merge_batches": true,
         "generator_threads": 10,
         "train_batch_count": "max",
         "test_batch_count": 1,
@@ -63,8 +66,8 @@
             {
                 "rank": "kingdom",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model0",
-                    "force_models_dir": "/data/microtaxo/models/model0",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model0",
+                    "force_model_dir": "/data/microtaxo/models/model0",
                     "min_samples_per_class": 1000,
                     "batch_size": 100,
                     "eval_patience": 2
@@ -73,8 +76,8 @@
             {
                 "rank": "phylum",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model0",
-                    "force_models_dir": "/data/microtaxo/models/model0",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model0",
+                    "force_model_dir": "/data/microtaxo/models/model0",
                     "min_samples_per_class": 1000,
                     "batch_size": 100,
                     "eval_patience": 2
@@ -85,40 +88,40 @@
             {
                 "rank": "kingdom",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model1",
-                    "force_models_dir": "/data/microtaxo/models/model1",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model1",
+                    "force_model_dir": "/data/microtaxo/models/model1",
                     "min_samples_per_class": 0
                 }
             },
             {
                 "rank": "phylum",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model1",
-                    "force_models_dir": "/data/microtaxo/models/model1",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model1",
+                    "force_model_dir": "/data/microtaxo/models/model1",
                     "min_samples_per_class": 0
                 }
             },
             {
                 "rank": "class",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model1",
-                    "force_models_dir": "/data/microtaxo/models/model1",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model1",
+                    "force_model_dir": "/data/microtaxo/models/model1",
                     "min_samples_per_class": 0
                 }
             },
             {
                 "rank": "order",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model1",
-                    "force_models_dir": "/data/microtaxo/models/model1",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model1",
+                    "force_model_dir": "/data/microtaxo/models/model1",
                     "min_samples_per_class": 0
                 }
             },
             {
                 "rank": "family",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model1",
-                    "force_models_dir": "/data/microtaxo/models/model1",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model1",
+                    "force_model_dir": "/data/microtaxo/models/model1",
                     "min_samples_per_class": 0
                 }
             }

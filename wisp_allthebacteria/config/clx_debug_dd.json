@@ -33,11 +33,11 @@
         "scientific_name": true,
         "default_models_dir": "/media/cyrille/beca41d2-42be-4e99-b0dc-2279175a2216/models",
         "default_workspaces_dir": "/media/cyrille/beca41d2-42be-4e99-b0dc-2279175a2216/workspaces",
-        "force_workspaces_dir": false,
-        "force_models_dir": false,
+        "force_workspace_dir": false,
+        "force_model_dir": false,
         "batch_size": "adapt_splits",
         "batch_max_size": 500000,
-        "adapt_batch_size_splits": 5,
+        "adapt_batch_size_splits": 6,
         "merge_batches": true,
         "generator_threads": 10,
         "train_batch_count": "max",
@@ -66,8 +66,8 @@
             {
                 "rank": "kingdom",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model0",
-                    "force_models_dir": "/data/microtaxo/models/model0",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model0",
+                    "force_model_dir": "/data/microtaxo/models/model0",
                     "min_samples_per_class": 1000,
                     "eval_patience": 2
                 }
@@ -75,8 +75,8 @@
             {
                 "rank": "phylum",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model0",
-                    "force_models_dir": "/data/microtaxo/models/model0",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model0",
+                    "force_model_dir": "/data/microtaxo/models/model0",
                     "min_samples_per_class": 1000,
                     "eval_patience": 2
                 }
@@ -86,8 +86,8 @@
             {
                 "rank": "kingdom",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model0",
-                    "force_models_dir": "/data/microtaxo/models/model0",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model0",
+                    "force_model_dir": "/data/microtaxo/models/model0",
                     "min_samples_per_class": 10000,
                     "sample_balance_factor": 0,
                     "batch_balance_factor": 1
@@ -96,8 +96,8 @@
             {
                 "rank": "phylum",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model0",
-                    "force_models_dir": "/data/microtaxo/models/model0",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model0",
+                    "force_model_dir": "/data/microtaxo/models/model0",
                     "min_samples_per_class": 10000,
                     "sample_balance_factor": 0,
                     "batch_balance_factor": 1
@@ -106,8 +106,8 @@
             {
                 "rank": "class",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model0",
-                    "force_models_dir": "/data/microtaxo/models/model0",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model0",
+                    "force_model_dir": "/data/microtaxo/models/model0",
                     "min_samples_per_class": 5000,
                     "sample_balance_factor": 0,
                     "batch_balance_factor": 0.9
@@ -116,8 +116,8 @@
             {
                 "rank": "order",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model0",
-                    "force_models_dir": "/data/microtaxo/models/model0",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model0",
+                    "force_model_dir": "/data/microtaxo/models/model0",
                     "min_samples_per_class": 3000,
                     "sample_balance_factor": 0,
                     "batch_balance_factor": 0.8
@@ -126,8 +126,8 @@
             {
                 "rank": "family",
                 "config": {
-                    "force_workspaces_dir": "/data/microtaxo/workspaces/model0",
-                    "force_models_dir": "/data/microtaxo/models/model0",
+                    "force_workspace_dir": "/data/microtaxo/workspaces/model0",
+                    "force_model_dir": "/data/microtaxo/models/model0",
                     "min_samples_per_class": 2000,
                     "sample_balance_factor": 0,
                     "batch_balance_factor": 0.7

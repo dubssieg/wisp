@@ -226,12 +226,12 @@ class SuperModel:
     def _get_model_paths(self, model_tid: int | None) -> dict:
         conf = self._routing[model_tid]["conf"]
         rank = self._routing[model_tid]["rank"]
-        if conf["force_models_dir"]:
-            model_path = Path(conf["force_models_dir"]).resolve()
+        if conf["force_model_dir"]:
+            model_path = Path(conf["force_model_dir"]).resolve()
         else:
-            model_path = Path(conf["force_models_dir"]).resolve() / self._dt
-        if conf["force_workspaces_dir"]:
-            workspace_path = Path(conf["force_workspaces_dir"]).resolve()
+            model_path = Path(conf["force_model_dir"]).resolve() / self._dt
+        if conf["force_workspace_dir"]:
+            workspace_path = Path(conf["force_workspace_dir"]).resolve()
         else:
             workspace_path = Path(conf["default_workspaces_dir"]).resolve() / self._dt
         workspace_path = workspace_path / rank / str(model_tid)
@@ -329,5 +329,5 @@ class SuperModel:
             if step["rank"] == rank:
                 conf = self._step_conf(step["config"])
                 break
-        conf["force_models_dir"]
+        conf["force_model_dir"]
         return {"rank": rank, "conf": conf}

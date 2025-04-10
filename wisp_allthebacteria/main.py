@@ -289,8 +289,8 @@ def train_model(
         if not normalize:
             normalize = None
         dt = get_current_datetime_string()
-        if conf["model"]["force_workspaces_dir"]:
-            workspace_path = Path(conf["model"]["force_workspaces_dir"]).resolve()
+        if conf["model"]["force_workspace_dir"]:
+            workspace_path = Path(conf["model"]["force_workspace_dir"]).resolve()
         else:
             workspace_path = (
                 Path(conf["model"]["default_workspaces_dir"]).resolve() / dt
@@ -303,12 +303,13 @@ def train_model(
             taxdb=taxdb,
             generator_threads=cpu_count(conf["model"]["generator_threads"]),
             batch_size=conf["model"]["batch_size"],
+            batch_max_size=conf["model"]["batch_max_size"],
+            merge_batches=conf["model"]["merge_batches"],
+            adapt_batch_size_splits=conf["model"]["adapt_batch_size_splits"],
             sample_balance_factor=conf["model"]["sample_balance_factor"],
             batch_balance_factor=conf["model"]["batch_balance_factor"],
             min_samples_per_class=conf["model"]["min_samples_per_class"],
             max_buffer_total_size=conf["model"]["max_buffer_total_size"],
-            batch_max_size=conf["model"]["batch_max_size"],
-            merge_batches=conf["model"]["merge_batches"],
             workspace_path=workspace_path,
             start_generator=True,
         )
