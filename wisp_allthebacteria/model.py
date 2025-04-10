@@ -47,7 +47,7 @@ class XGBoostModel:
         self,
         rank: str,
         database: Database,
-        batch_size: int,
+        batch_size: int | str,
         workspace_path: str | Path,
         params: dict | None = None,
         normalize: str | None = None,
@@ -60,6 +60,9 @@ class XGBoostModel:
         max_buffer_total_size: int | None = None,
         parent_filter: dict | None = None,
         start_generator: bool = False,
+        adapt_batch_size_splits: int | str = "adapt_splits",
+        batch_max_size: int | None = None,  # FIXME
+        merge_batches: bool = False,  # FIXME
     ):
         LOG.debug(f"XGBoostModel({locals()})")
         self._params = params if params is not None else DEFAULT_PARAMETERS
@@ -80,7 +83,7 @@ class XGBoostModel:
         self._last_batch_id = 0
         self._max_batch_count = None
 
-        # sample generator
+        # batch generator
         self._gen = ByRankGenerator(
             database=self._database,
             taxdb=self._taxdb,
@@ -94,6 +97,8 @@ class XGBoostModel:
             min_samples_per_class=min_samples_per_class,
             max_buffer_total_size=max_buffer_total_size,
             parent_filter=parent_filter,
+            adapt_batch_size_splits=adapt_batch_size_splits,
+            batch_max_size=batch_max_size,
         )
         if start_generator:
             self._gen.start()

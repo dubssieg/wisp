@@ -300,13 +300,15 @@ def train_model(
             rank=rank,
             database=database,
             normalize=normalize,
-            batch_size=conf["model"]["batch_size"],
             taxdb=taxdb,
             generator_threads=cpu_count(conf["model"]["generator_threads"]),
+            batch_size=conf["model"]["batch_size"],
             sample_balance_factor=conf["model"]["sample_balance_factor"],
             batch_balance_factor=conf["model"]["batch_balance_factor"],
             min_samples_per_class=conf["model"]["min_samples_per_class"],
             max_buffer_total_size=conf["model"]["max_buffer_total_size"],
+            batch_max_size=conf["model"]["batch_max_size"],
+            merge_batches=conf["model"]["merge_batches"],
             workspace_path=workspace_path,
             start_generator=True,
         )
@@ -391,10 +393,9 @@ def routing_report(conf: dict, name: str):
         taxdb=taxdb,
     )
 
-    report = sm.routing_report(
+    sm.routing_report(
         path=Path(f"supermodel_routing_report_{name}").with_suffix(".txt")
     )
-    print(report)
 
 
 def populate_taxdb(conf: dict):

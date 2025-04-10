@@ -49,6 +49,8 @@ class SuperModel:
                     parent_filter=rank_model["parent_filter"],
                     rank=rank_model["rank"],
                     batch_size=conf["batch_size"],
+                    batch_max_size=conf["batch_max_size"],
+                    adapt_batch_size_splits=conf["adapt_batch_size_splits"],
                     sample_balance_factor=conf["sample_balance_factor"],
                     batch_balance_factor=conf["batch_balance_factor"],
                     min_samples_per_class=conf["min_samples_per_class"],
@@ -64,6 +66,7 @@ class SuperModel:
                             self._get_model_paths(tax_id) if len(classes) > 1 else None
                         ),
                         "sample_count": gen.get_sample_count_estimation(),
+                        "batch_size": gen.batch_size(),
                         "batch_count": gen.estimated_batches_count(),
                         "classes": [
                             {
@@ -81,6 +84,8 @@ class SuperModel:
                 {
                     "rank": step["rank"],
                     "batch_size": conf["batch_size"],
+                    "batch_max_size": conf["batch_max_size"],
+                    "adapt_batch_size_splits": conf["adapt_batch_size_splits"],
                     "sample_balance_factor": conf["sample_balance_factor"],
                     "batch_balance_factor": conf["batch_balance_factor"],
                     "min_samples_per_class": conf["min_samples_per_class"],
@@ -93,9 +98,26 @@ class SuperModel:
             lines = []
             for i, step in enumerate(report):
                 lines.append(f"[{i+1}] === RANK: {step['rank']} ===")
-                for k, v in step.items():
-                    if k not in ("rank", "report"):
-                        lines.append(f"\t- {k.replace('_', ' ')}: {space_format(v)}")
+                batch_size = step["batch_size"]
+                if isinstance(batch_size, int):
+                    batch_size = space_format(batch_size)
+                lines.append(f"\t- Batch size: {batch_size}")
+                lines.append(
+                    f"\t- Batch max size: {space_format(step['batch_max_size'])}"
+                )
+                lines.append(
+                    f"\t- Adapt batch mode, size_splits: {step['adapt_batch_size_splits']}"
+                )
+                lines.append(
+                    f"\t- Sample balance factor: {step['sample_balance_factor']}"
+                )
+                lines.append(
+                    f"\t- Batch balance factor: {step['batch_balance_factor']}"
+                )
+                lines.append(
+                    f"\t- Min samples per class: {space_format(step['min_samples_per_class'])}"
+                )
+
                 lines.append(f"\n- {len(step['report'])} model(s) for {step['rank']}: ")
                 for j, step_report in enumerate(
                     sorted(
@@ -108,6 +130,9 @@ class SuperModel:
                     lines.append(f"\t- model path: {step_report['model_path']}")
                     lines.append(
                         f"\t- sample count: {space_format(step_report['sample_count'])}"
+                    )
+                    lines.append(
+                        f"\t- batch size: {space_format(step_report['batch_size'])}"
                     )
                     lines.append(
                         f"\t- batch count: {space_format(step_report['batch_count'])}"
@@ -124,7 +149,7 @@ class SuperModel:
                         lines.append(
                             f"\t- {len(step_report['classes'])} classe(s): {classes}"
                         )
-                lines.append("")
+                lines.append("\n")
             path.write_text("\n".join(lines))
 
         return report

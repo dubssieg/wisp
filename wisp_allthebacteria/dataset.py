@@ -3,6 +3,7 @@ import concurrent.futures
 from itertools import product
 import itertools
 import logging
+from math import ceil
 import queue
 import random
 import threading
@@ -20,6 +21,8 @@ LOG = logging.getLogger(__name__)
 IDX_TAX_IDS_ANALYSIS = "_tid_analysis_"
 IDX_RANKS_ANALYSIS = "_ranks_analysis_"
 IDX_TID_BY_RANK = "_tid_by_rank_"
+
+ADAPT_SPLITS = "adapt_splits"
 
 
 class Dataset:
@@ -257,7 +260,7 @@ class ByRankGenerator(Dataset):
         database: Database,
         taxdb: TaxDB,
         rank: str,
-        batch_size: int,
+        batch_size: int | None,
         normalize: str | None = None,
         seed: int = 2025,
         buffer_threads: int = 10,
@@ -266,12 +269,18 @@ class ByRankGenerator(Dataset):
         min_samples_per_class: int | None = None,
         max_buffer_total_size: int | None = None,
         parent_filter: dict | None = None,
+        adapt_batch_size_splits: int | None = None,
+        batch_max_size: int | None = None,
     ):
         super().__init__(database=database, taxdb=taxdb)
         LOG.debug(f"ByRankGenerator for {rank=}, {batch_size=}, {normalize=}")
+
+        if batch_size != ADAPT_SPLITS and not adapt_batch_size_splits:
+            LOG.error("need at least one of batch_size or adapt_batch_size.")
+            raise ValueError("Missing batch size parameter")
         self._rank = rank
         self._batch_size = batch_size
-        self._batch_count = 0
+        self._batch_max_size = batch_max_size
         self._normalize = normalize
         self._seed = seed
         self._buffer_threads = buffer_threads
@@ -279,15 +288,12 @@ class ByRankGenerator(Dataset):
         self._batch_balance_factor = batch_balance_factor
         self._min_samples_per_class = min_samples_per_class
         self._is_started = False
+        self._batch_count = 0
         self._lock = threading.Lock()
         self._tax_ids_by_rank = self._get_tax_ids_by_rank(
             rank, min_samples=min_samples_per_class, parent_filter=parent_filter
         )
         self._rank_tids = list(self._tax_ids_by_rank.keys())
-
-        if max_buffer_total_size is None:
-            max_buffer_total_size = len(self._rank_tids) * self._batch_size
-        self._max_buffer_size = int(max_buffer_total_size / len(self._rank_tids))
 
         self._buffers = {rank_tid: queue.Queue() for rank_tid in self._rank_tids}
         self._exhausted = {rank_tid: False for rank_tid in self._rank_tids}
@@ -309,9 +315,17 @@ class ByRankGenerator(Dataset):
             for tax_ids in self._tax_ids_by_rank.values()
         ]
         self._weights = get_weights(self._counts, self._batch_balance_factor)
-        self._max_batch_count = self.estimated_batches_count()
+        if adapt_batch_size_splits:
+            self._batch_size = ceil(
+                self.get_sample_count_estimation() / adapt_batch_size_splits
+            )
+        if batch_max_size:
+            self._batch_size = min(self._batch_size, self._batch_max_size)
 
-        # start filling buffers
+        self._max_batch_count = self.estimated_batches_count()
+        if max_buffer_total_size is None:
+            max_buffer_total_size = len(self._rank_tids) * self._batch_size
+        self._max_buffer_size = int(max_buffer_total_size / len(self._rank_tids))
         self._executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=self._buffer_threads
         )
@@ -329,6 +343,10 @@ class ByRankGenerator(Dataset):
                 self._min_samples_per_class,
             )
         )
+
+    def batch_size(self) -> int:
+        """Actual batch size after all modifications"""
+        return self._batch_size
 
     def start(self) -> None:
         LOG.debug("Start filling buffers...")
