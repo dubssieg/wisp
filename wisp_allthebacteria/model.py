@@ -15,7 +15,7 @@ from utils import serialize, deserialize, format_duration, FunctionLogger, hashe
 
 # from tqdm.auto import tqdm
 
-from dataset import ByRankGenerator
+from dataset import ByRankGenerator, ADAPT_SPLITS
 from taxdb import TaxDB
 from database import Database
 from dmatstore import DMatStore
@@ -60,9 +60,9 @@ class XGBoostModel:
         max_buffer_total_size: int | None = None,
         parent_filter: dict | None = None,
         start_generator: bool = False,
-        adapt_batch_size_splits: int | str = "adapt_splits",
-        batch_max_size: int | None = None,  # FIXME
-        merge_batches: bool = False,  # FIXME
+        adapt_batch_size_splits: int | None = None,
+        batch_max_size: int | None = None,
+        merge_batches: bool = False,
     ):
         LOG.debug(f"XGBoostModel({locals()})")
         self._params = params if params is not None else DEFAULT_PARAMETERS
@@ -76,12 +76,16 @@ class XGBoostModel:
         self._sample_balance_factor = sample_balance_factor
         self._batch_balance_factor = batch_balance_factor
         self._min_samples_per_class = min_samples_per_class
+        self._merge_batches = merge_batches
+        self._parent_filter = parent_filter
+        self._adapt_batch_size_splits = adapt_batch_size_splits
 
         self._workspace_path = Path(workspace_path).resolve()
         self._model = None
         self._gen = None
         self._last_batch_id = 0
         self._max_batch_count = None
+        self._batch_max_size = batch_max_size
 
         # batch generator
         self._gen = ByRankGenerator(
@@ -94,11 +98,11 @@ class XGBoostModel:
             buffer_threads=self._generator_threads,
             sample_balance_factor=self._sample_balance_factor,
             batch_balance_factor=self._batch_balance_factor,
-            min_samples_per_class=min_samples_per_class,
+            min_samples_per_class=self._min_samples_per_class,
             max_buffer_total_size=max_buffer_total_size,
             parent_filter=parent_filter,
-            adapt_batch_size_splits=adapt_batch_size_splits,
-            batch_max_size=batch_max_size,
+            adapt_batch_size_splits=self._adapt_batch_size_splits,
+            batch_max_size=self._batch_max_size,
         )
         if start_generator:
             self._gen.start()
@@ -413,9 +417,20 @@ class XGBoostModel:
 
         report_lines.append("\n=== Training Data ===")
         report_lines.append(f"Samples per Batch: {self._batch_size}")
+        if self._batch_size == ADAPT_SPLITS:
+            report_lines.append(
+                f"\t- Actual samples per Batch: {self._gen.batch_size()}"
+            )
+            report_lines.append(
+                f"\t- Adapt batch mode, size splits: {self._adapt_batch_size_splits}"
+            )
         report_lines.append(f"Sample balance factor: {self._sample_balance_factor}")
         report_lines.append(f"Batch balance factor: {self._batch_balance_factor}")
         report_lines.append(f"Min samples per class: {self._min_samples_per_class}")
+        report_lines.append(f"Merge batches: {self._merge_batches}")
+
+        report_lines.append(f"Parent filter: {self._parent_filter}")
+
         report_lines.append(f"Available Batches: {self._max_batch_count}")
         report_lines.append(
             f"Generated Batches: {self._last_batch_id} (using workspace: {self._workspace_path})"
@@ -691,7 +706,23 @@ class XGBoostModel:
                 range(train_start_index, train_start_index + train_batch_count)
             )
 
-        return {"train": train_indices, "eval": eval_indices, "test": test_indices}
+        self._gen.batch_size()
+
+        return {
+            "train": self._merge_indices(train_indices),
+            "eval": self._merge_indices(eval_indices),
+            "test": self._merge_indices(test_indices),
+        }
+
+    def _merge_indices(self, indices: list) -> list:
+        """Merge a single splits group (ex: train)"""
+        if self._merge_batches and self._batch_max_size is not None:
+            batch_size = self._gen.batch_size()
+            group_size = max(1, self._batch_max_size // batch_size)
+            indices = [
+                indices[i : i + group_size] for i in range(0, len(indices), group_size)
+            ]
+        return [(i[0] if len(i) == 1 else i) for i in indices]
 
     def _get_kfold_batch_splits(
         self, k: int, train_batch_count: int | None, eval_batch_count: int
@@ -716,11 +747,12 @@ class XGBoostModel:
                     eval_batch_count : eval_batch_count + train_batch_count
                 ]
 
+            test_indices = [int(i) for i in test_indices]
             splits.append(
                 {
-                    "train": train_indices,
-                    "eval": eval_index,
-                    "test": [int(i) for i in test_indices],
+                    "train": self._merge_indices(train_indices),
+                    "eval": self._merge_indices(eval_index),
+                    "test": self._merge_indices(test_indices),
                 }
             )
 
@@ -739,9 +771,10 @@ class XGBoostModel:
             self._last_batch_id -= 1
             raise
 
-    def _get_batch(self, batch_id: int) -> xgb.DMatrix:
+    def _get_batch(self, batch_id: int | list[int]) -> xgb.DMatrix:
         while not self._dmat_store.has_dmat(batch_id):
             batch = self._get_next_batch()
             self._dmat_store[self._last_batch_id] = batch
+            del batch
 
         return self._dmat_store[batch_id]
