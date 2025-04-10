@@ -1,6 +1,8 @@
 import logging
 from pathlib import Path
 from typing import Generator
+import numpy as np
+from scipy import sparse
 import xgboost as xgb
 
 
@@ -13,8 +15,10 @@ class DMatStore:
         self._path = Path(path).resolve()
         self._signature = str(signature)
 
-    def has_dmat(self, name: str) -> bool:
-        return self._dmat_path(name).exists()
+    def has_dmat(self, names: int | str | list[int | str]) -> bool:
+        if isinstance(names, (int, str)):
+            names = [names]
+        return all(self._dmat_path(name).exists() for name in names)
 
     def dmat_list(self) -> list[str]:
         return [p.name for p in self._storage_path().rglob(f"*{DMAT_SUFFIX}")]
@@ -50,8 +54,32 @@ class DMatStore:
             raise FileNotFoundError(f"{dmat_path} DMatrix not found.")
         return xgb.DMatrix(dmat_path)
 
-    def __getitem__(self, name: str) -> xgb.DMatrix:
-        return self._deserialize_dmatrix(name)
+    def _get_concatenated(self, names: list[str]) -> xgb.DMatrix:
+        LOG.debug(f"Concatenating DMatrix list: {names}")
+        Xs = []
+        ys = []
+
+        for name in names:
+            dmat = self._deserialize_dmatrix(name)
+            X = dmat.get_data()
+            y = dmat.get_label()
+
+            Xs.append(X)
+            ys.append(y)
+
+        if sparse.issparse(Xs[0]):
+            X = sparse.vstack(Xs)
+        else:
+            X = np.vstack(Xs)
+
+        y = np.concatenate(ys)
+
+        return xgb.DMatrix(X, label=y)
+
+    def __getitem__(self, names: str | int | list[str | int]) -> xgb.DMatrix:
+        if isinstance(names, (int, str)):
+            return self._deserialize_dmatrix(names)
+        return self._get_concatenated(names)
 
     def __setitem__(self, name: str, dmat: xgb.DMatrix):
         self._serialize_dmatrix(name=name, dmat=dmat)
