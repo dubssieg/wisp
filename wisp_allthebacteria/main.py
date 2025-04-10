@@ -195,7 +195,7 @@ def batch_count(conf: dict, rank: str):
     )
 
 
-def get_counters(conf: dict, tax_id: int, limit: int | None):
+def get_counters(conf: dict, tax_ids: str, limit: int | None):
 
     taxdb = TaxDB(
         cache_dir=conf["taxdb"]["cache_dir"],
@@ -203,9 +203,6 @@ def get_counters(conf: dict, tax_id: int, limit: int | None):
         can_download=conf["taxdb"]["can_download"],
         preload=False,
     )
-    name = taxdb[tax_id]["ScientificName"]
-    name = name.replace(" ", "_").lower()
-    path = Path(name).with_suffix(".csv")
 
     database = Database(
         kmer_sizes=conf["db"]["kmer_sizes"],
@@ -216,10 +213,44 @@ def get_counters(conf: dict, tax_id: int, limit: int | None):
         compression=conf["db"]["compression"],
         fanout_shards=conf["db"]["fanout_shards"],
     )
-    df = database.get_tax_id_samples(tax_id, as_dataframe=True, limit=limit)
+    if "," in tax_ids:
+        tax_ids = tax_ids.split(",")
+    else:
+        tax_ids = [tax_ids]
+    tax_ids = list(map(int, tax_ids))
+    for tax_id in tax_ids:
+        name = taxdb[tax_id]["ScientificName"]
+        name = name.replace(" ", "_").lower()
+        path = Path(name).with_suffix(".csv")
+        df = database.get_tax_id_samples(tax_id, as_dataframe=True, limit=limit)
+        LOG.info(f"Writing file {path}...")
+        df.to_csv(path, index=False)
 
-    LOG.info(f"Writing file {path}...")
-    df.to_csv(path, index=False)
+
+def get_metadata(conf: dict, tax_ids: str):
+    metadata_path = Path(conf["allthebacteria"]["metadata_dir"]) / METADATA_FILENAME
+
+    taxdb = TaxDB(
+        cache_dir=conf["taxdb"]["cache_dir"],
+        email=conf["taxdb"]["email"],
+        can_download=conf["taxdb"]["can_download"],
+        preload=False,
+    )
+    md = Metadata(csv_path=metadata_path, taxdb=taxdb)
+    if "," in tax_ids:
+        tax_ids = tax_ids.split(",")
+    else:
+        tax_ids = [tax_ids]
+    tax_ids = list(map(int, tax_ids))
+    for tax_id in tax_ids:
+        name = taxdb[tax_id]["ScientificName"]
+        name = name.replace(" ", "_").lower()
+        path = Path(name).with_suffix(".txt")
+
+        tid_md = taxdb[tax_id]
+        atb_md = md.get_atb_md(tax_id)
+        res = {"TaxIdMD": tid_md, "AllTheBacteriaMD": atb_md}
+        path.write_text(json.dumps(res, indent=4))
 
 
 def load_config(json_file: Path | str):
@@ -490,8 +521,15 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--get-counters",
-        type=int,
-        help="Get counters for this tax-id. Ex: --get-counters=1464 --limit=30000",
+        type=str,
+        help="Get counters for this tax-id. Ex: --get-counters=1464,817 --limit=30000",
+        default=None,
+    )
+
+    parser.add_argument(
+        "--get-metadata",
+        type=str,
+        help="Get Metadata for this tax-id (generate file). Ex: --get-metadata=1464,817",
         default=None,
     )
 
@@ -536,7 +574,10 @@ if __name__ == "__main__":
         batch_count(conf, rank=args.batch_count)
 
     if args.get_counters:
-        get_counters(conf=conf, tax_id=args.get_counters, limit=args.limit)
+        get_counters(conf=conf, tax_ids=args.get_counters, limit=args.limit)
+
+    if args.get_metadata:
+        get_metadata(conf=conf, tax_ids=args.get_metadata)
 
     if args.train_model:
         train_model(
