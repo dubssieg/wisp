@@ -367,6 +367,36 @@ def train_supermodel(conf, name: str):
     sm.train()
 
 
+def routing_report(conf: dict, name: str):
+    taxdb = TaxDB(
+        cache_dir=conf["taxdb"]["cache_dir"],
+        email=conf["taxdb"]["email"],
+        can_download=conf["taxdb"]["can_download"],
+    )
+
+    database = Database(
+        kmer_sizes=conf["db"]["kmer_sizes"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+        dbs_path=conf["db"]["path"],
+        fanout_shards=conf["db"]["fanout_shards"],
+        compression=conf["db"]["compression"],
+    )
+
+    sm = SuperModel(
+        model_conf=conf["model"],
+        supermodel_conf=conf["supermodels"][name],
+        database=database,
+        taxdb=taxdb,
+    )
+
+    report = sm.routing_report(
+        path=Path(f"supermodel_routing_report_{name}").with_suffix(".txt")
+    )
+    print(report)
+
+
 def populate_taxdb(conf: dict):
     LOG.info("Populate_taxdb")
     TaxDB(
@@ -540,6 +570,11 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--routing-report",
+        type=str,
+        help="Show supermodel routing report (ex: --routing-report=model1)",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Dev only, do not use",
@@ -578,6 +613,9 @@ if __name__ == "__main__":
 
     if args.get_metadata:
         get_metadata(conf=conf, tax_ids=args.get_metadata)
+
+    if args.routing_report:
+        routing_report(conf=conf, name=args.routing_report)
 
     if args.train_model:
         train_model(

@@ -1,14 +1,24 @@
+import copy
 import logging
 from pathlib import Path
-from dataset import Dataset
 
-from model import XGBoostModel
-import copy
-from utils import cpu_count, get_current_datetime_string, merge_dicts, SystemStatsLogger
-from taxdb import TaxDB
+import numpy as np
+import xgboost as xgb
 from database import Database
+from dataset import ByRankGenerator, Dataset
+from model import XGBoostModel
+from taxdb import TaxDB
+from utils import (
+    SystemStatsLogger,
+    cpu_count,
+    get_current_datetime_string,
+    merge_dicts,
+    space_format,
+)
 
 LOG = logging.getLogger(__name__)
+
+IDX_MODELS_ROUTING = "_idx_models_routing_"
 
 
 class SuperModel:
@@ -23,9 +33,109 @@ class SuperModel:
         self._dt = get_current_datetime_string()
         self._routing = self._get_models_routing()
 
+    def routing_report(self, path: str | Path | None = None) -> list[list[dict]]:
+        report = []
+        for step in self._supermodel_conf:
+            conf = self._step_conf(step["config"])
+            rank_models = {
+                k: v for k, v in self._routing.items() if v["rank"] == step["rank"]
+            }
+            rank_report = []
+            for tax_id, rank_model in rank_models.items():
+                classes = rank_model["classes"]
+                gen = ByRankGenerator(
+                    database=self._database,
+                    taxdb=self._taxdb,
+                    parent_filter=rank_model["parent_filter"],
+                    rank=rank_model["rank"],
+                    batch_size=conf["batch_size"],
+                    sample_balance_factor=conf["sample_balance_factor"],
+                    batch_balance_factor=conf["batch_balance_factor"],
+                    min_samples_per_class=conf["min_samples_per_class"],
+                )
+
+                rank_report.append(
+                    {
+                        "model_id": tax_id,  # parent
+                        "model_name": self._taxdb[tax_id].get(
+                            "ScientificName", "Unknown"
+                        ),  # parent
+                        "model_path": (
+                            self._get_model_paths(tax_id) if len(classes) > 1 else None
+                        ),
+                        "sample_count": gen.get_sample_count_estimation(),
+                        "batch_count": gen.estimated_batches_count(),
+                        "classes": [
+                            {
+                                "tax_id": ctax_id,
+                                "name": self._taxdb[ctax_id].get(
+                                    "ScientificName", "Unknown"
+                                ),
+                            }
+                            for ctax_id in classes
+                        ],
+                    }
+                )
+
+            report.append(
+                {
+                    "rank": step["rank"],
+                    "batch_size": conf["batch_size"],
+                    "sample_balance_factor": conf["sample_balance_factor"],
+                    "batch_balance_factor": conf["batch_balance_factor"],
+                    "min_samples_per_class": conf["min_samples_per_class"],
+                    "report": rank_report,
+                }
+            )
+
+        if path:
+            path = Path(path).resolve()
+            lines = []
+            for i, step in enumerate(report):
+                lines.append(f"[{i+1}] === RANK: {step['rank']} ===")
+                for k, v in step.items():
+                    if k not in ("rank", "report"):
+                        lines.append(f"\t- {k.replace('_', ' ')}: {space_format(v)}")
+                lines.append(f"\n- {len(step['report'])} model(s) for {step['rank']}: ")
+                for j, step_report in enumerate(
+                    sorted(
+                        step["report"], key=lambda x: x["sample_count"], reverse=True
+                    )
+                ):
+                    lines.append(
+                        f"[{i+1}.{j+1}] model name: [{step_report['model_id']}] {step_report['model_name']}"
+                    )
+                    lines.append(f"\t- model path: {step_report['model_path']}")
+                    lines.append(
+                        f"\t- sample count: {space_format(step_report['sample_count'])}"
+                    )
+                    lines.append(
+                        f"\t- batch count: {space_format(step_report['batch_count'])}"
+                    )
+                    if len(step_report["classes"]) == 0:
+                        lines.append("\t- NO CLASSES")
+                    else:
+                        classes = ", ".join(
+                            [
+                                f"[{cl['tax_id']}] {cl['name']}"
+                                for cl in step_report["classes"]
+                            ]
+                        )
+                        lines.append(
+                            f"\t- {len(step_report['classes'])} classe(s): {classes}"
+                        )
+                lines.append("")
+            path.write_text("\n".join(lines))
+
+        return report
+
     def train(self):
-        for model_tid in self._routing.keys():
-            self._get_trained_model(model_tid)
+        for model_tid, route in self._routing.items():
+            if len(route["classes"]) > 1:
+                self._get_trained_model(model_tid)
+
+    def predict(self, data: xgb.DMatrix) -> np.ndarray:
+        pass
 
     def _train_model(self, model_tid: int | None):
         with SystemStatsLogger(interval=30):  # FIXME: main.py
@@ -135,6 +245,7 @@ class SuperModel:
 
         routing = {}
         _models_routing(model_tid=None, step_id=0, parent_filter=None)
+        self._database.set_index(IDX_MODELS_ROUTING, routing)
         LOG.debug("Model routing - DONE")
         return routing
 

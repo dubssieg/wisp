@@ -182,8 +182,16 @@ class Dataset:
     ) -> dict[int, list[int]]:
         """parent_filter is like: {"phylum": [phylum1, phylum2], etc.}
         We only KEEP those and remove everything else"""
-        idx_key = (IDX_TID_BY_RANK, hashed((rank, min_samples, parent_filter)))
-        rank_mapping = self._db.get_index(idx_key)
+
+        idx_key_full = (
+            IDX_TID_BY_RANK,
+            hashed((rank, min_samples, parent_filter, min_samples, parent_filter)),
+        )
+        if rank_mapping := self._db.get_index(idx_key_full):
+            return rank_mapping
+
+        idx_key_base = (IDX_TID_BY_RANK, hashed((rank, min_samples, parent_filter)))
+        rank_mapping = self._db.get_index(idx_key_base)
 
         if rank_mapping is None:
             rank_mapping = defaultdict(list)
@@ -193,7 +201,7 @@ class Dataset:
                         rank_mapping[int(entry["TaxId"])].append(tax_id)
                         break
             rank_mapping = dict(rank_mapping)
-            self._db.set_index(idx_key, rank_mapping)
+            self._db.set_index(idx_key_base, rank_mapping)
 
         if min_samples:
             rm_len = len(rank_mapping)
@@ -232,6 +240,7 @@ class Dataset:
             #         if tid not in rank_an[rank]["tax_ids"][tax_id]
             #     ]
 
+        self._db.set_index(idx_key_full, rank_mapping)
         return rank_mapping
 
     def _get_column_names(self) -> list[str]:
@@ -276,6 +285,8 @@ class ByRankGenerator(Dataset):
         )
         self._rank_tids = list(self._tax_ids_by_rank.keys())
 
+        if max_buffer_total_size is None:
+            max_buffer_total_size = len(self._rank_tids) * self._batch_size
         self._max_buffer_size = int(max_buffer_total_size / len(self._rank_tids))
 
         self._buffers = {rank_tid: queue.Queue() for rank_tid in self._rank_tids}
