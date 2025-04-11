@@ -330,6 +330,9 @@ class ByRankGenerator(Dataset):
             max_workers=self._buffer_threads
         )
         self._terminating = False
+        LOG.debug(
+            f"ByRankGenerator initialized - {self._batch_size=}, {self._batch_count=}, {self._max_buffer_size=}"
+        )
 
     def signature(self) -> str:
         return hashed(

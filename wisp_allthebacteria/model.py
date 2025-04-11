@@ -267,19 +267,27 @@ class XGBoostModel:
         start_total_time = time.time()
 
         for i, batch_id in enumerate(train_batch_ids):
-            LOG.debug(f"Train : {i+1} / {len(train_batch_ids)} - batch ID: {batch_id}")
+            LOG.debug(
+                f"Train : {i+1} / {len(train_batch_ids)} - Getting batch: {batch_id}..."
+            )
 
             batch_report = {"batch_id": batch_id}
 
             # 1-a - get batch
             get_batch_start_time = time.time()
             dtrain = self._get_batch(batch_id)
+            LOG.debug(
+                f"Train : {i+1} / {len(train_batch_ids)} - Extracting batch: {batch_id}..."
+            )
 
             # 1-b - extract data from batch
             y = dtrain.get_label().astype(int)
             y_encoded = self._label_encoder.transform(y)
             dtrain_encoded = xgb.DMatrix(dtrain.get_data(), label=y_encoded)
             batch_report["get_batch_duration"] = time.time() - get_batch_start_time
+            LOG.debug(
+                f"Train : {i+1} / {len(train_batch_ids)} - Training batch: {batch_id}..."
+            )
 
             # 2 - train + save model
             train_start_time = time.time()
@@ -288,6 +296,9 @@ class XGBoostModel:
                 dtrain_encoded,
                 num_boost_round=num_boost_round,
                 xgb_model=self._model,
+            )
+            LOG.debug(
+                f"Train : {i+1} / {len(train_batch_ids)} - Saving batch: {batch_id}..."
             )
             self.save(
                 self._workspace_path
@@ -299,6 +310,9 @@ class XGBoostModel:
 
             # 3 - evaluate training
             if eval_batch_ids:
+                LOG.debug(
+                    f"Train : {i+1} / {len(train_batch_ids)} - Evaluating batch: {batch_id}..."
+                )
                 eval_report = self._evaluate(batch_ids=eval_batch_ids)
 
                 prev_scores = [br["report"]["score"] for br in report["batches"]]

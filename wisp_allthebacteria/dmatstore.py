@@ -1,3 +1,4 @@
+import gc
 import logging
 from pathlib import Path
 from typing import Generator
@@ -49,6 +50,7 @@ class DMatStore:
         dmat.save_binary(dmat_path)
 
     def _deserialize_dmatrix(self, name: str) -> xgb.DMatrix:
+        LOG.debug(f"Deserializing DMatrix {name}")
         dmat_path = self._dmat_path(name)
         if not dmat_path.exists():
             raise FileNotFoundError(f"{dmat_path} DMatrix not found.")
@@ -56,25 +58,40 @@ class DMatStore:
 
     def _get_concatenated(self, names: list[str]) -> xgb.DMatrix:
         LOG.debug(f"Concatenating DMatrix list: {names}")
-        Xs = []
-        ys = []
+
+        X_concat = None
+        y_concat = None
+        is_sparse = None
 
         for name in names:
             dmat = self._deserialize_dmatrix(name)
             X = dmat.get_data()
             y = dmat.get_label()
 
-            Xs.append(X)
-            ys.append(y)
+            if is_sparse is None:
+                is_sparse = sparse.issparse(X)
 
-        if sparse.issparse(Xs[0]):
-            X = sparse.vstack(Xs)
-        else:
-            X = np.vstack(Xs)
+            X = X.copy()
+            y = np.array(y, copy=True)
 
-        y = np.concatenate(ys)
+            if X_concat is None:
+                X_concat = X
+                y_concat = y
+            else:
+                X_concat = (
+                    sparse.vstack([X_concat, X])
+                    if is_sparse
+                    else np.vstack([X_concat, X])
+                )
+                y_concat = np.concatenate([y_concat, y])
 
-        return xgb.DMatrix(X, label=y)
+            del dmat, X, y
+            gc.collect()
+
+        LOG.debug(f"Finalizing DMatrix {names}...")
+        dmat = xgb.DMatrix(X_concat, label=y_concat)
+        LOG.debug(f"DMatrix {names} is ready")
+        return dmat
 
     def __getitem__(self, names: str | int | list[str | int]) -> xgb.DMatrix:
         if isinstance(names, (int, str)):

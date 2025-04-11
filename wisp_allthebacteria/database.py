@@ -108,7 +108,7 @@ class Database:
             tax_ids = [tax_ids]
         random_instance = random.Random(seed)
 
-        LOG.debug(f"Initializing sample generator using {len(tax_ids)} tax_ids")
+        LOG.debug(f"Initializing sample generator using {len(tax_ids)} species")
         counts = [self.count(tax_id) for tax_id in tax_ids]
         weights = get_weights(counts, balance_factor)
 
