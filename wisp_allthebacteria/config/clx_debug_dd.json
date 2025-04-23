@@ -37,7 +37,7 @@
         "force_model_dir": false,
         "batch_size": "adapt_splits",
         "batch_max_size": 50000,
-        "adapt_batch_size_splits": 6,
+        "adapt_batch_size_splits": 20,
         "merge_batches": true,
         "generator_threads": 10,
         "train_batch_count": "max",

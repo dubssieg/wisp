@@ -325,7 +325,9 @@ class ByRankGenerator(Dataset):
         self._max_batch_count = self.estimated_batches_count()
         if max_buffer_total_size is None:
             max_buffer_total_size = len(self._rank_tids) * self._batch_size
-        self._max_buffer_size = int(max_buffer_total_size / len(self._rank_tids))
+        self._max_buffer_size = (
+            int(max_buffer_total_size / len(self._rank_tids)) if self._rank_tids else 0
+        )
         self._executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=self._buffer_threads
         )
@@ -456,6 +458,8 @@ class ByRankGenerator(Dataset):
 
     def estimated_batches_count(self) -> int:
         """How many batches should be available"""
+        if self._batch_size == 0:
+            return 0
         total_samples = self.get_sample_count_estimation()
         return (total_samples + self._batch_size - 1) // self._batch_size
 

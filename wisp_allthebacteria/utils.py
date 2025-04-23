@@ -318,7 +318,7 @@ def sample_count_estimation(counts: list[int], balance_factor: float) -> int:
         count / weight if weight > 0 else float("inf")
         for count, weight in zip(counts, weights)
     ]
-    return int(min(weighted_samples))
+    return int(min(weighted_samples)) if weighted_samples else 0
 
 
 def sizeof(obj: Any, detail: bool = False) -> int | str:

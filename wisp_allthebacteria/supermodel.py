@@ -63,7 +63,12 @@ class SuperModel:
                             "ScientificName", "Unknown"
                         ),  # parent
                         "model_path": (
-                            self._get_model_paths(tax_id) if len(classes) > 1 else None
+                            {
+                                k: str(p)
+                                for k, p in self._get_model_paths(tax_id).items()
+                            }
+                            if len(classes) > 1
+                            else None
                         ),
                         "sample_count": gen.get_sample_count_estimation(),
                         "batch_size": gen.batch_size(),
@@ -95,6 +100,7 @@ class SuperModel:
 
         if path:
             path = Path(path).resolve()
+            path.parent.mkdir(parents=True, exist_ok=True)
             lines = []
             for i, step in enumerate(report):
                 lines.append(f"[{i+1}] === RANK: {step['rank']} ===")
