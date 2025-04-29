@@ -66,6 +66,6 @@ cat /proc/sys/vm/swappiness
 
 # export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libc.so.6
 
-python main.py --create-db
+python main.py --train-supermodel=model0
 
 sacct -j $SLURM_JOB_ID --format=JobID,JobName%20,MaxRSS,State,ExitCode

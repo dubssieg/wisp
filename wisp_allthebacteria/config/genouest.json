@@ -18,11 +18,11 @@
         "tmp_path": "/WORKS/microtaxo_atb/tmp",
         "full": false,
         "window_size": 10000,
-        "step": 8000,
-        "species_count_limit": 10000,
+        "step": 9000,
+        "species_count_limit": 100000,
         "create_db_workers": "max_minus_2",
         "db_insert_threads": "max_minus_2",
-        "fanout_shards": 1,
+        "fanout_shards": 4,
         "fasta_batch_size": 1000,
         "compression": "zlib",
         "merged_data_as_db": false
@@ -35,8 +35,11 @@
         "default_workspaces_dir": "/WORKS/microtaxo_atb/workspaces",
         "force_workspace_dir": false,
         "force_model_dir": false,
-        "batch_size": 10000,
-        "generator_threads": "max_minus_2",
+        "batch_size": "adapt_splits",
+        "batch_max_size": 100000,
+        "adapt_batch_size_splits": 20,
+        "merge_batches": true,
+        "generator_threads": 20,
         "train_batch_count": "max",
         "test_batch_count": 1,
         "eval_batch_count": 1,
@@ -49,13 +52,87 @@
     },
     "log": {
         "log_path": "/WORKS/microtaxo_atb/logs/log.txt",
-        "terminal_level": "debug",
+        "terminal_level": "error",
         "file_level": "debug",
-        "file_size": 100000000,
-        "file_count": 2,
+        "file_size": 10000000,
+        "file_count": 3,
         "ignore_list": [
             "matplotlib",
             "PIL"
+        ]
+    },
+    "supermodels": {
+        "model0": [
+            {
+                "rank": "kingdom",
+                "config": {
+                    "force_workspace_dir": "/WORKS/microtaxo_atb/workspaces/model0",
+                    "force_model_dir": "/WORKS/microtaxo_atb/models/model0",
+                    "min_samples_per_class": 10000,
+                    "eval_patience": 2
+                }
+            },
+            {
+                "rank": "phylum",
+                "config": {
+                    "force_workspace_dir": "/WORKS/microtaxo_atb/workspaces/model0",
+                    "force_model_dir": "/WORKS/microtaxo_atb/models/model0",
+                    "min_samples_per_class": 10000,
+                    "eval_patience": 2
+                }
+            }
+        ],
+        "model1": [
+            {
+                "rank": "kingdom",
+                "config": {
+                    "force_workspace_dir": "/WORKS/microtaxo_atb/workspaces/model0",
+                    "force_model_dir": "/WORKS/microtaxo_atb/models/model0",
+                    "min_samples_per_class": 10000,
+                    "sample_balance_factor": 0,
+                    "batch_balance_factor": 1
+                }
+            },
+            {
+                "rank": "phylum",
+                "config": {
+                    "force_workspace_dir": "/WORKS/microtaxo_atb/workspaces/model0",
+                    "force_model_dir": "/WORKS/microtaxo_atb/models/model0",
+                    "min_samples_per_class": 10000,
+                    "sample_balance_factor": 0,
+                    "batch_balance_factor": 1
+                }
+            },
+            {
+                "rank": "class",
+                "config": {
+                    "force_workspace_dir": "/WORKS/microtaxo_atb/workspaces/model0",
+                    "force_model_dir": "/WORKS/microtaxo_atb/models/model0",
+                    "min_samples_per_class": 5000,
+                    "sample_balance_factor": 0,
+                    "batch_balance_factor": 0.9
+                }
+            },
+            {
+                "rank": "order",
+                "config": {
+                    "force_workspace_dir": "/WORKS/microtaxo_atb/workspaces/model0",
+                    "force_model_dir": "/WORKS/microtaxo_atb/models/model0",
+                    "min_samples_per_class": 3000,
+                    "sample_balance_factor": 0,
+                    "batch_balance_factor": 0.8
+                }
+            },
+            {
+                "rank": "family",
+                "config": {
+                    "force_workspace_dir": "/WORKS/microtaxo_atb/workspaces/model0",
+                    "force_model_dir": "/WORKS/microtaxo_atb/models/model0",
+                    "min_samples_per_class": 2000,
+                    "sample_balance_factor": 0,
+                    "batch_balance_factor": 0.7
+                }
+            }
         ]
     }
 }
