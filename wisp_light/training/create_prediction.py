@@ -1,18 +1,33 @@
 import time
 import os
-import sys
 from collections import Counter
-from utils import softmax
 from xgboost import Booster, DMatrix
 from xgboost.core import XGBoostError
-from create_database import encoder,splitting, counter_kmer
 
-sys.path.append('../../..')
-from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
+from .utils import softmax
+from .create_database import encoder,splitting, counter_kmer
+from wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 
 def make_prediction(model_path, datas_path, normalisation_func,read_identity_threshold) -> list:
-    """Does a prediction with a pre-calculated model
+    """
+    Makes predictions using a pre-trained XGBoost model.
+
+    Parameters
+    ----------
+    model_path : str
+        Path to the saved XGBoost model file.
+    datas_path : str
+        Path to the input dataset in LibSVM format.
+    normalisation_func : function
+        The normalisation function applied to the predictions.
+    read_identity_threshold : float
+        Threshold for read identity.
+
+    Returns
+    -------
+    list
+        List of predictions after applying the softmax and normalisation function.
     """
     # Creating booster object
     bst = Booster()
@@ -34,7 +49,25 @@ def make_prediction(model_path, datas_path, normalisation_func,read_identity_thr
 
 
 def build_sample(params: dict, dna_sequence: str, id_sequence: str, sample_output_path) -> None :
-    "Builds a json file with taxa levels as dict information"
+    """
+    Builds a JSON file representing k-mer counts for a given DNA sequence.
+
+    Parameters
+    ----------
+    params : dict
+        Dictionary of parameters, including k-mer size and read size.
+    dna_sequence : str
+        The full DNA sequence.
+    id_sequence : str
+        The identifier for the sequence (e.g., a FASTA header).
+    sample_output_path : str
+        The path where the resulting sample file will be saved.
+
+    Returns
+    -------
+    None
+        This function does not return any value.
+    """
     os.makedirs(os.path.dirname(sample_output_path), exist_ok=True)     # Writing the database
 
     my_encoder: dict = encoder(ksize=params['ksize'])
@@ -50,16 +83,30 @@ def build_sample(params: dict, dna_sequence: str, id_sequence: str, sample_outpu
             # Each read is a dict with code:count for kmer
 
 def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_dir, val_dir, logger) ->list:
-    """Creates a prediction for a read.
+    """
+    Creates a prediction for a given DNA sequence using a taxonomy tree and pre-trained models.
 
-    Args:
-        id_sequence (str): identifier for sequence (fasta header)
-        dna_sequence (str): the full DNA sequence
-        params (dict): params global dict
-        tree (Tree): taxonomy tree built before
+    Parameters
+    ----------
+    id_sequence : str
+        The identifier for the sequence (e.g., a FASTA header).
+    dna_sequence : str
+        The full DNA sequence.
+    params : dict
+        Dictionary of parameters, including read size and threshold values.
+    tree : Tree
+        The taxonomy tree used for hierarchical predictions.
+    model_dir : str
+        Directory containing pre-trained models for each taxonomic level.
+    val_dir : str
+        Directory for storing temporary files during prediction.
+    logger : Logger
+        Logger object for logging information and warnings.
 
-    Returns:
-        list: prediction results
+    Returns
+    -------
+    list
+        A list of dictionaries containing the predictions for each taxonomic level.
     """
     if len(dna_sequence) < params['read_size']:
         raise ValueError(f"DNA sequence too short {len(dna_sequence):,} and minimum required: {params['read_size']:,}")

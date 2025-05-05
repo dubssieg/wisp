@@ -5,9 +5,7 @@ import psutil
 import sys
 
 from numpy import argmax, amax, mean, ndarray,array, vectorize
-sys.path.append('../../..')
-
-from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
+from wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 
 def softmax(predictions: ndarray, func: str, reads_threshold: float) -> list:

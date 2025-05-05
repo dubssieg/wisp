@@ -5,6 +5,28 @@ import matplotlib.colors as mcolors
 import matplotlib.patches as patches
 
 def plot_conf_mat(conf_mat,  level, separator_indices=None,  filename=None):
+    """
+    Affiche une matrice de confusion en utilisant un heatmap.
+
+    Parameters
+    ----------
+    conf_mat : pd.DataFrame
+        La matrice de confusion à afficher. Les indices doivent être les labels réels et les colonnes les prédictions.
+
+    level : str
+        Le niveau de taxonomie pour lequel la matrice de confusion est affichée, par exemple 'group' ou 'family'.
+
+    separator_indices : list of int, optional
+        Liste des indices à utiliser pour dessiner des séparateurs dans la matrice de confusion. Par défaut, aucun séparateur n'est ajouté.
+
+    filename : str, optional
+        Le chemin du fichier où sauvegarder la figure. Si None, la figure sera affichée à l'écran.
+
+    Returns
+    -------
+    None
+    """
+
     min_square = 2
     fig, ax = plt.subplots(figsize=(8, 6))
     # Déterminer si on doit afficher les labels

@@ -2,12 +2,10 @@ from collections import defaultdict
 from sklearn.metrics import confusion_matrix
 import numpy as np
 import pandas as pd
-import sys
 import pickle
 
 
-sys.path.append('..')
-from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
+from wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 
 class ConfusionMatrixTracker:
@@ -127,7 +125,7 @@ def compute_accuracy_from_conf_matrix_df(conf_mat_level):
     return accuracy
 
 if __name__ == "__main__":
-    from wisp.wisp_light.visu.plots_tools import plot_conf_mat
+    from wisp_light.visu.plots_tools import plot_conf_mat
 
     with open("conf_matrix_tracker.pkl", "rb") as f:
         tracker = pickle.load(f)

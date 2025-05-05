@@ -1,23 +1,28 @@
-# train xgboost on refseq
+# train xgboost on refseq database
 auteur package wisp_light: Hermann Courteille (PNRIA)
 
-projet: micro taxo:
-lancement : 25 novembre 2024
-mi projet : 25 février
-fin prévu : 25 mai
+projet: microtaxo
+accompagnement PNRIA: du 25 novembre 2024 au 25 mai 2025
 
 - version refseq  :  Release 227 November 4, 2024.
 
-## make env
-depuis le répertoire wisp_light
-
+## 1. environment
+### conda
+>conda env create -f micro_env.yml
+> conda activate micro_env
+### virtual env
+sur genouest, obligatoirement sur un noeud calcul
 ```
 srun --time 00-10:00:00 --pty bash 
 . /local/env/envpython-3.11.9.sh
-python3.11 -m venv ~/envtaxo2
-source ~/envtaxo2/bin/activate
-pip install -r requirements.txt 
 ```
+
+>python3.11 -m venv ~/envtaxo2
+>source ~/envtaxo2/bin/activate
+>pip install -r requirements.txt 
+
+## 2. Build refseq dataset
+
 
 # Train and evaluate xgboost models
 
@@ -45,8 +50,8 @@ Logs and result are in exp_rootdir by default
 To prevent ssh break, you can use tmux on genouest see https://help.genouest.org/usage/slurm/#long-running-interactive-jobs-srun
 
 2. Sbatch , fix parameter in .sh , params.yaml or train_val.py, then 
-`sbatch submit_main_build.sh
-`
+`sbatch submit_main_build.sh`
+
 # See results 
 
 from compute  <node>  in genouest:
@@ -73,18 +78,18 @@ print(list(counters[0].items())[:10])
 
 > 2.1 it/s
 
-`
+```
 conda install -y gcc_linux-64 gxx_linux-64 -c conda-forge
 pip install xgboost --no-binary :all:
-`
+```
+
 ```
 . /local/env/envconda.sh
 conda activate py311_env
 source ~/.bashrc
 ```
 
-```.bashrc
-
+```
 export PATH=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0:$PATH
 export CC=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0/gcc
 export CXX=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0/g++

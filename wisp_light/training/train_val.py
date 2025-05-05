@@ -1,6 +1,41 @@
+"""
+Script d'entraînement pour le modèle de classification bactérienne.
+
+Ce script permet de :
+- Créer ou charger une base de données phylogénétique à partir d’un ensemble de génomes.
+- Entraîner un modèle de classification basé sur cette base.
+- Valider le modèle sur un jeu de validation.
+- Suivre et journaliser les métriques avec MLflow.
+- Gérer les logs et la configuration via des fichiers YAML.
+
+Utilisation :
+-------------
+Ce script s'utilise en ligne de commande avec plusieurs arguments optionnels :
+    --exp_name : nom de l'expérience (défaut = "model_base_complete")
+    --datadir : répertoire contenant les génomes FASTA (défaut = refseq_with_taxo_merged)
+    --params_file : chemin vers le fichier YAML des hyperparamètres (défaut = params.yaml)
+    --exp_rootdir : répertoire racine où stocker les expériences (défaut = ../../exp/)
+    --db_json : chemin vers une base de données préexistante à recharger (optionnel)
+
+Exemple :
+---------
+python train.py --exp_name test_05 --params_file config.yaml --db_json path/to/db.json
+
+Modules utilisés :
+------------------
+- Bio.SeqIO : pour parser les fichiers FASTA
+- argparse : gestion des arguments en ligne de commande
+- yaml : chargement des paramètres
+- logging : journalisation des événements
+- mlflow : suivi des expériences
+- wisp_light.dataset.refSeqDataset : gestion du dataset bactérien
+- training_functions : fonctions d’entraînement et de validation
+- create_database : construction et chargement de la base phylogénétique
+
+Auteur : Hermann Courteille
+"""
 import argparse
 import os
-import sys
 import time
 import yaml
 import logging
@@ -16,8 +51,7 @@ from utils import setup_logger
 from create_database import check_parameters, build_database, load_phylo_tree
 from training_functions import train_model_targets, validate, count_seq
 
-sys.path.append('../../..')
-from wisp.wisp_light.dataset.refSeqDataset import RefSeqDataset
+from wisp_light.dataset.refSeqDataset import RefSeqDataset
 # from wisp.wisp_light.dataset.bactero_set import BacteriaDataset
 
 parser = argparse.ArgumentParser(description="Script d'entraînement pour le modèle bactérien.")
@@ -93,26 +127,23 @@ with mlflow.start_run():
                                                family_strat=params['family_strat'])
 
     nb_seq = count_seq(val_dataset)
-"""
-    if  args.db_json:
 
-        phylo_tree, nb_genome_indexed = load_phylo_tree(args.db_json)
-        logger.info(f"Reload database json {nb_genome_indexed} genomes indexed from {exp_dir} ")
+if  args.db_json:
 
-    else:
-        logger.info(f"Starting database creation for {len(train_dataset)} genome files ")
-        start_database = time.time()
-        database_json = os.path.join(exp_dir, f"databases.json")
-        phylo_tree = build_database(train_dataset, params, database_json, logger,max_workers=params['max_workers_db'])
-        database_time = round((time.time() - start_database))
-        logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
-        mlflow.log_metric("database_time", database_time)
+    phylo_tree, nb_genome_indexed = load_phylo_tree(args.db_json)
+    logger.info(f"Reload database json {nb_genome_indexed} genomes indexed from {exp_dir} ")
 
-    model_time = train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=params['max_workers_trainval'])
-    #
-    validation_time = validate(val_dataset, exp_dir, params, logger, max_workers=params['max_workers_trainval'])
+else:
+    logger.info(f"Starting database creation for {len(train_dataset)} genome files ")
+    start_database = time.time()
+    database_json = os.path.join(exp_dir, f"databases.json")
+    phylo_tree = build_database(train_dataset, params, database_json, logger,max_workers=params['max_workers_db'])
+    database_time = round((time.time() - start_database))
+    logger.info(f"Database successfully built in {database_time} s @ {f'{exp_dir}/databases.json'} ")
+    mlflow.log_metric("database_time", database_time)
 
-    print(f"Times: \n - database {database_time} s\n - model {model_time} s\n - validation {validation_time} s")
+model_time = train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=params['max_workers_trainval'])
+#
+validation_time = validate(val_dataset, exp_dir, params, logger, max_workers=params['max_workers_trainval'])
 
-"""
-
+print(f"Times: \n - database {database_time} s\n - model {model_time} s\n - validation {validation_time} s")

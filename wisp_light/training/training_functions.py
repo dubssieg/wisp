@@ -1,4 +1,3 @@
-"""Builds predictions from reads"""
 import logging
 import os
 import time
@@ -12,20 +11,40 @@ import mlflow
 
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
-# from multiprocessing import Manager
-from create_model import make_model
-from create_prediction import prediction
-from utils import  extract_majority_classification, setup_logger
-from metrics import ConfusionMatrixTracker, compute_accuracy_from_conf_matrix_df
+from wisp_light.training.create_model import make_model
+from wisp_light.training.create_prediction import prediction
+from wisp_light.training.utils import  extract_majority_classification, setup_logger
+from wisp_light.training.metrics import ConfusionMatrixTracker, compute_accuracy_from_conf_matrix_df
 
-sys.path.append('../../..')
-from wisp.wisp_light.visu.plots_tools import plot_conf_mat
-from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
-from wisp.wisp_light.training.utils import log_resource_usage
+from wisp_light.visu.plots_tools import plot_conf_mat
+from wisp_light.dataset.refSeqDataset import TAXO_LEVELS
+from wisp_light.training.utils import log_resource_usage
 
 
 
 def train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=4):
+    """
+    Entraîne un modèle pour chaque nœud du niveau taxonomique donné dans un arbre phylogénétique.
+
+    Parameters
+    ----------
+    phylo_tree : Tree
+        Arbre phylogénétique Treelib avec les taxons et leurs relations hiérarchiques.
+    exp_dir : str
+        Répertoire de sauvegarde des modèles et du fichier phylo_tree sérialisé.
+    params : dict
+        Dictionnaire de paramètres d'entraînement (extraits d'un fichier YAML).
+    logger : logging.Logger
+        Logger pour affichage des messages d'information, debug et erreurs.
+    max_workers : int, optional
+        Nombre maximal de threads pour l'entraînement parallèle, par défaut 4.
+
+    Returns
+    -------
+    int
+        Temps total d'entraînement en secondes.
+    """
+
     start_model = time.time()
 
     nodes_per_level: dict = {
@@ -114,6 +133,30 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=4):
 
 
 def validate(val_dataset, exp_dir, params, logger, max_workers=4, save_raw_pred=False):
+    """
+    Valide les modèles entraînés sur un jeu de données de validation.
+
+    Parameters
+    ----------
+    val_dataset : list of tuple
+        Liste de tuples (path_to_genome_file, dict_gt_taxons), un par génome à valider.
+    exp_dir : str
+        Répertoire de l'expérience contenant les modèles et le phylo_tree.
+    params : dict
+        Paramètres utilisés pour la prédiction.
+    logger : logging.Logger
+        Logger pour le suivi de l'exécution.
+    max_workers : int, optional
+        Nombre de processus parallèles pour la prédiction, par défaut 4.
+    save_raw_pred : bool, optional
+        Si True, sauvegarde les prédictions brutes au format JSON, par défaut False.
+
+    Returns
+    -------
+    int
+        Durée de la validation en secondes.
+    """
+
     start_validation = time.time()
     logger.info(f"Start evaluation for {len(val_dataset)} genome files")
 
@@ -154,6 +197,32 @@ def validate(val_dataset, exp_dir, params, logger, max_workers=4, save_raw_pred=
 
 
 def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, save_raw_pred):
+    """
+    Prédit les taxons d'un génome à l'aide de l'arbre phylogénétique et des modèles associés.
+
+    Parameters
+    ----------
+    sample : tuple
+        Tuple (genome_path, ground_truth_taxons) pour un échantillon.
+    phylo_tree : Tree
+        Arbre phylogénétique contenant les chemins vers les modèles.
+    model_dir : str
+        Répertoire contenant les modèles entraînés.
+    params : dict
+        Paramètres utilisés pour la prédiction.
+    val_dir : str
+        Répertoire dans lequel sont stockés les résultats de validation.
+    logger : logging.Logger
+        Logger pour le suivi des événements et erreurs.
+    save_raw_pred : bool
+        Si True, sauvegarde les prédictions individuelles.
+
+    Returns
+    -------
+    list of tuple
+        Liste de tuples (true_labels, predicted_labels) pour chaque séquence du génome.
+    """
+
     genome, gt_taxons = sample
     metrics_sample = []
     # base_name = os.path.basename(genome).split('.')[0]
@@ -203,6 +272,18 @@ def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, save_
 
 
 def log_val_metrics(metrics, val_dir, logger):
+    """
+    Calcule et enregistre les métriques de validation pour chaque niveau taxonomique.
+
+    Parameters
+    ----------
+    metrics : ConfusionMatrixTracker
+        Objet de suivi des matrices de confusion et des métriques par niveau.
+    val_dir : str
+        Répertoire où sauvegarder les métriques et graphiques.
+    logger : logging.Logger
+        Logger pour afficher les résultats.
+    """
     # all_val_conf_matrix = metrics.get_all_confusion_matrices()
     logger.info("=" * 60)
     logger.info("VALIDATION metrics")
@@ -235,6 +316,19 @@ def log_val_metrics(metrics, val_dir, logger):
         mlflow.log_artifact(plot_path)
 
 def count_seq(dataset):
+    """
+    Compte le nombre total de séquences dans un jeu de données.
+
+    Parameters
+    ----------
+    dataset : list of tuple
+        Liste de tuples (genome_path, ground_truth_taxons).
+
+    Returns
+    -------
+    int
+        Nombre total de séquences.
+    """
     nb_seq = 0
     for sample in dataset:
         genome, gt_taxons = sample
@@ -254,21 +348,3 @@ if __name__=='__main__':
     params_file = "params.yaml"
     datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo_merged"
     exp_dir = os.path.abspath('../../../exp/model_laptop')
-    #
-    # input_files = [os.path.abspath(os.path.join(dirpath, f))
-    #                for dirpath, _, filenames in os.walk(datadir)
-    #                for f in filenames]
-    #
-    # with open(params_file, 'r') as file:
-    #     params = yaml.safe_load(file)
-    #
-    # check_parameters(params)
-    # all_val_conf_matrix = validate(input_files, exp_dir, params, num_processes=4)
-    #
-    # print("Validation Metrics")
-    # for level in TAXO_LEVELS[:-1]:
-    #     conf_mat_level = all_val_conf_matrix[level]
-    #     accuracy_level = compute_accuracy_from_conf_matrix_df(conf_mat_level)
-    #     print(f" level {level}, accuracy {accuracy_level}" )
-    #     print(conf_mat_level.to_markdown())
-
