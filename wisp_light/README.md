@@ -33,7 +33,9 @@ pip install -r requirements.txt
 wget https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt -o {output_dir}
 ```
 ou via l'interface web 
-https://www.ncbi.nlm.nih.gov/datasets/genome/?taxon=2&reference_only=true
+
+`https://www.ncbi.nlm.nih.gov/datasets/genome/?taxon=2&reference_only=true`
+
 - wisp_light/build_dataset/refseq/reference_genome_summary.tsv
 **version refseq**:  Release 227 November 4, 2024.
 
@@ -41,7 +43,7 @@ depuis build_refseq/refseq
 ```
 python import_refseq.py --csv_file reference_genome_summary.tsv --output_dir /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data --num_workers 8
 ```
-### b. Obtenir les taxonomies à partir des taxid de chaque génome 
+## b. Obtenir les taxonomies à partir des taxid de chaque génome 
 
 ```
 python get_all_taxo_from_NCBI.py --input reference_genome_summary.tsv --taxid_column taxid --batch_size 10
@@ -50,7 +52,7 @@ python get_all_taxo_from_NCBI.py --input reference_genome_summary.tsv --taxid_co
 - le 1er avec toutes les taxonomies présentes  ['phylum', 'class', 'order', 'family'] dans "reference_genome_summary_complete_taxo.tsv"
 - le 2eme avec des taxonomies incompletes dans "reference_genome_summary_incomplete_taxo.tsv"
 
-### c. association dans l'itérateur
+## c. association dans l'itérateur
 ```python
 from wisp_light.dataset.refSeqDataset import RefSeqDataset
 datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data"
@@ -66,8 +68,8 @@ taxo_dict {'phylum': 'Pseudomonadota', 'class': 'Gammaproteobacteria', 'order': 
 ```
 # III. Train and evaluate xgboost models
 On part de tous les génomes de références de refseq.
-Cette base est découpée en train/val avec la fonction sklearn.model_selection.train_test_split, la seed donné
-dans params.yaml afin de pouvoir être reproduit.
+Cette base est découpée en train/val avec la fonction sklearn.model_selection.train_test_split, la graine aléatoire est fixée
+dans params.yaml afin de pouvoir assurer la reproductibilité.
 
 L'entrainement et la validation se fait en 3 temps:
 1. la construction d'une base de données regroupant tous les comptages de kmer sur le train
@@ -79,8 +81,7 @@ Tous les paramètres de pre-processing, de xgboost ... sont dans : `wisp_light/t
 Commande à partir de wips_light
 en local : 
 ```
-export PYTHONPATH=/home/hcourtei/Projects/MicroTaxo/codes
-
+t
  python wisp_light/training/train_val.py  \
   --exp_name test_laptop  \
   --datadir /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data \
