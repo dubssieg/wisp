@@ -8,7 +8,7 @@ pattern: # motif à prendre en compte dans le kmer
   - 1
   - 1
   - 1
-
+cut_data: -1 # positive for cutting dataset
 test_size: 0.1 # pourcentage du split train/val
 random_state: 42 # seed pour xgboost, et le split train/val
 family_strat: False  # -> Only for RefSeqDataset
@@ -21,6 +21,7 @@ max_workers_trainval: 10
 eval_metric: mlogloss
 tree_method: hist
 device: cpu
+n_gpus: 0
 booster: gbtree
 objective: multi:softprob
 num_rounds_boosting: 10

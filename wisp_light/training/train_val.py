@@ -14,7 +14,6 @@ Ce script s'utilise en ligne de commande avec plusieurs arguments optionnels :
     --exp_name : nom de l'expérience (défaut = "model_base_complete")
     --datadir : répertoire contenant les génomes FASTA (défaut = refseq_with_taxo_merged)
     --params_file : chemin vers le fichier YAML des hyperparamètres (défaut = params.yaml)
-    --exp_rootdir : répertoire racine où stocker les expériences (défaut = ../../exp/)
     --db_json : chemin vers une base de données préexistante à recharger (optionnel)
 
 Exemple :
@@ -40,43 +39,41 @@ import time
 import yaml
 import logging
 import mlflow
-
+from pathlib import Path
 from datetime import datetime
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
-from Bio import SeqIO
 
-from utils import setup_logger
-from create_database import check_parameters, build_database, load_phylo_tree
-from training_functions import train_model_targets, validate, count_seq
+from wisp_light.training.utils import setup_logger
+from wisp_light.training.create_database import  build_database, load_phylo_tree
+from wisp_light.training.training_functions import train_model_targets, validate, count_seq
 
 from wisp_light.dataset.refSeqDataset import RefSeqDataset
 # from wisp.wisp_light.dataset.bactero_set import BacteriaDataset
 
 parser = argparse.ArgumentParser(description="Script d'entraînement pour le modèle bactérien.")
 parser.add_argument("--exp_name", type=str, default="model_base_complete", help="Nom de l'expérience.")
-parser.add_argument("--datadir", type=str, default="/projects/microtaxo/data/refseq_with_taxo_merged", help="Répertoire des données.")
-parser.add_argument("--params_file", type=str, default="params.yaml", help="Chemin du fichier de paramètres.")
-parser.add_argument("--exp_rootdir", type=str, default=os.path.abspath('../../exp/'), help="Répertoire racine des expériences.")
-parser.add_argument("--db_json", type=str, default="", help="Fichier JSON de la base de données existante.")
+parser.add_argument("--datadir", type=str, default="/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data", help="Répertoire des données.")
+parser.add_argument("--params_file", type=str, default="training/params.yaml", help="Chemin du fichier de paramètres.")
+parser.add_argument("--index_csv", type=str, default="build_dataset/refseq/reference_genome_summary_complete_taxo.tsv", help="Chemin vers le fichier CSV d'index des génomes.")
+parser.add_argument("--db_json", type=str, default="", help="Fichier JSON de la base de données déjà existante.")
+
 
 
 args = parser.parse_args()
+wisplight_dir =  Path(__file__).resolve().parent.parent
+print("ROOT wisp_light", wisplight_dir)
+index_csv = wisplight_dir/ args.index_csv
+params_file = wisplight_dir / args.params_file
+exp_rootdir =  wisplight_dir.parent / 'exp'
 
-args.index_csv = "../dataset/complete_refseq_referent_genome_with_taxo.tsv"
-
-# args.datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq3"
-# args.exp_rootdir = '/home/hcourtei/Projects/MicroTaxo/codes/exp_refseq' #
 # args.db_json = '/home/hcourtei/Projects/MicroTaxo/codes/exp_refseq/model_base_index_03_24_15_06/databases.json'
 
-args.datadir = '/WORKS/microtaxo/data/refseq3' # '/scratch/hcourtei/refseq3'
-args.exp_rootdir = '/WORKS/microtaxo/exp_refseq' # '/scratch/hcourtei/exp_refseq'
+# args.datadir = '/WORKS/microtaxo/data/refseq3' # '/scratch/hcourtei/refseq3'
+# args.exp_rootdir = '/WORKS/microtaxo/exp_refseq' # '/scratch/hcourtei/exp_refseq'
 # args.db_json  = "/WORKS/microtaxo/exp_refseq/model_base_testval_04_04_13_48/databases.json"
 
-# args.datadir = '/projects/microtaxo/data/refseq3' # '/scratch/hcourtei/refseq3'
-# args.exp_rootdir = '/projects/microtaxo/exp_refseq' # '/scratch/hcourtei/exp_refseq'
-CUT = -1
 
 day_month_min = datetime.now().strftime('%m_%d_%H_%M')
 if args.db_json:
@@ -85,7 +82,7 @@ if args.db_json:
 
 else:
 
-    exp_dir = f"{args.exp_rootdir}/{args.exp_name}_{day_month_min}"
+    exp_dir = f"{exp_rootdir}/{args.exp_name}_{day_month_min}"
     os.makedirs(exp_dir, exist_ok=True)
     log_file = f"{exp_dir}/init_train.log"
 
@@ -98,9 +95,8 @@ mlflow.set_experiment(args.exp_name)
 
 logger.info(f"current working directory: {os.getcwd()}")
 
-with open(args.params_file, 'r') as file:
+with open(params_file, 'r') as file:
     params = yaml.safe_load(file)
-    # check_parameters(params)
 
 params.update({'exp_name': args.exp_name,"day_month_min": day_month_min,
                'exp_dir':exp_dir,'datadir':args.datadir, 'db_json': args.db_json})
@@ -116,12 +112,12 @@ print(f" nb core cpu {os.cpu_count()} , counting kmer with max_workers_trainval 
 with mlflow.start_run():
     mlflow.log_params(params)
 
-    logger.info(f"Fichier {args.params_file} copié dans {params_copy_path}")
+    logger.info(f"Fichier {params_file} copié dans {params_copy_path}")
 
     # dataset = BacteriaDataset(args.datadir, logger)
     # dataset.filter_family_by_min_species(min_family_threshold=params['min_family_threshold'],
     #                                      max_family_repr=params['max_family_repr'])
-    dataset = RefSeqDataset(args.index_csv, args.datadir, logger, cut= CUT)
+    dataset = RefSeqDataset(index_csv, args.datadir, logger, cut= params['cut_data'])
 
     train_dataset, val_dataset = dataset.split(test_size=params['test_size'], random_state=params['random_state'],
                                                family_strat=params['family_strat'])

@@ -40,6 +40,18 @@ def make_prediction(model_path, datas_path, normalisation_func,read_identity_thr
         predictions = bst.predict(DMatrix(datas_path+"?format=libsvm")) #ndarray
         # print(predictions)
     except XGBoostError as e:
+        with open(datas_path, "r", encoding="utf-8") as f:
+            for idx, line in enumerate(f):
+                # on splitpe la ligne en tokens, on ignore le label (premier token)
+                parts = line.strip().split()
+                # on collecte tous les indices de features
+                features = {int(tok.split(":")[0]) for tok in parts[1:] if ":" in tok}
+                # si 0 est parmi les clés…
+                if 0 in features:
+                    print(f"Ligne {idx} contient la feature 0 → {line.strip()}")
+                if max(features) >= bst.num_features():
+                    print(f"Ligne {idx} contient un index trop grand (max={max(features)}) → {line.strip()}")
+
         raise RuntimeError(f"Error processing {datas_path}: {e}") from e  # Propager l'erreur avec plus de contexte        return None
 
     list_resul = softmax(predictions, normalisation_func, read_identity_threshold)
@@ -71,16 +83,22 @@ def build_sample(params: dict, dna_sequence: str, id_sequence: str, sample_outpu
     os.makedirs(os.path.dirname(sample_output_path), exist_ok=True)     # Writing the database
 
     my_encoder: dict = encoder(ksize=params['ksize'])
+    # num_features = len(set(my_encoder.values()))
+    # print(f"Nombre total de features dans build_sample : {num_features}")
     all_reads = splitting(dna_sequence.upper(), params['read_size'], params['max_sampling'], shift_ratio=params['shift_ratio'])
 
     with open(sample_output_path, 'w', encoding='utf-8') as jdb:
         # Counting kmers inside each read
         counters =  [counter_kmer(read, params['pattern']) for read in all_reads]
-        encoded: list = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]   # Encoding reads for XGBoost
+        encoded: list = [{my_encoder[k]:v for k, v in cts.items()} for cts in counters]   # Encoding reads for XGBoosts]
+        max_encode = int('3'*params['ksize'])
 
         for sample in encoded:
-            jdb.write(f"0 {' '.join([str(k)+':'+str(v) for k,v in sample.items()])} #{id_sequence}\n")
-            # Each read is a dict with code:count for kmer
+            sample.pop(max_encode, None)
+
+            feats = [f"{k}:{v}" for k, v in sample.items()]
+            jdb.write(f"0 {' '.join(feats)} #{id_sequence}\n")
+
 
 def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_dir, val_dir, logger) ->list:
     """
@@ -110,7 +128,10 @@ def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_di
     """
     if len(dna_sequence) < params['read_size']:
         raise ValueError(f"DNA sequence too short {len(dna_sequence):,} and minimum required: {params['read_size']:,}")
-
+    # if len(dna_sequence) < params['read_size']:
+        # Catch the exception and return None (skip this sequence)
+        # logger.warning(f"⚠️ Sequence '{id_sequence}' is too short ({len(dna_sequence)}) and will be skipped.")
+        # return None  # Skip this sequence
     file = f"unk_sample_{str(time.time()).replace('.', '_')}_{id_sequence.replace(' ', '_')}.txt"
     sample_output_path = f"{val_dir}/temp/{file}"
     build_sample(params, dna_sequence, id_sequence, sample_output_path)

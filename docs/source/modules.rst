@@ -1,9 +1,25 @@
-Documentation des Modules
+Modules de wisp_light
 ===========================
 
 .. toctree::
    :maxdepth: 2
    :caption: Modules
+
+
+
+wisp_light.build_dataset.refseq
+-------------------------------
+
+.. literalinclude:: ../../wisp_light/build_dataset/refseq/download_refseq_from_csv.py
+   :language: python
+   :linenos:
+   :caption: Script download_refseq_from_csv.py
+
+.. literalinclude:: ../../wisp_light/build_dataset/refseq/get_all_taxo_from_NCBI.py
+   :language: python
+   :linenos:
+   :caption: Script get_all_taxo_from_NCBI.py
+
 
 wisp_light.dataset
 --------------------------------
@@ -55,6 +71,13 @@ wisp_light.training.training_functions
    :undoc-members:
    :show-inheritance:
 
+wisp_light.training.metrics
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: wisp_light.training.metrics
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Script d'entraînement
 ~~~~~~~~~~~~~~~~~~~~~

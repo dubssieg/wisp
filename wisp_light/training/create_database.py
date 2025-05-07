@@ -94,6 +94,8 @@ def build_database(train_dataset: list[str], params: dict, database_json: str , 
     """
 
     my_encoder: dict = encoder(ksize=params['ksize'])
+    num_features = len(set(my_encoder.values()))
+
     # creating phylogenetic tree
     phylo_tree: Tree = Tree()
     phylo_tree.create_node('Root', 'root_root', data=Taxonomy(0, 'Root', 'Root', None, None))

@@ -1,0 +1,26 @@
+name: micro_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - matplotlib
+  - numpy
+  - scipy
+  - scikit-learn
+  - seaborn
+  - biopython
+  - tqdm
+  - pyyaml  # pyaml est souvent listé sous pyyaml
+  - tabulate
+  - ipykernel
+  - sphinx
+  - sphinx_rtd_theme
+  - nbsphinx
+  - myst-parser        # pour .md comme README.md
+  - pandoc  # utile pour nbsphinx
+  - pip
+  - pip:
+      - xgboost-cpu
+      - treelib
+      - mlflow

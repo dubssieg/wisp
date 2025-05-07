@@ -53,7 +53,7 @@ class RefSeqDataset:
         Itération sur les éléments du dataset.
     """
     def __init__(self, index_csv, datadir, logger=None, cut=-1):
-        self.index_with_label = pd.read_csv(index_csv, sep='\t')
+        self.index_with_label = pd.read_csv(index_csv, sep='\t', low_memory=False)
         if cut > 0:
             self.index_with_label = self.index_with_label.head(cut)
         self.datadir = datadir
@@ -63,10 +63,10 @@ class RefSeqDataset:
     def pairing_label_to_file(self):
         all_files = os.listdir(self.datadir)
 
-        gcf_ids_from_labels = self.index_with_label['Assembly Accession']
+        gcf_ids_from_labels = self.index_with_label['assembly_accession']
         file_map = {gcf_id: next((file for file in all_files if gcf_id in file), None) for gcf_id in gcf_ids_from_labels}
 
-        self.index_with_label['file'] = self.index_with_label['Assembly Accession'].map(file_map)
+        self.index_with_label['file'] = self.index_with_label['assembly_accession'].map(file_map)
         self.index_with_label = self.index_with_label.dropna(subset=['file']).reset_index(drop=True)
         self.logger.info(f"nb files in datadir: {len(all_files)} restrict to {len(self.index_with_label)} with labels in index ")
 
@@ -113,12 +113,12 @@ class RefSeqDataset:
 
 
 if __name__ == '__main__':
-    from wisp.wisp_light.training.utils import setup_logger
+    from wisp_light.training.utils import setup_logger
 
     logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=None)
 
-    index_csv = 'complete_refseq_referent_genome_with_taxo.tsv'
-    datadir = '/projects/microtaxo/data/refseq3'
+    index_csv = '../build_dataset/refseq/reference_genome_summary_complete_taxo.tsv'
+    datadir = '/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data'
     # datadir = '/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1'
     ds = RefSeqDataset(index_csv,datadir, logger)
 

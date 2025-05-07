@@ -247,7 +247,10 @@ def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, save_
     for seq_id, seq_data in sequences:
         try:
             result =  partial_pred(seq_id, seq_data)
+            logger.debug(f"[DEBUG] Prediction result for {seq_id}: {result}")
             pred_taxons = extract_majority_classification(result)
+            if not gt_taxons:
+                logger.warning(f"⚠️ Empty ground-truth taxons for {genome}")
             metrics_sample.append((gt_taxons, pred_taxons))
 
             if gt_taxons['phylum'] != pred_taxons['phylum']:
@@ -257,7 +260,8 @@ def process_genome(sample, phylo_tree, model_dir, params, val_dir, logger, save_
 
             prediction_results.append(result)
         except Exception as e:
-            logger.debug(f"⚠️ Error for id {seq_id}: {e}")
+            if not isinstance(e, ValueError):
+                logger.exception(f"⚠️ Exception for sequence ID {seq_id}: {e}")
             prediction_results.append(None)
     file_error_plylum.close()
     if save_raw_pred:
@@ -287,6 +291,9 @@ def log_val_metrics(metrics, val_dir, logger):
     # all_val_conf_matrix = metrics.get_all_confusion_matrices()
     logger.info("=" * 60)
     logger.info("VALIDATION metrics")
+    # print("DEBUG - Keys in true_labels:", metrics.true_labels.keys())
+    # for level in TAXO_LEVELS:
+    #     print(f"Level: {level}, Nb labels: {len(metrics.true_labels[level])}")
     metrics.build_taxonomy_df()
     LEVEL_MARKER = 'phylum'
 

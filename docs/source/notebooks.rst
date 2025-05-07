@@ -1,5 +1,5 @@
-Notebooks de MicroTaxo
-======================
+Notebooks de wisp_light
+=======================
 
 Voici les notebooks disponibles pour ce projet, détaillant différentes étapes du traitement des données et des analyses effectuées.
 
