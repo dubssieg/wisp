@@ -8,6 +8,7 @@ from database import Database
 from dataset import ByRankGenerator, Dataset
 from model import XGBoostModel
 from taxdb import TaxDB
+from tqdm.auto import tqdm
 from utils import (
     SystemStatsLogger,
     cpu_count,
@@ -161,9 +162,11 @@ class SuperModel:
         return report
 
     def train(self):
-        for model_tid, route in self._routing.items():
+        for model_tid, route in tqdm(self._routing.items()):
             if len(route["classes"]) > 1:
-                self._get_trained_model(model_tid)
+                model = self._get_trained_model(model_tid)
+                model_path = self._get_model_paths(model_tid)["model"]
+                model.save(model_path)
 
     def predict(self, data: xgb.DMatrix) -> np.ndarray:
         pass
