@@ -2,6 +2,7 @@ import json
 import logging
 from pathlib import Path
 import time
+from typing import Literal
 
 # from typing import Generator, Iterator
 from matplotlib import pyplot as plt
@@ -10,6 +11,7 @@ from sklearn.preprocessing import LabelEncoder
 import seaborn as sns
 import numpy as np
 import xgboost as xgb
+import lightgbm as lgb
 from datetime import datetime
 from utils import serialize, deserialize, format_duration, FunctionLogger, hashed
 
@@ -22,7 +24,7 @@ from dmatstore import DMatStore
 
 LOG = logging.getLogger(__name__)
 
-DEFAULT_PARAMETERS = {
+DEFAULT_PARAMETERS_XGBOOST = {
     "max_bin": 256,  # for gpu_hist
     "grow_policy": "depthwise",  # better with big dataset
     "objective": "multi:softmax",  # classification
@@ -38,11 +40,26 @@ DEFAULT_PARAMETERS = {
     "alpha": 0.5,  # L1 (Lasso) regularization to encourage sparsity
 }
 
+DEFAULT_PARAMETERS_LIGHTGBM = {
+    "max_bin": 255,
+    "boosting_type": "gbdt",
+    "objective": "multiclass",
+    "metric": "multi_logloss",
+    "learning_rate": 0.05,
+    "max_depth": 7,
+    "min_child_samples": 20,
+    "reg_alpha": 0.5,
+    "reg_lambda": 1.0,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "min_split_gain": 0.1,
+}
+
 EVAL_STORAGE = "eval"
 TEST_STORAGE = "test"
 
 
-class XGBoostModel:
+class Model:
     def __init__(
         self,
         rank: str,
@@ -63,9 +80,10 @@ class XGBoostModel:
         adapt_batch_size_splits: int | None = None,
         batch_max_size: int | None = None,
         merge_batches: bool = False,
+        model_type: Literal["xgboost", "lightgbm"] = "lightgbm",
     ):
-        LOG.debug(f"XGBoostModel({locals()})")
-        self._params = params if params is not None else DEFAULT_PARAMETERS
+        LOG.debug(f"Model({locals()})")
+        self._params = params if params is not None else DEFAULT_PARAMETERS_LIGHTGBM
         self._seed = seed
         self._rank = rank
         self._normalize = normalize
@@ -79,6 +97,7 @@ class XGBoostModel:
         self._merge_batches = merge_batches
         self._parent_filter = parent_filter
         self._adapt_batch_size_splits = adapt_batch_size_splits
+        self._model_type = model_type
 
         self._workspace_path = Path(workspace_path).resolve()
         self._model = None
@@ -123,7 +142,7 @@ class XGBoostModel:
         # batches
         self._max_batch_count = self._gen.estimated_batches_count()
 
-        LOG.info(f"XGBoostModel max batches: {self._max_batch_count}")
+        LOG.info(f"Model max batches: {self._max_batch_count}")
 
     def signature(self) -> str:
         return hashed(
@@ -283,7 +302,11 @@ class XGBoostModel:
             # 1-b - extract data from batch
             y = dtrain.get_label().astype(int)
             y_encoded = self._label_encoder.transform(y)
-            dtrain_encoded = xgb.DMatrix(dtrain.get_data(), label=y_encoded)
+            if self._model_type == "xgboost":
+                dtrain_encoded = xgb.DMatrix(dtrain.get_data(), label=y_encoded)
+            elif self._model_type == "lightgbm":
+                dtrain_encoded = lgb.Dataset(dtrain.get_data(), label=y_encoded)
+
             batch_report["get_batch_duration"] = time.time() - get_batch_start_time
             LOG.debug(
                 f"Train : {i+1} / {len(train_batch_ids)} - Training batch: {batch_id}..."
@@ -291,12 +314,20 @@ class XGBoostModel:
 
             # 2 - train + save model
             train_start_time = time.time()
-            self._model = xgb.train(
-                params,
-                dtrain_encoded,
-                num_boost_round=num_boost_round,
-                xgb_model=self._model,
-            )
+            if self._model_type == "xgboost":
+                self._model = xgb.train(
+                    params,
+                    dtrain=dtrain_encoded,
+                    num_boost_round=num_boost_round,
+                    xgb_model=self._model,
+                )
+            elif self._model_type == "lightgbm":
+                self._model = lgb.train(
+                    params,
+                    train_set=dtrain_encoded,
+                    num_boost_round=num_boost_round,
+                    init_model=self._model,
+                )
             LOG.debug(
                 f"Train : {i+1} / {len(train_batch_ids)} - Saving batch: {batch_id}..."
             )
@@ -368,8 +399,12 @@ class XGBoostModel:
 
             y_true = deval.get_label().astype(int)
             y_true_encoded = self._label_encoder.transform(y_true)
-            dteval_encoded = xgb.DMatrix(deval.get_data(), label=y_true_encoded)
-            y_pred_encoded = self._model.predict(dteval_encoded).astype(int)
+            if self._model_type == "xgboost":
+                deval_encoded = xgb.DMatrix(deval.get_data(), label=y_true_encoded)
+                y_pred_encoded = self._model.predict(deval_encoded).astype(int)
+            elif self._model_type == "lightgbm":
+                y_pred_probs = self._model.predict(deval.get_data())
+                y_pred_encoded = np.argmax(y_pred_probs, axis=1).astype(int)
 
             all_y_true_encoded.extend(y_true_encoded)
             all_y_pred_encoded.extend(y_pred_encoded)
@@ -593,16 +628,27 @@ class XGBoostModel:
         path = Path(path).resolve()
         LOG.debug(f"Loading model: {path}...")
         model_path = path / "model.bin"
+        model_type_path = path / "model_type.txt"
         label_path = path / "labels.pkl"
         label_encoder_path = path / "labels_encoder.pkl"
         params_path = path / "params.json"
-        for f in (model_path, label_path, label_encoder_path, params_path):
+        for f in (
+            model_path,
+            label_path,
+            label_encoder_path,
+            params_path,
+            model_type_path,
+        ):
             if not f.exists():
                 self._gen.stop()
                 raise FileNotFoundError(f)
+        self._model_type = model_type_path.read_text()
+        if self._model_type == "xgboost":
+            self._model = xgb.Booster()
+            self._model.load_model(str(model_path))
+        elif self._model_type == "lightgbm":
+            self._model = lgb.Booster(model_file=str(model_path))
 
-        self._model = xgb.Booster()
-        self._model.load_model(str(model_path))
         self._labels = deserialize(label_path)
         self._label_encoder = deserialize(label_encoder_path)
         self._params = json.loads(params_path.read_text())
@@ -613,6 +659,7 @@ class XGBoostModel:
         LOG.debug(f"Saving model: {path}...")
         path.mkdir(parents=True, exist_ok=True)
         model_path = path / "model.bin"
+        model_type_path = path / "model_type.txt"
         label_path = path / "labels.pkl"
         label_encoder_path = path / "labels_encoder.pkl"
         params_path = path / "params.json"
@@ -622,6 +669,8 @@ class XGBoostModel:
             serialize(self._labels, label_path)
             serialize(self._label_encoder, label_encoder_path)
             params_path.write_text(json.dumps(self._params, indent=4))
+            model_type_path.write_text(self._model_type)
+
         else:
             raise ValueError("Model is not trained or loaded yet.")
 

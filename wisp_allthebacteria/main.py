@@ -10,7 +10,7 @@ from tqdm.auto import tqdm
 from metadata import Metadata
 from fastakmer import FastaKmer
 from taxdb import TaxDB, RANKS
-from model import XGBoostModel
+from model import Model
 from supermodel import SuperModel
 from database import Database, DatabaseBuilder
 from dataset import Dataset
@@ -296,7 +296,7 @@ def train_model(
                 Path(conf["model"]["default_workspaces_dir"]).resolve() / dt
             )
 
-        xgb_model = XGBoostModel(
+        model = Model(
             rank=rank,
             database=database,
             normalize=normalize,
@@ -321,7 +321,7 @@ def train_model(
             save_path = Path(conf["model"]["default_models_dir"]) / dt
 
         if kfold:
-            xgb_model.kfold(
+            model.kfold(
                 k=conf["model"]["kfold"],
                 save_path=save_path,
                 train_batch_count=train_batch_count,
@@ -330,7 +330,7 @@ def train_model(
                 num_boost_round=conf["model"]["num_boost_round"],
             )
         else:
-            xgb_model.train(
+            model.train(
                 save_path=save_path,
                 train_batch_count=train_batch_count,
                 eval_patience=conf["model"]["eval_patience"],
@@ -339,7 +339,7 @@ def train_model(
                 num_boost_round=conf["model"]["num_boost_round"],
             )
 
-        xgb_model.stop()
+        model.stop()
 
 
 def train_supermodel(conf, name: str):
