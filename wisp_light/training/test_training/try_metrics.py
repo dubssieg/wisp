@@ -1,7 +1,5 @@
-import sys
-sys.path.append('../..')
-from wisp.wisp_light.training.metrics import ConfusionMatrixTracker
-from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
+from wisp_light.training.metrics import ConfusionMatrixTracker
+from wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 dataset = [
     (

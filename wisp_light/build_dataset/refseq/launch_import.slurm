@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=importRefSeq	 # Nom du job
-#SBATCH --chdir=/home/genouest/cnrs_umr6074/hcourtei/codes/wisp/wisp_light/import_dataset/refseq2/  # Répertoire de travail
+#SBATCH --chdir=/home/genouest/cnrs_umr6074/hcourtei/codes/wisp/wisp_light/build_dataset/refseq  # Répertoire de travail
 #SBATCH --output=slurm/importRefSeq%j.txt     # Fichier de sortie
 #SBATCH --error=slurm/importRefSeq%j.err
 #SBATCH --ntasks=1               # Nombre de tâches
@@ -14,6 +14,6 @@
 # Charger l'env
 . ~/envtaxo2/bin/activate
 
-python import_refseq.py --num_workers 5  --output_dir /projects/microtaxo/data/refseq3
+python download_refseq_from_csv.py --num_workers 5  --output_dir /projects/microtaxo/data/refseq3
 
 

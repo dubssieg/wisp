@@ -1,4 +1,4 @@
-from wisp.wisp_light.training.utils import softmax, softmax2
+from wisp_light.training.utils import softmax, softmax2
 import numpy as np
 
 def test_softmax():

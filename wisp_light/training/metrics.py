@@ -2,16 +2,35 @@ from collections import defaultdict
 from sklearn.metrics import confusion_matrix
 import numpy as np
 import pandas as pd
-import sys
 import pickle
 
 
-sys.path.append('..')
-from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
+from wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 
 class ConfusionMatrixTracker:
+    """
+    Accumule et génère des matrices de confusion pour chaque niveau taxonomique.
+
+    Attributes
+    ----------
+    true_labels : dict of list
+       Listes des labels vrais par niveau.
+    pred_labels : dict of list
+       Listes des labels prédits par niveau.
+    unknown_pred : str
+       Valeur utilisée pour les prédictions manquantes.
+    taxonomy_df : pandas.DataFrame or None
+       DataFrame des hiérarchies taxonomiques uniques (après build_taxonomy_df).
+    """
+
     def __init__(self):
+        """
+        Initialise les stockages pour labels vrais et prédits.
+
+        Définit des listes vides pour chaque niveau de TAXO_LEVELS et
+        configure la valeur par défaut pour les prédictions inconnues.
+        """
         # Stocke les vraies et prédictions pour chaque niveau
         self.true_labels = defaultdict(list)
         self.pred_labels = defaultdict(list)
@@ -20,10 +39,15 @@ class ConfusionMatrixTracker:
 
     def update(self, true_labels, pred_labels):
         """
-        Met à jour les listes de vraies étiquettes et de prédictions.
-        Args:
-            true_labels (dict): {niveau: classe_vraie}, !!! Aucun None dans tous les Niveaux
-            pred_labels (dict): {niveau: classe_prédite}
+        Met à jour les listes de labels vrais et prédits pour chaque niveau.
+
+        Parameters
+        ----------
+        true_labels : dict
+            Dictionnaire {niveau: label_vrai}. Aucun niveau ne doit être None.
+        pred_labels : dict
+            Dictionnaire {niveau: label_prédit}. Les niveaux absents ou None
+            seront remplacés par `self.unknown_pred`.
         """
         for level in TAXO_LEVELS:
             true_value = true_labels.get(level)
@@ -38,8 +62,14 @@ class ConfusionMatrixTracker:
 
     def build_taxonomy_df(self):
         """
-        Crée un DataFrame avec toutes les hiérarchies taxonomiques pour chaque échantillon
-        en utilisant uniquement les labels de vérité terrain (ground truth).
+        Construit et stocke un DataFrame des taxonomies uniques.
+
+        Assemble les labels vrais accumulés en un array NumPy de forme
+        (n_samples, n_levels), puis crée un DataFrame trié et sans doublons.
+
+        After calling this method, `self.taxonomy_df` is a DataFrame with one
+        row per unique taxonomy path, sorted lexicographically by TAXO_LEVELS.
+        The tracker is also pickled to "conf_matrix_tracker.pkl".
         """
         data = []
 
@@ -59,13 +89,24 @@ class ConfusionMatrixTracker:
 
     def get_confusion_matrix(self, level):
         """
-        Retourne une matrice de confusion pour un niveau donné.
+        Calcule la matrice de confusion pour un niveau taxonomique donné.
 
-        Args:
-            level (str): Un des niveaux taxonomiques ('domain', 'phylum', etc.)
+        Parameters
+        ----------
+        level : str
+            Nom d’un niveau dans TAXO_LEVELS (ex. 'phylum', 'class', …).
 
-        Returns:
-            pd.DataFrame: Matrice de confusion avec noms des classes.
+        Returns
+        -------
+        pd.DataFrame
+            Matrice de confusion (labels vrais en lignes, prédits en colonnes).
+            Les classes sont ordonnées selon `self.taxonomy_df[level]`, avec
+            `self.unknown_pred` ajoutée si nécessaire.
+
+        Raises
+        ------
+        AttributeError
+            Si `build_taxonomy_df` n’a pas encore été appelé.
         """
 
         if not hasattr(self, 'taxonomy_df'):
@@ -90,14 +131,25 @@ class ConfusionMatrixTracker:
 
     def calculate_separator_indices(self, level_marker='phylum', level_index='family'):
         """
-        Calcule les indices où un changement du niveau level_1 (ex: phylum) se produit
-        en regardant l'ordre du niveau level_2 (ex: family).
-        Args:
-            level_1 (str): Niveau supérieur (ex: 'phylum')
-            level_2 (str): Niveau inférieur servant d'indexation (ex: 'family')
+        Identifie les indices où le label de `level_marker` change en triant
+        par `level_index`.
 
-        Returns:
-            separator_indices (list): Liste des indices où level_1 change selon level_2
+        Parameters
+        ----------
+        level_marker : str
+            Niveau supérieur dont on suit les changements (ex. 'phylum').
+        level_index : str
+            Niveau inférieur servant d’index pour le tri (ex. 'family').
+
+        Returns
+        -------
+        list of int
+            Positions dans la liste triée où la valeur de `level_marker` change.
+
+        Raises
+        ------
+        AttributeError
+            Si `build_taxonomy_df` n’a pas encore été appelé.
         """
         if not hasattr(self, 'taxonomy_df'):
             raise AttributeError("L'attribut 'taxonomy_df' not present , call before self.build_taxonomy_df")
@@ -121,13 +173,27 @@ class ConfusionMatrixTracker:
 
 
 def compute_accuracy_from_conf_matrix_df(conf_mat_level):
+    """
+    Calcule l’exactitude globale à partir d’une matrice de confusion.
+
+    Parameters
+    ----------
+    conf_mat_level : pd.DataFrame
+        Matrice de confusion (carrée) pour un niveau donné.
+
+    Returns
+    -------
+    float
+        Taux de bonnes classifications = trace / somme de tous les éléments.
+        Retourne 0.0 si la somme totale est nulle.
+    """
     correct_predictions = np.diag(conf_mat_level).sum()
     total_predictions = conf_mat_level.sum().sum()
     accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0.0
     return accuracy
 
 if __name__ == "__main__":
-    from wisp.wisp_light.visu.plots_tools import plot_conf_mat
+    from wisp_light.visu.plots_tools import plot_conf_mat
 
     with open("conf_matrix_tracker.pkl", "rb") as f:
         tracker = pickle.load(f)

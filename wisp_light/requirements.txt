@@ -10,4 +10,10 @@ tqdm
 pyaml
 tabulate
 mlflow
+myst-parser
+sphinx
+sphinx_rtd_theme
+nbsphinx
+myst-parser        # pour .md comme README.md
+pandoc
 

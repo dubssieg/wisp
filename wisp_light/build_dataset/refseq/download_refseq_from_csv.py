@@ -1,3 +1,28 @@
+"""
+Téléchargement et décompression de fichiers génomiques RefSeq.
+
+Ce script lit un fichier TSV contenant des URLs FTP de génomes, télécharge
+les fichiers `.fna.gz` associés, les décompresse, et met à jour un DataFrame
+avec les chemins locaux et informations d'accession.
+
+Utilise le multithreading pour accélérer le traitement des fichiers.
+
+
+Parameters
+----------
+--csv_file : str
+    Chemin vers le fichier TSV contenant la colonne 'ftp_path'. Par défaut : "reference_genome_summary.tsv".
+--output_dir : str
+    Répertoire de sortie où seront placés les fichiers décompressés. Par défaut : "/projects/microtaxo/data/refseq_data".
+--num_workers : int
+    Nombre de threads à utiliser pour les téléchargements/décompressions parallèles. Par défaut : 5.
+
+Usage (en ligne de commande)
+----------------------------
+python download_refseq_from_csv.py --csv_file reference_genome_summary.tsv --output_dir /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data --num_workers 8
+
+"""
+
 import os
 import pandas as pd
 import subprocess
@@ -5,26 +30,27 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 import argparse
 
-TAXO_LEVELS = ["domain", "phylum", "group", "order", "family"]
-
-
-import requests
-import yaml
-from Bio import SeqIO, Entrez
-from io import StringIO
-
-
-# batch = accessions[i:i + batch_size]
-# with Entrez.efetch(db="nucleotide", id=batch, rettype="gb", retmode="text") as taxo_handle:
-#     # records = SeqIO.read(taxo_handle, 'genbank')
-#     records = SeqIO.parse(taxo_handle, 'genbank')
-#     for idx , record in enumerate(records):
-#         accession = record.id.split('.')[0]
-#         taxonomy = record.annotations.get('taxonomy', [])
-#         organism = record.annotations.get('organism', "Unknown Organism")
 
 
 def update_downloaded_column(df, output_dir):
+    """
+    Met à jour les colonnes 'Downloaded', 'file' et 'accession' du DataFrame.
+
+    Pour chaque ligne, vérifie si le fichier décompressé existe, extrait l'accession
+    de la première ligne FASTA, et complète les colonnes.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+       DataFrame contenant au moins une colonne 'ftp_path'.
+    output_dir : str
+       Répertoire où sont stockés les fichiers décompressés.
+
+    Returns
+    -------
+    pandas.DataFrame
+       Le DataFrame mis à jour avec les colonnes 'Downloaded', 'file', et 'accession'.
+    """
     # Ajouter une nouvelle colonne ou mettre à jour la colonne Downloaded
     for index, row in df.iterrows():
         # Extraire l'URL FTP et créer le chemin du fichier attendu
@@ -49,6 +75,24 @@ def update_downloaded_column(df, output_dir):
 
 
 def download_and_decompress(https_path, output_dir):
+    """
+    Télécharge et décompresse un fichier génomique à partir d'un lien FTP.
+
+    Utilise `wget` pour le téléchargement et `gzip` pour la décompression.
+    Ignore les fichiers déjà décompressés.
+
+    Parameters
+    ----------
+    https_path : str
+     Lien HTTPS vers le fichier à télécharger.
+    output_dir : str
+     Répertoire où enregistrer les fichiers.
+
+    Returns
+    -------
+    str or None
+     Chemin vers le fichier décompressé, ou None si une erreur s'est produite.
+    """
     ftp_path = https_path[8:]  # On enlève 'https://'
     end_url_file = ftp_path.split('/')[-1]  # Dernière partie du chemin, le nom du fichier
 
@@ -90,6 +134,23 @@ def download_and_decompress(https_path, output_dir):
 
 
 def download_and_decompress_all(df, output_dir, num_workers=10):
+    """
+    Télécharge et décompresse en parallèle les fichiers listés dans le DataFrame.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame contenant les chemins FTP dans une colonne 'ftp_path'.
+    output_dir : str
+        Répertoire cible pour les fichiers.
+    num_workers : int, optional
+        Nombre de threads parallèles (default: 10).
+
+    Returns
+    -------
+    list of str or None
+        Liste des chemins vers les fichiers décompressés, ou None pour ceux échoués.
+    """
     # Télécharger et décompresser les fichiers en parallèle
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = [executor.submit(download_and_decompress,  row['ftp_path'], output_dir)
@@ -110,10 +171,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Téléchargement et décompression de fichiers génomiques.")
     parser.add_argument("--output_dir", type=str,
                         help="Répertoire de sortie pour les fichiers téléchargés et décompressés",
-                        default='/projects/microtaxo/data/refseq3')
+                        default='/projects/microtaxo/data/refseq_data')
     parser.add_argument("--csv_file", type=str, help="Fichier CSV contenant les chemins FTP",
                         default="reference_genome_summary.tsv")
-    parser.add_argument("--num_workers", type=int, default=5, help="Nombre de travailleurs pour le téléchargement et la décompression (par défaut 5)")
+    parser.add_argument("--num_workers", type=int, default=5, help="Nombre de workers pour le téléchargement et la décompression (par défaut 5)")
 
     args = parser.parse_args()
     # args.output_dir = '/wisp/wisp_light/import_dataset/refseq/out_refseq'
@@ -127,3 +188,24 @@ if __name__ == "__main__":
     processed_files = download_and_decompress_all(completed_df, args.output_dir, num_workers=args.num_workers)
     #
     print(f"{len(processed_files)} fichiers traités.")
+
+
+
+''' Batch_request
+
+import requests
+import yaml
+from Bio import SeqIO, Entrez
+from io import StringIO
+
+
+# batch = accessions[i:i + batch_size]
+# with Entrez.efetch(db="nucleotide", id=batch, rettype="gb", retmode="text") as taxo_handle:
+#     # records = SeqIO.read(taxo_handle, 'genbank')
+#     records = SeqIO.parse(taxo_handle, 'genbank')
+#     for idx , record in enumerate(records):
+#         accession = record.id.split('.')[0]
+#         taxonomy = record.annotations.get('taxonomy', [])
+#         organism = record.annotations.get('organism', "Unknown Organism")
+
+'''

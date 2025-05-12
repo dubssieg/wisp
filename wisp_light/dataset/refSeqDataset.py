@@ -3,14 +3,57 @@ import os
 import sys
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from tqdm import tqdm
 sys.path.append('../../..')
 
 TAXO_LEVELS =  ['phylum', 'class', 'order', 'family']
 
 class RefSeqDataset:
+    """
+    Classe pour représenter un jeu de données génomiques basé sur un index RefSeq.
+
+    Cette classe permet de charger un fichier d'index (TSV) contenant des annotations taxonomiques,
+    d'y associer les fichiers de génomes correspondants, puis de fournir une interface simple
+    pour accéder aux échantillons (fichier .fna + taxonomie).
+
+    Attributs
+    ----------
+    index_with_label : pd.DataFrame
+        Le tableau contenant les entrées de génomes, leurs identifiants RefSeq (GCF) et les informations taxonomiques.
+    datadir : str
+        Chemin vers le répertoire contenant les fichiers .fna.
+    logger : logging.Logger
+        Logger pour les messages d'information.
+
+    Paramètres
+    ----------
+    index_csv : str
+        Chemin vers le fichier d'index (TSV) contenant les accèssions et la taxonomie.
+    datadir : str
+        Répertoire contenant les fichiers génomiques (fna).
+    logger : logging.Logger, optionnel
+        Objet logger pour les logs. Si None, aucun log ne sera produit.
+    cut : int, optionnel
+        Nombre maximal de lignes à charger depuis le fichier d'index (utile pour le debug ou les tests).
+
+    Méthodes
+    --------
+    pairing_label_to_file():
+        Associe les entrées du fichier d'index aux fichiers .fna disponibles dans le dossier.
+    __getitem__(idx):
+        Retourne le chemin du fichier génomique et le dictionnaire des informations taxonomiques associées à l'indice `idx`.
+    __len__():
+        Retourne la taille du dataset (nombre d'échantillons valides).
+    get_indices():
+        Retourne les indices disponibles dans le DataFrame.
+    split(test_size=0.2, random_state=None, family_strat=False):
+        Split le dataset en deux sous-ensembles entraînement/test. Optionnellement stratifie sur le rang taxonomique "family".
+    from_dataframe(dataframe, datadir):
+        Classe factory pour créer un RefSeqDataset à partir d’un DataFrame existant (ex. : après split).
+    __iter__():
+        Itération sur les éléments du dataset.
+    """
     def __init__(self, index_csv, datadir, logger=None, cut=-1):
-        self.index_with_label = pd.read_csv(index_csv, sep='\t')
+        self.index_with_label = pd.read_csv(index_csv, sep='\t', low_memory=False)
         if cut > 0:
             self.index_with_label = self.index_with_label.head(cut)
         self.datadir = datadir
@@ -20,10 +63,10 @@ class RefSeqDataset:
     def pairing_label_to_file(self):
         all_files = os.listdir(self.datadir)
 
-        gcf_ids_from_labels = self.index_with_label['Assembly Accession']
+        gcf_ids_from_labels = self.index_with_label['assembly_accession']
         file_map = {gcf_id: next((file for file in all_files if gcf_id in file), None) for gcf_id in gcf_ids_from_labels}
 
-        self.index_with_label['file'] = self.index_with_label['Assembly Accession'].map(file_map)
+        self.index_with_label['file'] = self.index_with_label['assembly_accession'].map(file_map)
         self.index_with_label = self.index_with_label.dropna(subset=['file']).reset_index(drop=True)
         self.logger.info(f"nb files in datadir: {len(all_files)} restrict to {len(self.index_with_label)} with labels in index ")
 
@@ -70,12 +113,12 @@ class RefSeqDataset:
 
 
 if __name__ == '__main__':
-    from wisp.wisp_light.training.utils import setup_logger
+    from wisp_light.training.utils import setup_logger
 
     logger = setup_logger(os.path.basename(__file__), level=logging.INFO, log_file=None)
 
-    index_csv = 'complete_refseq_referent_genome_with_taxo.tsv'
-    datadir = '/projects/microtaxo/data/refseq3'
+    index_csv = '../build_dataset/refseq/reference_genome_summary_complete_taxo.tsv'
+    datadir = '/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data'
     # datadir = '/home/hcourtei/Projects/MicroTaxo/codes/data/refseq/group_1'
     ds = RefSeqDataset(index_csv,datadir, logger)
 

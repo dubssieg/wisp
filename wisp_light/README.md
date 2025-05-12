@@ -1,38 +1,109 @@
-# train xgboost on refseq
-auteur package wisp_light: Hermann Courteille (PNRIA)
 
-projet: micro taxo:
-lancement : 25 novembre 2024
-mi projet : 25 février
-fin prévu : 25 mai
 
-- version refseq  :  Release 227 November 4, 2024.
+**projet**: microtaxo
 
-## make env
-depuis le répertoire wisp_light
+**accompagnement PNRIA**: du 25 novembre 2024 au 25 mai 2025
 
+
+**package wisp_light**: Hermann Courteille (PNRIA)
+
+# I. Set Environment
+## conda
+```
+conda env create -f micro_env.yml
+conda activate micro_env
+```
+## virtual env
+sur genouest, obligatoirement sur un noeud calcul
 ```
 srun --time 00-10:00:00 --pty bash 
 . /local/env/envpython-3.11.9.sh
-python3.11 -m venv ~/envtaxo2
-source ~/envtaxo2/bin/activate
+
+python3.11 -m venv ~/envtaxo
+source ~/envtaxo/bin/activate
 pip install -r requirements.txt 
 ```
 
-# Train and evaluate xgboost models
 
 
-data are by default:
-`datadir=/projects/microtaxo/data/refseq_with_taxo_merged`
-See and edit : `params.yaml`
+# II. Build refseq dataset
+## a. Télécharger et dézipper tous les fichiers listés dans le .tsv 
+- obtenir le summary.txt 
+```
+wget https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt -o {output_dir}
+```
+ou via l'interface web 
 
-Train
+`https://www.ncbi.nlm.nih.gov/datasets/genome/?taxon=2&reference_only=true`
+
+- wisp_light/build_dataset/refseq/reference_genome_summary.tsv
+**version refseq**:  Release 227 November 4, 2024.
+
+depuis build_refseq/refseq
+```
+python import_refseq.py --csv_file reference_genome_summary.tsv --output_dir /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data --num_workers 8
+```
+## b. Obtenir les taxonomies à partir des taxid de chaque génome 
+
+```
+python get_all_taxo_from_NCBI.py --input reference_genome_summary.tsv --taxid_column taxid --batch_size 10
+```
+2 tableaux tsv sont générés : 
+- le 1er avec toutes les taxonomies présentes  ['phylum', 'class', 'order', 'family'] dans "reference_genome_summary_complete_taxo.tsv"
+- le 2eme avec des taxonomies incompletes dans "reference_genome_summary_incomplete_taxo.tsv"
+
+## c. association dans l'itérateur
+```python
+from wisp_light.dataset.refSeqDataset import RefSeqDataset
+datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data"
+dataset = RefSeqDataset("reference_genome_summary_complete_taxo.tsv", datadir)
+```
+```
+14:18 - refSeqDataset.py - INFO - nb files in datadir: 451 restrict to 448 with labels in index 
+14:18 - refSeqDataset.py - INFO - Splitted dataset nb 448 into train :403 val: 45
+ 0, genome /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data/GCF_002865995.1_ASM286599v1_genomic.fna
+taxo_dict {'phylum': 'Bacillota', 'class': 'Clostridia', 'order': 'Peptostreptococcales', 'family': 'Peptostreptococcaceae'}
+ 1, genome /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data/GCF_016028775.1_ASM1602877v1_genomic.fna
+taxo_dict {'phylum': 'Pseudomonadota', 'class': 'Gammaproteobacteria', 'order': 'Moraxellales', 'family': 'Moraxellaceae'}
+```
+# III. Train and evaluate xgboost models
+On part de tous les génomes de références de refseq.
+Cette base est découpée en train/val avec la fonction sklearn.model_selection.train_test_split, la graine aléatoire est fixée
+dans params.yaml afin de pouvoir assurer la reproductibilité.
+
+L'entrainement et la validation se fait en 3 temps:
+1. la construction d'une base de données regroupant tous les comptages de kmer sur le train
+2. l'entrainement des modèles de façon hiérachique
+3. la validation sur le jeu de validation
+
+Tous les paramètres de pre-processing, de xgboost ... sont dans : `wisp_light/training/params.yaml`
+
+Commande à partir de wips_light
+en local : 
+```
+t
+ python wisp_light/training/train_val.py  \
+  --exp_name test_laptop  \
+  --datadir /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data \
+  --params_file training/params.yaml
+```
+sur genouest, les données sont sur /projects/microtaxo/data
+.
+├── AllTheBacteria
+├── refseq_complete_genome
+└── refseq_reference_genome
+
+
 ```
 srun --time 00-10:00:00 --mem=20G --cpus-per-task=8 --pty bash #depuis genouest
 source ~/envtaxo2/bin/activate
-cd ~/codes/wisp/wisp_light/training
-python train_val.py 
-```
+cd ~/codes/wisp
+
+python wisp_light/training/train_val.py \
+  --exp_name test_laptop  \
+  --datadir /projects/microtaxo/data/refseq_reference_genome \
+  --params_file training/params.yaml
+  ```
 
 Restart training from existing json database:
 
@@ -45,46 +116,54 @@ Logs and result are in exp_rootdir by default
 To prevent ssh break, you can use tmux on genouest see https://help.genouest.org/usage/slurm/#long-running-interactive-jobs-srun
 
 2. Sbatch , fix parameter in .sh , params.yaml or train_val.py, then 
-`sbatch submit_main_build.sh
-`
-# See results 
+`sbatch submit_main_build.sh`
 
-from compute  <node>  in genouest:
+# IV. See results 
 
->tmux
+depuis un <noeud> de calcul  in genouest:
+```
+tmux # pour avoir une session détachée
+srun --pty --time=08:00:00 bash
+. ~/envtaxo2/bin/activate
 
->srun --pty --time=08:00:00 bash
-
-> . ~/envtaxo2/bin/activate
-
-
->mlflow ui --port 8123 --backend-store-uri /projects/microtaxo/exp_refseq/mlruns
-
+mlflow ui --port 8123 --backend-store-uri /projects/microtaxo/exp_refseq/mlruns
+```
 from local laptop
-
->ssh -A -t -t hcourtei@genossh.genouest.org -L 8123:localhost:8123 ssh <node> -L 8123:localhost:8123
-
+```
+ssh -A -t -t hcourtei@genossh.genouest.org -L 8123:localhost:8123 ssh <noeud> -L 8123:localhost:8123
 ls /projects/microtaxo/exp_refseq/
-
+```
 
 print(list(counters[0].items())[:10])
 
-# conda env with glibc >1.28 
+
+partition avec disque plus rapide
+
+srun --cpus-per-task=20 -p genscale -w cl1n027 --mem 40600 --pty bash
+
+- cl1n026 (24 Xeon(R) CPU E5-2640 0 @ 2.50GHz)
+- cl1n027 (40  Xeon(R) CPU E5-2660 v3 @ 2.60GHz)
+- cl1n028 (40  Xeon(R) CPU E5-2660 v3 @ 2.60GHz)
+
+# DIVERS
+
+
+## conda env with glibc >1.28 
 
 > 2.1 it/s
 
-`
+```
 conda install -y gcc_linux-64 gxx_linux-64 -c conda-forge
 pip install xgboost --no-binary :all:
-`
+```
+
 ```
 . /local/env/envconda.sh
 conda activate py311_env
 source ~/.bashrc
 ```
 
-```.bashrc
-
+```
 export PATH=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0:$PATH
 export CC=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0/gcc
 export CXX=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0/g++
@@ -101,26 +180,3 @@ nvcc --version
 ## test avec gpu
 
 srun --time 00-01:00:00 --mem=20G --gpus 1 -p gpu --pty bash
-
-partition avec disque plus rapide
-
-srun --cpus-per-task=20 -p genscale -w cl1n027 --mem 40600 --pty bash
-
-- cl1n026 (24 Xeon(R) CPU E5-2640 0 @ 2.50GHz)
-- cl1n027 (40  Xeon(R) CPU E5-2660 v3 @ 2.60GHz)
-- cl1n028 (40  Xeon(R) CPU E5-2660 v3 @ 2.60GHz)
-
-# Old wisp command
-## Build
-sur toute la base refseq genouest , un peu long, à lancer depuis submit_main_build.sh avec suffisament de RAM
-
-> python main.py build refseq /groups/microtaxo/data/refseq_with_taxo/
-
-## Predict
-> python main.py predict refseq /groups/microtaxo/data/refseq_with_taxo/ /home/genouest/cnrs_umr6074/hcourtei/out_refseq
-
-from laptop
-> python main.py predict refseq /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_with_taxo /home/hcourtei/Projects/MicroTaxo/codes/data/out_refseq
-
-
-# TODO

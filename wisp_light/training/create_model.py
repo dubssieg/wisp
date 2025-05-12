@@ -4,15 +4,38 @@ from copy import copy
 from xgboost import DMatrix, train
 from xgboost.core import XGBoostError
 import uuid
-import sys
-sys.path.append('..')
-from wisp.wisp_light.dataset.refSeqDataset import TAXO_LEVELS
+
+from wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 
 def make_model(output_dir: str, filtered_reads, mappings_data,
                # database: dict
                params: dict, logger,  taxo_level: str, taxo_target: str) :
-    """Builds the model and saves it"""
+    """
+    Builds and trains an XGBoost model to classify reads at the next taxonomic level.
+
+    Parameters
+    ----------
+    output_dir : str
+        Directory where the model and configuration files will be saved.
+    filtered_reads : iterable
+        Iterable of (data_by_genome, read) tuples, where `read` is a dict of k-mer counts.
+    mappings_data : dict
+        Dictionary mapping taxonomic labels to numerical class indices.
+    params : dict
+        Dictionary of hyperparameters for the XGBoost model, including 'num_rounds_boosting'.
+    logger : Logger
+        Logger object used to output warnings and errors.
+    taxo_level : str
+        Current taxonomic level used to filter data (e.g., 'phylum').
+    taxo_target : str
+        The specific taxonomic label to train the model on at the current level.
+
+    Returns
+    -------
+    str or None
+        Path to the saved XGBoost model file if training succeeds, otherwise `None`.
+    """
     # Creating the booster
     # levels_old = ["root", "domain", "phylum", "group", "order", "family", "specie"]
     levels  = ['root'] + TAXO_LEVELS #, 'phylum', 'class', 'order', 'family']
