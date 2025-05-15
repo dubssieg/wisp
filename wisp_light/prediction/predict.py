@@ -21,6 +21,7 @@ with open(phylo_path, 'rb') as jtree:
 
 params_file = "/home/hcourtei/Projects/MicroTaxo/codes/wisp_light/training/params.yaml"
 
+
 with open(params_file, 'r') as file:
     params = yaml.safe_load(file)
 
