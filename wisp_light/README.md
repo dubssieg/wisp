@@ -24,7 +24,12 @@ source ~/envtaxo/bin/activate
 pip install -r requirements.txt 
 ```
 
-
+## code wisp_light / branche optim_wisp
+```
+git clone https://github.com/dubssieg/wisp.git 
+cd wisp
+git checkout optim_wisp
+```
 
 # II. Build refseq dataset
 ## a. Télécharger et dézipper tous les fichiers listés dans le .tsv 
@@ -36,19 +41,24 @@ ou via l'interface web
 
 `https://www.ncbi.nlm.nih.gov/datasets/genome/?taxon=2&reference_only=true`
 
+
 - wisp_light/build_dataset/refseq/reference_genome_summary.tsv
 **version refseq**:  Release 227 November 4, 2024.
 
-depuis build_refseq/refseq
+à partir de ce fichier, nous allons télécharger les fichiers .fna puis récupérer les taxonomies
+
+depuis /wisp_light/build_dataset/refseq
 ```
-python import_refseq.py --csv_file reference_genome_summary.tsv --output_dir /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data --num_workers 8
+python download_refseq_from_csv.py --csv_file reference_genome_summary.tsv --output_dir /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data --num_workers 8
 ```
+
 ## b. Obtenir les taxonomies à partir des taxid de chaque génome 
 
 ```
 python get_all_taxo_from_NCBI.py --input reference_genome_summary.tsv --taxid_column taxid --batch_size 10
 ```
-2 tableaux tsv sont générés : 
+
+2 tableaux tsv sont générés dans le répertoire  /wisp_light/build_dataset/refseq : 
 - le 1er avec toutes les taxonomies présentes  ['phylum', 'class', 'order', 'family'] dans "reference_genome_summary_complete_taxo.tsv"
 - le 2eme avec des taxonomies incompletes dans "reference_genome_summary_incomplete_taxo.tsv"
 
@@ -78,16 +88,17 @@ L'entrainement et la validation se fait en 3 temps:
 
 Tous les paramètres de pre-processing, de xgboost ... sont dans : `wisp_light/training/params.yaml`
 
-Commande à partir de wips_light
-en local : 
+Commande à partir de wisp_light/training/
+- **en local** : 
 ```
-t
- python wisp_light/training/train_val.py  \
+ python train_val.py  \
   --exp_name test_laptop  \
   --datadir /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data \
   --params_file training/params.yaml
 ```
-sur genouest, les données sont sur /projects/microtaxo/data
+- **sur genouest**, 
+
+les données sont sur /projects/microtaxo/data
 .
 ├── AllTheBacteria
 ├── refseq_complete_genome
@@ -96,31 +107,37 @@ sur genouest, les données sont sur /projects/microtaxo/data
 
 ```
 srun --time 00-10:00:00 --mem=20G --cpus-per-task=8 --pty bash #depuis genouest
+```
+```
 source ~/envtaxo2/bin/activate
-cd ~/codes/wisp
-
-python wisp_light/training/train_val.py \
+ou 
+conda activate micro_env
+```
+depuis wisp_light/training
+```
+python train_val.py \
   --exp_name test_laptop  \
   --datadir /projects/microtaxo/data/refseq_reference_genome \
   --params_file training/params.yaml
   ```
 
-Restart training from existing json database:
+Pour partir d'une base de donnée de comptage déjà existante:
+ ```
+python train_val.py --db_json  /home/genouest/cnrs_umr6074/hcourtei/codes/wisp/exp/model_base_02_05_16_55/databases.json
+ ```
+Les logs et résultats sont par défaut, au même niveau que wisp_light dans un répertoire exp/<exp_name>
+Sur genouest ils ont été enregistré dans /projects/microtaxo/exp_refseq/
 
-> python train_val.py --db_json  /home/genouest/cnrs_umr6074/hcourtei/codes/wisp/exp/model_base_02_05_16_55/databases.json
+1. Session interactive avec srun (voir ci-dessus) :
+Pour éviter une coupure de la connexion SSH, vous pouvez utiliser tmux sur GenOuest.
+Voir  https://help.genouest.org/usage/slurm/#long-running-interactive-jobs-srun
 
-Logs and result are in exp_rootdir by default
-`~/codes/wisp/exp`
-
-1. Interactive session with srun above :
-To prevent ssh break, you can use tmux on genouest see https://help.genouest.org/usage/slurm/#long-running-interactive-jobs-srun
-
-2. Sbatch , fix parameter in .sh , params.yaml or train_val.py, then 
+2. Avec sbatch , ajuster  parameter in .sh , params.yaml or train_val.py, then 
 `sbatch submit_main_build.sh`
 
-# IV. See results 
+# IV. Voir les résultats
 
-depuis un <noeud> de calcul  in genouest:
+depuis un <noeud> de calcul  sur genouest:
 ```
 tmux # pour avoir une session détachée
 srun --pty --time=08:00:00 bash
@@ -128,16 +145,12 @@ srun --pty --time=08:00:00 bash
 
 mlflow ui --port 8123 --backend-store-uri /projects/microtaxo/exp_refseq/mlruns
 ```
-from local laptop
+depuis le laptop local, faire un point ssh vers le <noeud>
 ```
 ssh -A -t -t hcourtei@genossh.genouest.org -L 8123:localhost:8123 ssh <noeud> -L 8123:localhost:8123
-ls /projects/microtaxo/exp_refseq/
 ```
-
-print(list(counters[0].items())[:10])
-
-
-partition avec disque plus rapide
+# V. DIVERS
+## 1. partition avec accès disque plus rapide
 
 srun --cpus-per-task=20 -p genscale -w cl1n027 --mem 40600 --pty bash
 
@@ -145,13 +158,18 @@ srun --cpus-per-task=20 -p genscale -w cl1n027 --mem 40600 --pty bash
 - cl1n027 (40  Xeon(R) CPU E5-2660 v3 @ 2.60GHz)
 - cl1n028 (40  Xeon(R) CPU E5-2660 v3 @ 2.60GHz)
 
-# DIVERS
+le disque plus rapide est en local sous /WORKS.
+Pour l'utiliser il faut mettre les données data/refseq_data dans ce répertoire
 
+## 2. Test  conda env with glibc >1.28 
+ 
+échange avec le support genouest
 
-## conda env with glibc >1.28 
+j'aimerais lancer xgboost en version gpu. J'ai une erreur car gllibc est < 2.28 . Or
 
-> 2.1 it/s
-
+Matéo Boudet ->
+A priori pas possible de mettre à jour de notre coté tant qu'on n'a pas mis à jour les OS des noeuds de calcul (ca sera fait dans les mois à venir).
+En attendant, vous pouvez essayer de vous créer un environnement conda avec glib pour avoir la version que vous voulez.
 ```
 conda install -y gcc_linux-64 gxx_linux-64 -c conda-forge
 pip install xgboost --no-binary :all:
@@ -168,15 +186,16 @@ export PATH=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0:$PATH
 export CC=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0/gcc
 export CXX=$CONDA_PREFIX/libexec/gcc/x86_64-conda-linux-gnu/14.2.0/g++
 ```
-
+```
 conda install -c nvidia cudatoolkit=11.8.0
-
+```
 for nvcc
 
+```
 export PATH=/usr/local/cuda-12.3/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64:$LD_LIBRARY_PATH
 nvcc --version 
-
-## test avec gpu
-
+```
+```
 srun --time 00-01:00:00 --mem=20G --gpus 1 -p gpu --pty bash
+```
