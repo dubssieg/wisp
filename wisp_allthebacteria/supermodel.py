@@ -6,8 +6,9 @@ import numpy as np
 import xgboost as xgb
 from database import Database
 from dataset import ByRankGenerator, Dataset
-from model import XGBoostModel
+from model import Model
 from taxdb import TaxDB
+from tqdm.auto import tqdm
 from utils import (
     SystemStatsLogger,
     cpu_count,
@@ -161,9 +162,11 @@ class SuperModel:
         return report
 
     def train(self):
-        for model_tid, route in self._routing.items():
+        for model_tid, route in tqdm(self._routing.items()):
             if len(route["classes"]) > 1:
-                self._get_trained_model(model_tid)
+                model = self._get_trained_model(model_tid)
+                model_path = self._get_model_paths(model_tid)["model"]
+                model.save(model_path)
 
     def predict(self, data: xgb.DMatrix) -> np.ndarray:
         pass
@@ -189,7 +192,7 @@ class SuperModel:
 
             model.stop()
 
-    def _get_model(self, model_tid: int | None) -> XGBoostModel:
+    def _get_model(self, model_tid: int | None) -> Model:
         workspace_path = self._get_model_paths(model_tid)["workspace"]
         conf = self._routing[model_tid]["conf"]
         rank = self._routing[model_tid]["rank"]
@@ -198,7 +201,7 @@ class SuperModel:
         if not normalize:
             normalize = None
 
-        return XGBoostModel(
+        return Model(
             rank=rank,
             database=self._database,
             normalize=normalize,
@@ -216,14 +219,14 @@ class SuperModel:
             start_generator=False,
         )
 
-    def _get_trained_model(self, model_tid: int | None) -> XGBoostModel:
+    def _get_trained_model(self, model_tid: int | None) -> Model:
         model = self._load_model(model_tid)
         if model is None:
             self._train_model(model_tid)
             model = self._load_model(model_tid)
         return model
 
-    def _load_model(self, model_tid) -> XGBoostModel | None:
+    def _load_model(self, model_tid) -> Model | None:
         model = self._get_model(model_tid)
         model_path = self._get_model_paths(model_tid)["model"]
         try:
