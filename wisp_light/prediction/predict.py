@@ -36,17 +36,16 @@ with open(genome, 'r', encoding='utf-8') as freader:
 
 print(f"File {os.path.basename(genome)} contains {len(genome_data)} sequences.")
 sequences = [(id_sequence, dna_sequence) for id_sequence, dna_sequence in genome_data.items()]
-sequence = sequences[0]
-id_sequence, dna_sequence = sequence
+for sequence in sequences:
+    id_sequence, dna_sequence = sequence
 
-results = prediction(id_sequence, dna_sequence, params, phylo_tree, model_dir, val_dir, logger)
-pred_taxons = extract_majority_classification(results)
+    results = prediction(id_sequence, dna_sequence, params, phylo_tree, model_dir, val_dir, logger)
+    pred_taxons = extract_majority_classification(results)
 
-logger.info("="*60)
-logger.info(f"Raw prediction for genome 0 of {os.path.basename(genome)}")
-logger.info(f"with xgboost model from model dir {exp_dir}")
-logger.info('\n'+pformat(results))
-logger.info("-"*60)
-logger.info("Majority prediction")
-logger.info('\n'+pformat(pred_taxons))
-logger.info("="*60)
+    logger.info("="*60)
+    logger.info(f"Raw prediction for genome id {id_sequence} of {os.path.basename(genome)}")
+    logger.info(f"with xgboost model from model dir {exp_dir}")
+    logger.info('\n'+pformat(results))
+    logger.info("-"*60)
+    logger.info("Majority prediction")
+    logger.info('\n'+pformat(pred_taxons))
