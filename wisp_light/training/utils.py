@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+from collections import OrderedDict
+
 import psutil
 import sys
 
@@ -130,7 +132,7 @@ def extract_majority_classification(sequence):
                 if classification[TAXO_LEVELS[id_level]] is None:
                     classification[TAXO_LEVELS[id_level]] = major_taxon
 
-    return classification
+    return classification #OrderedDict((k, classification[k]) for k in TAXO_LEVELS)
 
 
 

@@ -10,4 +10,5 @@ Voici les notebooks disponibles pour ce projet, détaillant différentes étapes
 
    notebooks/build_index_assembly_files.ipynb
    notebooks/how_to_get_taxonomy_from_refseq.ipynb
+   notebooks/predict_taxo_examples.ipynb
    notebooks/stat_refseq_notebook.ipynb
