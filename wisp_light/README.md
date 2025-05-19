@@ -7,7 +7,15 @@
 
 **package wisp_light**: Hermann Courteille (PNRIA)
 
-# I. Set Environment
+Ce Readme concerne essentiellement la partie administration du package: 
+- la mise à jour de la base de donnée
+- l'entrainement et la validation des modèles via xgboost
+- le monitoring des résultats
+
+Pour la partie utilisateur d'un modèle entrainé voir le notebooks/predict_taxo_examples.ipynb
+
+
+# I.  Environnement
 ## conda
 ```
 conda env create -f micro_env.yml
@@ -31,7 +39,8 @@ cd wisp
 git checkout optim_wisp
 ```
 
-# II. Build refseq dataset
+# II. Construction du dataset refseq 
+
 ## a. Télécharger et dézipper tous les fichiers listés dans le .tsv 
 - obtenir le summary.txt 
 ```
@@ -76,7 +85,7 @@ taxo_dict {'phylum': 'Bacillota', 'class': 'Clostridia', 'order': 'Peptostreptoc
  1, genome /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data/GCF_016028775.1_ASM1602877v1_genomic.fna
 taxo_dict {'phylum': 'Pseudomonadota', 'class': 'Gammaproteobacteria', 'order': 'Moraxellales', 'family': 'Moraxellaceae'}
 ```
-# III. Train and evaluate xgboost models
+# III. Entraine et Evalue les modèles xgboost
 On part de tous les génomes de références de refseq.
 Cette base est découpée en train/val avec la fonction sklearn.model_selection.train_test_split, la graine aléatoire est fixée
 dans params.yaml afin de pouvoir assurer la reproductibilité.
@@ -149,7 +158,7 @@ depuis le laptop local, faire un point ssh vers le <noeud>
 ```
 ssh -A -t -t hcourtei@genossh.genouest.org -L 8123:localhost:8123 ssh <noeud> -L 8123:localhost:8123
 ```
-# V. DIVERS
+# V. Divers
 ## 1. partition avec accès disque plus rapide
 
 srun --cpus-per-task=20 -p genscale -w cl1n027 --mem 40600 --pty bash

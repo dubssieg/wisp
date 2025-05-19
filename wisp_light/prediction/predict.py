@@ -25,7 +25,6 @@ class TaxoPredictor:
             os.makedirs(os.path.dirname(log_file), exist_ok=True)
         else:
             log_file = None
-        print(log_file)
         self.logger = setup_logger('TaxoPredictor', level=logging.INFO, log_file=log_file)
 
         # Load phylogenetic tree
