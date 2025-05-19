@@ -152,6 +152,7 @@ tmux # pour avoir une session détachée
 srun --pty --time=08:00:00 bash
 . ~/envtaxo2/bin/activate
 
+
 mlflow ui --port 8123 --backend-store-uri /projects/microtaxo/exp_refseq/mlruns
 ```
 depuis le laptop local, faire un point ssh vers le <noeud>
