@@ -81,7 +81,8 @@ wisp_light.training.metrics
 
 
 wisp_light.prediction
----------------
+---------------------
+
 .. automodule:: wisp_light.prediction.predict
    :members:
    :undoc-members:
