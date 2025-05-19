@@ -39,7 +39,7 @@ cd wisp
 git checkout optim_wisp
 ```
 
-# II. Construction du dataset refseq 
+# II. Construire le dataset refseq 
 
 ## a. Télécharger et dézipper tous les fichiers listés dans le .tsv 
 - obtenir le summary.txt 
@@ -71,7 +71,7 @@ python get_all_taxo_from_NCBI.py --input reference_genome_summary.tsv --taxid_co
 - le 1er avec toutes les taxonomies présentes  ['phylum', 'class', 'order', 'family'] dans "reference_genome_summary_complete_taxo.tsv"
 - le 2eme avec des taxonomies incompletes dans "reference_genome_summary_incomplete_taxo.tsv"
 
-## c. association dans l'itérateur
+## c. Association dans l'itérateur
 ```python
 from wisp_light.dataset.refSeqDataset import RefSeqDataset
 datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data"
@@ -85,7 +85,7 @@ taxo_dict {'phylum': 'Bacillota', 'class': 'Clostridia', 'order': 'Peptostreptoc
  1, genome /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data/GCF_016028775.1_ASM1602877v1_genomic.fna
 taxo_dict {'phylum': 'Pseudomonadota', 'class': 'Gammaproteobacteria', 'order': 'Moraxellales', 'family': 'Moraxellaceae'}
 ```
-# III. Entraine et Evalue les modèles xgboost
+# III. Entraîner et Evaluer les modèles xgboost
 On part de tous les génomes de références de refseq.
 Cette base est découpée en train/val avec la fonction sklearn.model_selection.train_test_split, la graine aléatoire est fixée
 dans params.yaml afin de pouvoir assurer la reproductibilité.

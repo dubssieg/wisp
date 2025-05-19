@@ -15,6 +15,35 @@ from wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 
 class TaxoPredictor:
+    """
+    Predicts taxonomic classifications from genomic .fna files using a trained XGBoost model.
+
+    Parameters
+    ----------
+    model_dir : str
+        Path to the directory containing the trained model and phylogenetic tree.
+    params_file : str
+        Path to the YAML file with prediction parameters.
+    predict_dir : str, optional
+        Directory where prediction logs and outputs will be stored. If None, logs are not saved to file.
+
+    Attributes
+    ----------
+    model_dir : str
+        Path to the directory with trained model files.
+    predict_dir : str or None
+        Directory for saving predictions and logs.
+    temp_dir : str
+        Temporary directory used during prediction.
+    logger : logging.Logger
+        Logger used for tracking the prediction process.
+    phylo_tree : dict
+        Loaded phylogenetic tree used for prediction.
+    params : dict
+        Parameters loaded from the YAML file.
+    results_table : pandas.DataFrame
+        Table storing results of predictions across all processed sequences.
+    """
     def __init__(self, model_dir: str, params_file: str, predict_dir = None):
         self.model_dir = model_dir
         self.predict_dir = predict_dir
@@ -44,6 +73,31 @@ class TaxoPredictor:
 
 
     def predict_one_dir(self, fna_dir: str, raw_pred=False, verbose=False):
+        """
+        Predicts taxonomy for all .fna files in a directory.
+
+        Parameters
+        ----------
+        fna_dir : str
+           Path to a directory containing .fna files.
+        raw_pred : bool, default=False
+           If True, returns raw predictions for each taxonomic level.
+           If False, returns majority-vote final predictions.
+        verbose : bool, default=False
+           If True, logs detailed information during processing.
+
+        Returns
+        -------
+        dict
+           Dictionary mapping sequence identifiers to prediction results.
+
+        Raises
+        ------
+        NotADirectoryError
+           If `fna_dir` is not a valid directory.
+        FileNotFoundError
+           If no `.fna` files are found in the directory.
+        """
 
         if not os.path.isdir(fna_dir):
             raise NotADirectoryError(f"{fna_dir} n'est pas un répertoire valide.")
@@ -65,7 +119,29 @@ class TaxoPredictor:
         return all_dir_results
 
     def predict_one_fna(self, fna_path: str, raw_pred=False, verbose=False):
-        """Classify all sequences in a multi-fasta file (.fna)."""
+        """
+        Predicts taxonomy for each sequence in a single multi-FASTA (.fna) file.
+
+        Parameters
+        ----------
+        fna_path : str
+            Path to a .fna file containing one or more genomic sequences.
+        raw_pred : bool, default=False
+            If True, returns raw predictions for each taxonomic level.
+            If False, returns majority-vote final predictions.
+        verbose : bool, default=False
+            If True, logs detailed information during processing.
+
+        Returns
+        -------
+        dict
+            Dictionary mapping sequence IDs (with file reference) to prediction results.
+
+        Raises
+        ------
+        ValueError
+            If `fna_path` does not end with `.fna`.
+        """
         if not fna_path.endswith('.fna'):
             raise ValueError(f"Le fichier {fna_path} n'a pas une extension '.fna'")
 
