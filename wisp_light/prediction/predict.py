@@ -196,8 +196,7 @@ if __name__=='__main__':
     fna_path = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data/GCF_000725405.1_ASM72540v1_genomic.fna"
     fna_dir = "/home/hcourtei/Projects/MicroTaxo/codes/predict/to_predict"
 
-    # predictor = TaxoPredictor(model_dir, params_file, predict_dir=predict_dir)
-    # all_results = predictor.predict_one_fna(fna_path, raw_pred=False)
+
     predictor = TaxoPredictor(model_dir, params_file, predict_dir=predict_dir)
     all_results = predictor.predict_one_fna(fna_path, raw_pred=True, verbose=True)
     # print(predictor.results_table.to_markdown())
