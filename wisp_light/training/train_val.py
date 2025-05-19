@@ -35,15 +35,21 @@ Auteur : Hermann Courteille
 """
 import argparse
 import os
+import sys
 import time
 import yaml
 import logging
 import mlflow
 from pathlib import Path
 from datetime import datetime
+from tqdm import tqdm
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from wisp_light.training.utils import setup_logger
 from wisp_light.training.create_database import  build_database, load_phylo_tree

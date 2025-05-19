@@ -79,6 +79,15 @@ wisp_light.training.metrics
    :undoc-members:
    :show-inheritance:
 
+
+wisp_light.prediction
+---------------
+.. automodule:: wisp_light.prediction.predict
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 Script d'entraînement
 ~~~~~~~~~~~~~~~~~~~~~
 

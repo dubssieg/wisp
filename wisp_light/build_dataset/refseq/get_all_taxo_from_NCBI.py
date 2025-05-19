@@ -23,7 +23,6 @@ Utilisation (en ligne de commande) :
 Auteur : PNRIA
 Date : 2025-05-06
 """
-
 import os
 import pandas as pd
 from joblib import Memory
@@ -31,10 +30,23 @@ from Bio import Entrez
 from tqdm import tqdm
 import yaml
 import argparse
+import sys
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
+# Obtenir le chemin absolu du répertoire contenant le script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Construire les chemins absolus pour les fichiers .yaml et .tsv
+api_key_path = os.path.join(script_dir, 'NCBI_api_key.yaml')
+input_file_path = os.path.join(script_dir, 'reference_genome_summary.tsv')
+
 # Configuration d'Entrez
-with open("NCBI_api_key.yaml", "r") as f:
+with open(api_key_path, "r") as f:
     config = yaml.safe_load(f)
 Entrez.email = config["Entrez"]["email"]
 Entrez.api_key = config["Entrez"]["api_key"]
@@ -174,7 +186,7 @@ def add_taxo_to_df_batch(df_in, taxid_column='taxid', batch_size=10):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Annoter un fichier de génomes avec la taxonomie NCBI.")
-    parser.add_argument('--input', type=str, default=f'{script_dir}/reference_genome_summary.tsv',
+    parser.add_argument('--input', type=str, default='reference_genome_summary.tsv',
                         help='Chemin vers le fichier TSV d’entrée contenant les taxids.')
     parser.add_argument('--taxid_column', type=str, default='taxid',
                         help='Nom de la colonne contenant les TaxIDs.')
@@ -183,7 +195,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    df_in = pd.read_csv(args.input, sep='\t', index_col=0)
+    df_in = pd.read_csv(f'{script_dir}/{args.input}', sep='\t', index_col=0)
     print(df_in.head())
     df_out, failed_taxid = add_taxo_to_df_batch(df_in, taxid_column=args.taxid_column, batch_size=args.batch_size)
 

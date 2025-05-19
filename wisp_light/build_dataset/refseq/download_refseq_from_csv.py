@@ -22,13 +22,13 @@ Usage (en ligne de commande)
 python download_refseq_from_csv.py --csv_file reference_genome_summary.tsv --output_dir /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data --num_workers 8
 
 """
-
+import argparse
 import os
-import pandas as pd
 import subprocess
+import pandas as pd
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
-import argparse
+
 
 
 
