@@ -310,6 +310,7 @@ def train_model(
             batch_balance_factor=conf["model"]["batch_balance_factor"],
             min_samples_per_class=conf["model"]["min_samples_per_class"],
             max_buffer_total_size=conf["model"]["max_buffer_total_size"],
+            model_type=["model"]["type"],
             workspace_path=workspace_path,
             start_generator=True,
         )

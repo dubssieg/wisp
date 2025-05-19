@@ -192,7 +192,7 @@ class SuperModel:
 
             model.stop()
 
-    def _get_model(self, model_tid: int | None) -> Model:
+    def _get_model(self, model_tid: int | None) -> XGBoostModel:
         workspace_path = self._get_model_paths(model_tid)["workspace"]
         conf = self._routing[model_tid]["conf"]
         rank = self._routing[model_tid]["rank"]
@@ -215,18 +215,19 @@ class SuperModel:
             batch_balance_factor=conf["batch_balance_factor"],
             min_samples_per_class=conf["min_samples_per_class"],
             max_buffer_total_size=conf["max_buffer_total_size"],
+            model_type=conf["type"],
             workspace_path=workspace_path,
             start_generator=False,
         )
 
-    def _get_trained_model(self, model_tid: int | None) -> Model:
+    def _get_trained_model(self, model_tid: int | None) -> XGBoostModel:
         model = self._load_model(model_tid)
         if model is None:
             self._train_model(model_tid)
             model = self._load_model(model_tid)
         return model
 
-    def _load_model(self, model_tid) -> Model | None:
+    def _load_model(self, model_tid) -> XGBoostModel | None:
         model = self._get_model(model_tid)
         model_path = self._get_model_paths(model_tid)["model"]
         try:

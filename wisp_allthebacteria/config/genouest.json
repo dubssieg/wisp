@@ -28,6 +28,7 @@
         "merged_data_as_db": false
     },
     "model": {
+        "type": "lightgbm",
         "normalize": false,
         "num_boost_round": 100,
         "scientific_name": true,
@@ -58,7 +59,8 @@
         "file_count": 3,
         "ignore_list": [
             "matplotlib",
-            "PIL"
+            "PIL",
+            "LightGBM"
         ]
     },
     "supermodels": {

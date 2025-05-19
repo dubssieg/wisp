@@ -28,6 +28,7 @@
         "merged_data_as_db": false
     },
     "model": {
+        "type": "lightgbm",
         "normalize": false,
         "num_boost_round": 100,
         "scientific_name": true,
@@ -52,13 +53,14 @@
     },
     "log": {
         "log_path": "/media/cyrille/beca41d2-42be-4e99-b0dc-2279175a2216/logs/log.txt",
-        "terminal_level": "debug",
+        "terminal_level": "info",
         "file_level": "debug",
         "file_size": 10000000,
         "file_count": 3,
         "ignore_list": [
             "matplotlib",
-            "PIL"
+            "PIL",
+            "LightGBM"
         ]
     },
     "supermodels": {

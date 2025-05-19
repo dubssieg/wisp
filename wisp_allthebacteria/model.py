@@ -83,7 +83,15 @@ class Model:
         model_type: Literal["xgboost", "lightgbm"] = "lightgbm",
     ):
         LOG.debug(f"Model({locals()})")
-        self._params = params if params is not None else DEFAULT_PARAMETERS_LIGHTGBM
+        self._model_type = model_type
+        self._params = params
+        if self._params is not None:
+            if self._model_type == "lightgbm":
+                self._params = DEFAULT_PARAMETERS_LIGHTGBM
+            elif self._model_type == "xgboost":
+                self._params = DEFAULT_PARAMETERS_XGBOOST
+            else:
+                raise ValueError(f"invalid model type: {self._model_type}")
         self._seed = seed
         self._rank = rank
         self._normalize = normalize
@@ -97,7 +105,6 @@ class Model:
         self._merge_batches = merge_batches
         self._parent_filter = parent_filter
         self._adapt_batch_size_splits = adapt_batch_size_splits
-        self._model_type = model_type
 
         self._workspace_path = Path(workspace_path).resolve()
         self._model = None
