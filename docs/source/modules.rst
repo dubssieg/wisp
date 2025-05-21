@@ -72,13 +72,19 @@ wisp_light.training.training_functions
    :show-inheritance:
 
 wisp_light.training.metrics
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: wisp_light.training.metrics
    :members:
    :undoc-members:
    :show-inheritance:
 
+wisp_light.training.metrics
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. automodule:: wisp_light.training.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 wisp_light.prediction
 ---------------------
@@ -105,3 +111,10 @@ wisp_light.visu
    :members:
    :undoc-members:
    :show-inheritance:
+
+exemple:
+
+.. image:: _static/ConfMat_family.png
+   :alt: Schéma des fonctions de visualisation
+   :align: center
+   :width: 600px

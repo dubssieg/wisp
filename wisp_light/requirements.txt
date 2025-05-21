@@ -1,4 +1,4 @@
-xgboost
+xgboost-cpu
 matplotlib
 numpy
 scipy

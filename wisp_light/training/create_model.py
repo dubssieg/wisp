@@ -12,29 +12,37 @@ def make_model(output_dir: str, filtered_reads, mappings_data,
                # database: dict
                params: dict, logger,  taxo_level: str, taxo_target: str) :
     """
-    Builds and trains an XGBoost model to classify reads at the next taxonomic level.
+    Construit et entraîne un modèle XGBoost pour classer des lectures au niveau taxonomique suivant.
 
-    Parameters
+    Ce modèle permet de prédire l'appartenance taxonomique d'une lecture à un niveau hiérarchique donné
+    (par exemple de phylum vers classe) à partir de comptages de k-mers.
+
+    Paramètres
     ----------
     output_dir : str
-        Directory where the model and configuration files will be saved.
+        Répertoire de sortie où le modèle et les fichiers de configuration seront sauvegardés.
     filtered_reads : iterable
-        Iterable of (data_by_genome, read) tuples, where `read` is a dict of k-mer counts.
+        Itérable contenant des paires (annotation_taxonomique, lecture), où `lecture` est un dictionnaire de k-mers.
     mappings_data : dict
-        Dictionary mapping taxonomic labels to numerical class indices.
+        Dictionnaire contenant les correspondances entre les étiquettes taxonomiques et les indices de classe.
     params : dict
-        Dictionary of hyperparameters for the XGBoost model, including 'num_rounds_boosting'.
+        Dictionnaire des hyperparamètres XGBoost (doit inclure `num_rounds_boosting`).
     logger : Logger
-        Logger object used to output warnings and errors.
+        Objet de type logger pour afficher des avertissements ou erreurs.
     taxo_level : str
-        Current taxonomic level used to filter data (e.g., 'phylum').
+        Niveau taxonomique actuel utilisé pour filtrer les données (ex. : 'phylum').
     taxo_target : str
-        The specific taxonomic label to train the model on at the current level.
+        Étiquette taxonomique spécifique utilisée pour sélectionner les données à entraîner à ce niveau.
 
-    Returns
+    Retours
     -------
-    str or None
-        Path to the saved XGBoost model file if training succeeds, otherwise `None`.
+    str ou None
+        Chemin vers le fichier du modèle sauvegardé si l'entraînement a réussi, sinon `None`.
+
+    Exceptions
+    ----------
+    ValueError
+        Si le niveau taxonomique fourni n'existe pas dans les données.
     """
     # Creating the booster
     # levels_old = ["root", "domain", "phylum", "group", "order", "family", "specie"]

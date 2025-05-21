@@ -19,20 +19,19 @@ from wisp_light.training.utils import log_resource_usage
 
 def load_phylo_tree(database_json: str) :
     """
-    Loads a phylogenetic tree from a JSON database.
+    Charge un arbre phylogénétique à partir d'une base de données JSON.
 
     Parameters
     ----------
     database_json : str
-        Path to the JSON database file.
+        Chemin vers le fichier JSON de la base de données.
 
     Returns
     -------
-    tuple
-        Tree : `Tree`
-            A phylogenetic tree constructed from the database.
-        int
-            Number of genome entries indexed in the database.
+    Tree
+        Arbre phylogénétique construit à partir de la base.
+    int
+        Nombre d'entrées de génomes indexées dans la base.
     """
     with open(database_json, 'r', encoding='utf-8') as f:
         db_data = json.load(f)  # Charge le fichier JSON
@@ -72,25 +71,25 @@ def load_phylo_tree(database_json: str) :
 
 def build_database(train_dataset: list[str], params: dict, database_json: str , logger, max_workers) ->  Tree:
     """
-    Builds a phylogenetic database and saves it as JSON.
+    Construit une base de données phylogénétique et la sauvegarde au format JSON.
 
     Parameters
     ----------
     train_dataset : list of str
-        List of tuples containing genome path and taxonomy.
+        Liste des tuples contenant le chemin vers le génome et sa taxonomie.
     params : dict
-        Dictionary of parameters including ksize, pattern, read_size, etc.
+        Dictionnaire de paramètres (ksize, pattern, read_size, etc.).
     database_json : str
-        Path to the output JSON file.
+        Chemin du fichier JSON de sortie.
     logger : logging.Logger
-        Logger for debug and info output.
+        Objet de journalisation pour les messages d'information/débogage.
     max_workers : int
-        Number of workers for multiprocessing.
+        Nombre de processus utilisés pour le calcul parallèle.
 
     Returns
     -------
     Tree
-        The constructed phylogenetic tree.
+        Arbre phylogénétique résultant.
     """
 
     my_encoder: dict = encoder(ksize=params['ksize'])
@@ -175,17 +174,17 @@ def build_database(train_dataset: list[str], params: dict, database_json: str , 
 
 def mapping_sp(datas: list[dict]) -> dict:
     """
-    Generates taxonomy codes per level from a dataset.
+    Génère des codes de taxonomie pour chaque niveau à partir d’un ensemble de taxonomies.
 
     Parameters
     ----------
     datas : list of dict
-        List of taxonomy dictionaries per genome.
+        Liste de dictionnaires représentant les taxonomies pour chaque génome.
 
     Returns
     -------
     dict
-        Dictionary of mappings {level: {name: code}}.
+        Dictionnaire des mappings : {niveau : {nom : code}}.
     """
     taxa_codes = defaultdict(lambda: {'number_taxa': 0})
     for sample in datas:
@@ -199,7 +198,7 @@ def mapping_sp(datas: list[dict]) -> dict:
 
 @dataclass
 class Taxonomy:
-    "Modelizes a taxa level"
+    "Modélise un niveau taxonomique"
     code: int | None
     level: str
     name: str
@@ -208,19 +207,19 @@ class Taxonomy:
 
 def check_parameters(params: dict) :
     """
-    Checks the validity of input parameters.
+    Vérifie la validité des paramètres fournis.
 
     Parameters
     ----------
     params : dict
-        Dictionary of parameters to validate.
+        Dictionnaire des paramètres à vérifier.
 
     Raises
     ------
     RuntimeError
-        If the sum of pattern values is not equal to ksize.
+        Si la somme des valeurs du motif n'est pas égale à `ksize`.
     KeyError
-        If 'threshold' is not present in params.
+        Si la clé 'threshold' est absente des paramètres.
     """
 
     if not all([ sum(params['pattern']) == params['ksize'],] ):
@@ -239,17 +238,17 @@ def check_parameters(params: dict) :
 
 def encoder(ksize: int) -> dict:
     """
-    Generates a k-mer encoder mapping DNA strings to integer codes.
+    Génère un encodage k-mer mappant les chaînes d'ADN à des codes entiers.
 
     Parameters
     ----------
     ksize : int
-        Length of the k-mer.
+       Longueur du k-mer.
 
     Returns
     -------
     dict
-        Mapping of k-mer strings to integer codes.
+       Dictionnaire mappant les chaînes k-mer aux entiers.
     """
 
     res = {code: encode_kmer(code) for code in map(''.join, product('ATCG', repeat=ksize))}
@@ -258,17 +257,17 @@ def encoder(ksize: int) -> dict:
 
 def encode_kmer(kmer: str) -> int:
     """
-    Encodes a k-mer string into base-4 integer representation.
+    Encode une chaîne k-mer en un entier en base 4.
 
     Parameters
     ----------
     kmer : str
-        DNA k-mer composed of A, T, C, G.
+        K-mer ADN composé de A, T, C, G.
 
     Returns
     -------
     int
-        Base-4 encoded integer of the k-mer.
+        Encodage entier en base 4 du k-mer.
     """
     mapper: dict = {'A': "0",'C': "1", 'G': "2", 'T': "3",}
     return int(''.join([mapper[k] for k in kmer]))
@@ -276,19 +275,19 @@ def encode_kmer(kmer: str) -> int:
 
 def taxonomy_information(taxo_dict:dict, tree_struct: Tree) ->  Tree:
     """
-    Inserts taxonomy nodes into a tree structure.
+    Insère les nœuds de taxonomie dans une structure d'arbre.
 
     Parameters
     ----------
     taxo_dict : dict
-        Taxonomic information {level: name}.
+        Informations taxonomiques {niveau : nom}.
     tree_struct : Tree
-        Existing tree structure to update.
+        Arbre existant à mettre à jour.
 
     Returns
     -------
     Tree
-        Updated tree structure.
+        Arbre mis à jour avec les nœuds de taxonomie.
     """
     # genome_path = "Bacteria_Pseudomonadati_Bacteroidota_Flavobacteriales_Elizabethkingia_meningoseptica.fna"
     # taxa_family_old = ['root'] + TAXO_LEVELS[1:]
@@ -348,19 +347,19 @@ DEFAULT_NUC = ['A', 'T', 'C', 'G']
 
 def pattern_filter(substring: str, pattern: list[int]) -> str:
     """
-    Applies a pattern-based character filtering to a substring.
+    Applique un filtrage basé sur un motif à une sous-chaîne.
 
     Parameters
     ----------
     substring : str
-        Substring to filter.
+        Sous-chaîne à filtrer.
     pattern : list of int
-        List indicating character repetition.
+        Liste indiquant la répétition des caractères.
 
     Returns
     -------
     str
-        Filtered string according to the pattern.
+        Chaîne filtrée selon le motif.
     """
     pattern_filtered = ''.join([char * pattern[i] for i, char in enumerate(substring)])
     return pattern_filtered
@@ -368,17 +367,17 @@ def pattern_filter(substring: str, pattern: list[int]) -> str:
 
 def revcomp(seq: str) -> str:
     """
-    Computes the reverse complement of a DNA sequence.
+    Calcule le complément inverse d'une séquence ADN.
 
     Parameters
     ----------
     seq : str
-        DNA sequence.
+        Séquence ADN.
 
     Returns
     -------
     str
-        Reverse complement of the input sequence.
+        Complément inverse de la séquence d'entrée.
     """
     # reverse_complement = ''.join([compl[s] for s in string][::-1]) original
     # reverse_complement = ''.join(map(ALL_COMPLEMENTS.get, reversed(string)))
@@ -388,17 +387,17 @@ def revcomp(seq: str) -> str:
 #
 def process_ambiguous(counts):
     """
-    Expands ambiguous nucleotide kmers into their possible combinations.
+    Développe les k-mers contenant des bases ambiguës en toutes leurs combinaisons possibles.
 
     Parameters
     ----------
     counts : Counter or dict
-        K-mer count dictionary, possibly containing ambiguous bases.
+        Dictionnaire de comptage de k-mers, pouvant contenir des bases ambiguës.
 
     Returns
     -------
     Counter
-        Updated k-mer counts with ambiguity resolved.
+        Comptage mis à jour avec les ambiguïtés résolues.
     """
     counts = defaultdict(int, counts)  # Convertir counts en defaultdict(int)
     modifications = []  # Stocker les nouvelles valeurs
@@ -429,18 +428,18 @@ def process_ambiguous(counts):
 # Fonction de lecture
 def read_genome(genome_path):
     """
-   Reads a genome sequence from a FASTA file.
+    Lit une séquence génomique depuis un fichier FASTA.
 
-   Parameters
-   ----------
-   genome_path : str
-       Path to the genome file.
+    Parameters
+    ----------
+    genome_path : str
+        Chemin vers le fichier génomique.
 
-   Returns
-   -------
-   str
-       Full DNA sequence as a single string.
-   """
+    Returns
+    -------
+    str
+        Séquence ADN complète en une seule chaîne.
+    """
 
     with open(genome_path, 'r', encoding='utf-8') as freader:
         # genome_data = (str(fasta.seq) for fasta in SeqIO.parse(freader, 'fasta'))
@@ -449,28 +448,28 @@ def read_genome(genome_path):
 
 def splitting(seq: str, read_size: int, max_sampling = None, shift_ratio = None) :
     """
-    Splits a genome sequence into subreads.
+    Découpe une séquence génomique en sous-fenêtres.
 
     Parameters
     ----------
     seq : str
-       DNA sequence to split.
+        Séquence ADN à découper.
     read_size : int
-       Length of each subread.
+        Longueur de chaque sous-fenêtres.
     max_sampling : int, optional
-       Maximum number of subreads.
+        Nombre maximum de sous-fenêtres.
     shift_ratio : float, optional
-       Ratio of overlap between reads.
+        Ratio de recouvrement entre les sous-fenêtres.
 
     Returns
     -------
     iterator
-       Iterator over subreads.
+        Itérateur sur les sous-fenêtres.
 
     Raises
     ------
     ValueError
-       If the read is too short or parameters are inconsistent.
+        Si la sous-fenêtre est trop courte ou si les paramètres sont incohérents.
     """
     if len(seq) < read_size:
         raise ValueError("Read is too short.")
@@ -486,19 +485,19 @@ def splitting(seq: str, read_size: int, max_sampling = None, shift_ratio = None)
 
 def counter_kmer(read: str, pattern: list[int]) -> Counter:
     """
-    Counts kmers in a read, including reverse complements and ambiguous resolutions.
+    Compte les k-mers dans une lecture, y compris les compléments inverses et les ambiguïtés.
 
     Parameters
     ----------
     read : str
-       DNA read.
+        Lecture ADN.
     pattern : list of int
-       Pattern used to filter or transform k-mers.
+        Motif utilisé pour filtrer ou transformer les k-mers.
 
     Returns
     -------
     Counter
-       Count of kmers after filtering and resolution.
+        Dictionnaire des k-mers comptés après traitement.
     """
     kmer_size = len(pattern)
 

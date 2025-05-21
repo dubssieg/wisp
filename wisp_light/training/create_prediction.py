@@ -11,23 +11,28 @@ from wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 def make_prediction(model_path, datas_path, normalisation_func,read_identity_threshold) -> list:
     """
-    Makes predictions using a pre-trained XGBoost model.
+    Effectue des prédictions à partir d’un modèle XGBoost pré-entraîné.
 
-    Parameters
+    Paramètres
     ----------
     model_path : str
-        Path to the saved XGBoost model file.
+        Chemin vers le fichier contenant le modèle XGBoost sauvegardé.
     datas_path : str
-        Path to the input dataset in LibSVM format.
+        Chemin vers le fichier d'entrée au format LibSVM.
     normalisation_func : function
-        The normalisation function applied to the predictions.
+        Fonction de normalisation appliquée aux prédictions (ex. : softmax pondéré).
     read_identity_threshold : float
-        Threshold for read identity.
+        Seuil minimal d'identité pour conserver une prédiction.
 
-    Returns
+    Retours
     -------
     list
-        List of predictions after applying the softmax and normalisation function.
+        Liste des prédictions après application du softmax et de la fonction de normalisation.
+
+    Exceptions
+    ----------
+    RuntimeError
+        En cas d’erreur de prédiction (ex. : format incorrect ou dimensions incohérentes).
     """
     # Creating booster object
     bst = Booster()
@@ -62,24 +67,25 @@ def make_prediction(model_path, datas_path, normalisation_func,read_identity_thr
 
 def build_sample(params: dict, dna_sequence: str, id_sequence: str, sample_output_path) -> None :
     """
-    Builds a JSON file representing k-mer counts for a given DNA sequence.
+    Génère un fichier JSON contenant les comptages de k-mers d'une séquence d'ADN.
 
-    Parameters
+    Paramètres
     ----------
     params : dict
-        Dictionary of parameters, including k-mer size and read size.
+        Dictionnaire des paramètres, incluant la taille des k-mers, la taille des lectures, etc.
     dna_sequence : str
-        The full DNA sequence.
+        Séquence d’ADN complète à transformer en lectures.
     id_sequence : str
-        The identifier for the sequence (e.g., a FASTA header).
+        Identifiant de la séquence (par exemple, en-tête FASTA).
     sample_output_path : str
-        The path where the resulting sample file will be saved.
+        Chemin vers le fichier de sortie au format LibSVM.
 
-    Returns
+    Retours
     -------
     None
-        This function does not return any value.
+        Cette fonction ne retourne rien ; elle écrit un fichier en sortie.
     """
+
     os.makedirs(os.path.dirname(sample_output_path), exist_ok=True)     # Writing the database
 
     my_encoder: dict = encoder(ksize=params['ksize'])
@@ -102,29 +108,29 @@ def build_sample(params: dict, dna_sequence: str, id_sequence: str, sample_outpu
 
 def prediction(id_sequence: str, dna_sequence: str, params: dict, tree, model_dir, val_dir, logger) ->list:
     """
-    Creates a prediction for a given DNA sequence using a taxonomy tree and pre-trained models.
+    Réalise une prédiction hiérarchique pour une séquence d'ADN en utilisant un arbre taxonomique et des modèles pré-entraînés.
 
-    Parameters
+    Paramètres
     ----------
     id_sequence : str
-        The identifier for the sequence (e.g., a FASTA header).
+        Identifiant de la séquence (ex. : en-tête FASTA).
     dna_sequence : str
-        The full DNA sequence.
+        Séquence d’ADN complète à classer.
     params : dict
-        Dictionary of parameters, including read size and threshold values.
+        Dictionnaire de paramètres (taille de lecture, seuils, fonction de normalisation, etc.).
     tree : Tree
-        The taxonomy tree used for hierarchical predictions.
+        Arbre taxonomique utilisé pour faire les prédictions hiérarchiques.
     model_dir : str
-        Directory containing pre-trained models for each taxonomic level.
+        Répertoire contenant les modèles XGBoost pour chaque taxon.
     val_dir : str
-        Directory for storing temporary files during prediction.
+        Répertoire utilisé pour stocker les fichiers temporaires lors de la prédiction.
     logger : Logger
-        Logger object for logging information and warnings.
+        Objet logger pour enregistrer les avertissements ou informations.
 
-    Returns
+    Retours
     -------
     list
-        A list of dictionaries containing the predictions for each taxonomic level.
+        Liste de dictionnaires contenant les prédictions par niveau taxonomique.
     """
     if len(dna_sequence) < params['read_size']:
         raise ValueError(f"DNA sequence too short {len(dna_sequence):,} and minimum required: {params['read_size']:,}")

@@ -7,7 +7,10 @@ import pandas as pd
 from tqdm import tqdm
 from pprint import pformat
 from Bio import SeqIO
+from datetime import datetime
 
+import sys
+sys.path.append('../..')
 from wisp_light.training.create_prediction import prediction
 from wisp_light.training.utils import setup_logger, extract_majority_classification
 from wisp_light.dataset.refSeqDataset import TAXO_LEVELS
@@ -16,44 +19,52 @@ from wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
 class TaxoPredictor:
     """
-    Predicts taxonomic classifications from genomic .fna files using a trained XGBoost model.
+    Classe permettant de prédire la classification taxonomique à partir de fichiers génomiques `.fna`
+    à l'aide d'un modèle XGBoost entraîné.
+
+    Cette classe charge un arbre phylogénétique, des paramètres de prédiction depuis un fichier YAML,
+    et utilise un modèle sauvegardé pour effectuer des prédictions sur un ou plusieurs fichiers `.fna`.
 
     Parameters
     ----------
     model_dir : str
-        Path to the directory containing the trained model and phylogenetic tree.
+        Chemin vers le répertoire contenant le modèle entraîné et l’arbre phylogénétique (`phylo_tree.txt`).
     params_file : str
-        Path to the YAML file with prediction parameters.
+        Chemin vers le fichier YAML contenant les paramètres nécessaires à la prédiction.
     predict_dir : str, optional
-        Directory where prediction logs and outputs will be stored. If None, logs are not saved to file.
+        Répertoire où seront sauvegardés les fichiers de log et les résultats. Si None, les logs ne seront pas enregistrés sur disque.
 
     Attributes
     ----------
     model_dir : str
-        Path to the directory with trained model files.
+        Chemin vers le sous-dossier contenant les fichiers du modèle XGBoost.
     predict_dir : str or None
-        Directory for saving predictions and logs.
+        Répertoire où les résultats et les logs sont sauvegardés.
     temp_dir : str
-        Temporary directory used during prediction.
+        Répertoire temporaire utilisé lors des étapes de prédiction.
     logger : logging.Logger
-        Logger used for tracking the prediction process.
+        Logger utilisé pour enregistrer les messages d'information et de débogage.
     phylo_tree : dict
-        Loaded phylogenetic tree used for prediction.
-    params : dict
-        Parameters loaded from the YAML file.
+        Arbre phylogénétique chargé depuis un fichier `pickle`, utilisé pour guider les prédictions.
     results_table : pandas.DataFrame
-        Table storing results of predictions across all processed sequences.
+        Table contenant les résultats de prédiction pour chaque séquence analysée.
     """
-    def __init__(self, model_dir: str, params_file: str, predict_dir = None):
+    def __init__(self, model_dir: str, params_file: str, predict_dir:str):
         self.model_dir = model_dir
         self.predict_dir = predict_dir
         self.temp_dir = './temp'
 
         if self.predict_dir:
-            log_file = os.path.join( self.predict_dir, 'prediction.logs')
-            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+            os.makedirs(self.predict_dir, exist_ok=True)
+            base_log_path = os.path.join(self.predict_dir, 'prediction.logs')
+            log_file = base_log_path
+            index = 1
+            while os.path.exists(log_file):
+                log_file = os.path.join(self.predict_dir, f"prediction_{index}.logs")
+                index += 1
         else:
             log_file = None
+
         self.logger = setup_logger('TaxoPredictor', level=logging.INFO, log_file=log_file)
 
         # Load phylogenetic tree
@@ -74,35 +85,35 @@ class TaxoPredictor:
 
     def predict_one_dir(self, fna_dir: str, raw_pred=False, verbose=False):
         """
-        Predicts taxonomy for all .fna files in a directory.
+        Prédit la taxonomie pour tous les fichiers `.fna` présents dans un répertoire.
 
         Parameters
         ----------
         fna_dir : str
-           Path to a directory containing .fna files.
+            Chemin vers un répertoire contenant des fichiers `.fna`.
         raw_pred : bool, default=False
-           If True, returns raw predictions for each taxonomic level.
-           If False, returns majority-vote final predictions.
+            Si True, retourne les prédictions brutes pour chaque niveau taxonomique.
+            Si False, retourne les prédictions finales basées sur un vote majoritaire.
         verbose : bool, default=False
-           If True, logs detailed information during processing.
+            Si True, affiche des informations détaillées pendant le traitement.
 
         Returns
         -------
         dict
-           Dictionary mapping sequence identifiers to prediction results.
+            Dictionnaire associant les identifiants de séquences aux résultats de prédiction.
 
         Raises
         ------
-        NotADirectoryError
-           If `fna_dir` is not a valid directory.
+         NotADirectoryError
+            Levée si `fna_dir` n'est pas un répertoire valide.
         FileNotFoundError
-           If no `.fna` files are found in the directory.
+            Levée si aucun fichier `.fna` n'est trouvé dans le répertoire.
         """
 
         if not os.path.isdir(fna_dir):
             raise NotADirectoryError(f"{fna_dir} n'est pas un répertoire valide.")
         fna_files = [f for f in os.listdir(fna_dir) if f.endswith(".fna")]
-        self.logger.info(f"Prediction for all dir {fna_dir} contains {len(fna_files)} fna files.")
+        self.logger.info(f"Prediction for whole dir {fna_dir},  containing {len(fna_files)} fna files.")
 
         if not fna_files:
             raise FileNotFoundError(f"Aucun fichier .fna trouvé dans {fna_dir}.")
@@ -120,27 +131,27 @@ class TaxoPredictor:
 
     def predict_one_fna(self, fna_path: str, raw_pred=False, verbose=False):
         """
-        Predicts taxonomy for each sequence in a single multi-FASTA (.fna) file.
+        Prédit la taxonomie pour chaque séquence contenue dans un fichier multi-FASTA (.fna).
 
         Parameters
         ----------
         fna_path : str
-            Path to a .fna file containing one or more genomic sequences.
+            Chemin vers un fichier `.fna` contenant une ou plusieurs séquences génomiques.
         raw_pred : bool, default=False
-            If True, returns raw predictions for each taxonomic level.
-            If False, returns majority-vote final predictions.
+             Si True, retourne les prédictions brutes pour chaque niveau taxonomique.
+            Si False, retourne les prédictions finales issues d'un vote majoritaire.
         verbose : bool, default=False
-            If True, logs detailed information during processing.
+            Si True, affiche des informations détaillées pendant le traitement.
 
         Returns
         -------
         dict
-            Dictionary mapping sequence IDs (with file reference) to prediction results.
+            Dictionnaire associant les identifiants de séquence (avec référence au fichier) aux résultats de prédiction.
 
         Raises
         ------
         ValueError
-            If `fna_path` does not end with `.fna`.
+            Levée si le fichier fourni ne possède pas l'extension `.fna`.
         """
         if not fna_path.endswith('.fna'):
             raise ValueError(f"Le fichier {fna_path} n'a pas une extension '.fna'")
@@ -188,19 +199,60 @@ class TaxoPredictor:
 
         return all_results
 
+    def save_result_to_csv(self):
+
+        """
+        Sauvegarde la table des résultats dans un fichier CSV avec un nom horodaté.
+
+        Si un fichier avec le même nom existe déjà, un indice (_1, _2, ...) est ajouté
+        au nom pour éviter l'écrasement.
+
+        Le format de l’horodatage est `_JJ_MM_HH_MM`. Le fichier CSV est sauvegardé dans
+        le répertoire spécifié par `self.predict_dir`. Si `self.predict_dir` n’est pas défini,
+        un message est enregistré dans les logs et aucune sauvegarde n’est effectuée.
+
+        Parameters
+        ----------
+            None
+
+        Returns
+        --------
+            None
+        """
+        if not self.predict_dir:
+            self.logger.info("predict_dir is not set — résultats non sauvegardés.")
+            return
+
+        os.makedirs(self.predict_dir, exist_ok=True)
+        date_suffix = datetime.now().strftime("_%d_%m_%H_%M")
+        base_name = f"results_table{date_suffix}"
+        file_path = os.path.join(self.predict_dir, f"{base_name}.csv")
+
+        index = 1
+        while os.path.exists(file_path):
+            file_path = os.path.join(self.predict_dir, f"{base_name}_{index}.csv")
+            index += 1
+
+        self.results_table.to_csv(file_path, index=False, sep=";")
+        self.logger.info(f"Table des résultats sauvegardée dans : {file_path}")
+
 
 if __name__=='__main__':
     model_dir = "/home/hcourtei/Projects/MicroTaxo/codes/exp/model_base_complete_05_15_16_37"
-    predict_dir = None #  "/home/hcourtei/Projects/MicroTaxo/codes/predict"
+    predict_dir = "/home/hcourtei/Projects/MicroTaxo/codes/predict/predicted"  # permet de sauvegarder les log et les predictions
     params_file = "/home/hcourtei/Projects/MicroTaxo/codes/wisp_light/prediction/predict_params.yaml"
     fna_path = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data/GCF_000725405.1_ASM72540v1_genomic.fna"
     fna_dir = "/home/hcourtei/Projects/MicroTaxo/codes/predict/to_predict"
 
 
-    predictor = TaxoPredictor(model_dir, params_file, predict_dir=predict_dir)
-    all_results = predictor.predict_one_fna(fna_path, raw_pred=True, verbose=True)
-    # print(predictor.results_table.to_markdown())
 
-    predictor = TaxoPredictor(model_dir, params_file, predict_dir=None)
-    predictor.predict_one_dir(fna_dir, raw_pred=False, verbose=False)
+    predictor = TaxoPredictor(model_dir, params_file,predict_dir=predict_dir)
+    all_results = predictor.predict_one_fna(fna_path, raw_pred=True, verbose=True)
     print(predictor.results_table.to_markdown())
+
+    # predictor.save_result_to_csv()
+    #
+    # predictor = TaxoPredictor(model_dir, params_file, predict_dir=predict_dir)
+    # predictor.predict_one_dir(fna_dir, raw_pred=False, verbose=False)
+    # predictor.save_result_to_csv()
+

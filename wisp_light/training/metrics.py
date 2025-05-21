@@ -67,9 +67,9 @@ class ConfusionMatrixTracker:
         Assemble les labels vrais accumulés en un array NumPy de forme
         (n_samples, n_levels), puis crée un DataFrame trié et sans doublons.
 
-        After calling this method, `self.taxonomy_df` is a DataFrame with one
-        row per unique taxonomy path, sorted lexicographically by TAXO_LEVELS.
-        The tracker is also pickled to "conf_matrix_tracker.pkl".
+        Après appel de cette méthode, self.taxonomy_df devient un DataFrame contenant une ligne par chemin taxonomique unique,
+         trié lexicographiquement selon l'ordre de TAXO_LEVELS.Le tracker est également sauvegardé au format pickle
+         dans le fichier "conf_matrix_tracker.pkl"..
         """
         data = []
 

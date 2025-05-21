@@ -5,22 +5,35 @@
 **accompagnement PNRIA**: du 25 novembre 2024 au 25 mai 2025
 
 
-**package wisp_light**: Hermann Courteille (PNRIA)
+**package wisp_light** sur données refseq: Hermann Courteille (PNRIA)
 
 Ce Readme concerne essentiellement la partie administration du package: 
 - la mise à jour de la base de donnée
 - l'entrainement et la validation des modèles via xgboost
 - le monitoring des résultats
 
-Pour la partie utilisateur d'un modèle entrainé voir le notebooks/predict_taxo_examples.ipynb
+Pour l'usage d'un modèle entrainé,  voir le notebooks/predict_taxo_examples.ipynb
 
 
 # I.  Environnement
-## conda
+
+
+
+
+
+## code wisp_light / branche optim_wisp
 ```
-conda env create -f micro_env.yml
-conda activate micro_env
+git clone https://github.com/dubssieg/wisp.git 
+cd wisp
+git checkout optim_wisp
 ```
+installe de wip_light en tant que paquet avec ses dépendances:
+```
+cd wisp_light
+
+pip install -e .  
+```
+
 ## virtual env
 sur genouest, obligatoirement sur un noeud calcul
 ```
@@ -32,11 +45,10 @@ source ~/envtaxo/bin/activate
 pip install -r requirements.txt 
 ```
 
-## code wisp_light / branche optim_wisp
+## conda
 ```
-git clone https://github.com/dubssieg/wisp.git 
-cd wisp
-git checkout optim_wisp
+conda env create -f micro_env.yml
+conda activate micro_env
 ```
 
 # II. Construire le dataset refseq 
@@ -108,11 +120,12 @@ Commande à partir de wisp_light/training/
 - **sur genouest**, 
 
 les données sont sur /projects/microtaxo/data
+```
 .
 ├── AllTheBacteria
 ├── refseq_complete_genome
 └── refseq_reference_genome
-
+```
 
 ```
 srun --time 00-10:00:00 --mem=20G --cpus-per-task=8 --pty bash #depuis genouest
@@ -134,8 +147,7 @@ Pour partir d'une base de donnée de comptage déjà existante:
  ```
 python train_val.py --db_json  /home/genouest/cnrs_umr6074/hcourtei/codes/wisp/exp/model_base_02_05_16_55/databases.json
  ```
-Les logs et résultats sont par défaut, au même niveau que wisp_light dans un répertoire exp/<exp_name>
-Sur genouest ils ont été enregistré dans /projects/microtaxo/exp_refseq/
+
 
 1. Session interactive avec srun (voir ci-dessus) :
 Pour éviter une coupure de la connexion SSH, vous pouvez utiliser tmux sur GenOuest.
@@ -145,6 +157,34 @@ Voir  https://help.genouest.org/usage/slurm/#long-running-interactive-jobs-srun
 `sbatch submit_main_build.sh`
 
 # IV. Voir les résultats
+## 1. Sorties issues d'une expérience
+Les logs et résultats d'une expérience sont par défaut, au même niveau que wisp_light dans un répertoire exp/<exp_name>
+Sur genouest ils ont été enregistré dans /projects/microtaxo/exp_refseq/
+Voici le contenue d'une expérience
+```
+.
+├── databases.json         # la base de donnée de comptage
+├── eval                   # les metriques de validation
+├── init_train.log         # les logs d'entrainement
+├── model                  # contient tous les modèles entrainés, 
+├── params.yaml            # tous les paramètres de l'entrainement
+└── phylo_tree.txt         # l'arbre phylogénétique
+```
+dans le sous-répertoire eval: 
+```
+├── error_phylum_val.txt   # les génomes pour lesquelles il y a une erreur dès le phylum
+├── metrics                # les matrices de confusion en image, et en csv avec le nom des taxons
+│ ├── ConfMat_class.csv
+│ ├── ConfMat_class.png
+│ ├── ConfMat_family.csv
+│ ├── ConfMat_family.png
+│ ├── ConfMat_order.csv
+│ ├── ConfMat_order.png
+│ ├── ConfMat_phylum.csv
+│ └── ConfMat_phylum.png
+```
+
+## 2. Comparaison des  expériences avec mlflow
 
 depuis un <noeud> de calcul  sur genouest:
 ```
@@ -155,12 +195,14 @@ srun --pty --time=08:00:00 bash
 
 mlflow ui --port 8123 --backend-store-uri /projects/microtaxo/exp_refseq/mlruns
 ```
-depuis le laptop local, faire un point ssh vers le <noeud>
+cliquer sur le lien fourni après avoir , faire un point ssh vers le <noeud> depuis votre laptop
 ```
 ssh -A -t -t hcourtei@genossh.genouest.org -L 8123:localhost:8123 ssh <noeud> -L 8123:localhost:8123
 ```
+
+ensuite cliquer sur le lien : 
 # V. Divers
-## 1. partition avec accès disque plus rapide
+## 1. Partitions avec accès disque plus rapide
 
 srun --cpus-per-task=20 -p genscale -w cl1n027 --mem 40600 --pty bash
 
