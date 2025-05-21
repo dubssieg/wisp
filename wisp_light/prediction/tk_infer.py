@@ -49,13 +49,14 @@ class PredictApp:
         row += 1
         tk.Checkbutton(left_frame, text="Activer raw_pred", variable=self.raw_pred).grid(row=row, column=1, sticky='w', pady=5)
 
-        row += 1
-        tk.Button(left_frame, text="Lancer la prédiction", command=self.run_prediction,
-                  bg="green", fg="white").grid(row=row, column=1, pady=10)
 
         row += 1
         tk.Button(left_frame, text="Charger le modèle", command=self.load_predictor,
                   bg="blue", fg="white").grid(row=row, column=1, pady=5)
+
+        row += 1
+        tk.Button(left_frame, text="Lancer la prédiction", command=self.run_prediction,
+                  bg="green", fg="white").grid(row=row, column=1, pady=10)
 
         # Zone de texte pour les résultats
         tk.Label(right_frame, text="Résultats (table)").pack(anchor='w')
@@ -122,8 +123,14 @@ class PredictApp:
             self.result_text.insert(tk.END, f"Erreur : {str(e)}\n")
             messagebox.showerror("Erreur", str(e))
 
-
-if __name__ == "__main__":
+def main():
     root = tk.Tk()
     app = PredictApp(root)
     root.mainloop()
+
+if __name__ == "__main__":
+    main()
+# if __name__ == "__main__":
+#     root = tk.Tk()
+#     app = PredictApp(root)
+#     root.mainloop()

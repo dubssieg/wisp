@@ -12,7 +12,7 @@ Ce Readme concerne essentiellement la partie administration du package:
 - l'entrainement et la validation des modèles via xgboost
 - le monitoring des résultats
 
-Pour l'usage d'un modèle entrainé,  voir le notebooks/predict_taxo_examples.ipynb
+Pour l'usage d'un modèle entrainé,  voir le notebooks/predict_taxo_examples.ipynb ou l'éxécutable tk_infer partie V
 
 
 # I.  Environnement
@@ -199,9 +199,25 @@ cliquer sur le lien fourni après avoir , faire un point ssh vers le <noeud> dep
 ```
 ssh -A -t -t hcourtei@genossh.genouest.org -L 8123:localhost:8123 ssh <noeud> -L 8123:localhost:8123
 ```
+# VI. Prédiction sur un fichier .fna ou un répertoire
+soit en commande python, voir notebooks/predict_taxo_examples.ipynb
+
+Une interface simple de chargement du modèle et de prédiction est exécutable après l'installation du paquet wisp_light
+```
+pip install -e . # à partir du répertoire parent à wisp_light
+```
+puis en éxécutant dans la console
+```
+tk-infer
+```
+![tk_infer_window.png](notebooks/tk_infer_window.png)
+
+Les résultats des préditions sont affichés dynamiquement dans la fenêtre résultat à droite
+
+![tk_infer_results.png](notebooks/tk_infer_results.png)
 
 ensuite cliquer sur le lien : 
-# V. Divers
+# VI. Divers
 ## 1. Partitions avec accès disque plus rapide
 
 srun --cpus-per-task=20 -p genscale -w cl1n027 --mem 40600 --pty bash
