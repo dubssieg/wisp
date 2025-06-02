@@ -1,7 +1,7 @@
 Documentation de Microtaxo !
 ==============================================
 
-.. image:: dessin_taxo.png
+.. image:: _static/dessin_taxo.png
    :alt: Taxonomie du projet
    :width: 400
    :align: center

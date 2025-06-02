@@ -1,0 +1,9 @@
+/* Élargir la zone principale */
+.wy-nav-content {
+    max-width: 100% !important;
+}
+
+/* Optionnel : élargir encore un peu le contenu central */
+.rst-content {
+    max-width: 95% !important;
+}
