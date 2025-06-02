@@ -696,10 +696,10 @@ class Model:
 
         # normalization
         f1_min, f1_max = min(f1_scores), max(f1_scores)
-        if f1_max > f1_min:  # Éviter division par zéro
+        if f1_max > f1_min:
             f1_normalized = [(f - f1_min) / (f1_max - f1_min) for f in f1_scores]
         else:
-            f1_normalized = [1] * len(f1_scores)  # Cas où tous les F1 sont identiques
+            f1_normalized = [1] * len(f1_scores)
 
         # apply penalty according to rank position
         penalty = sum((1 - f) for f in f1_normalized) / len(f1_scores)

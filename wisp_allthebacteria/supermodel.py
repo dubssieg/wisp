@@ -291,7 +291,7 @@ class SuperModel:
         conf = copy.deepcopy(self._model_conf)
         return merge_dicts(conf, step_conf)
 
-    # DEPRECATED FOR NOW
+    # DEPRECATED FROM HERE
     def _build_tree(self) -> dict:
         def recursive_build(rank_index: int, parent_filter: dict) -> dict:
             if rank_index >= len(self._supermodel_conf):

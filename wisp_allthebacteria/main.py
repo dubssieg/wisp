@@ -310,7 +310,7 @@ def train_model(
             batch_balance_factor=conf["model"]["batch_balance_factor"],
             min_samples_per_class=conf["model"]["min_samples_per_class"],
             max_buffer_total_size=conf["model"]["max_buffer_total_size"],
-            model_type=["model"]["type"],
+            model_type=conf["model"]["type"],
             workspace_path=workspace_path,
             start_generator=True,
         )
@@ -475,20 +475,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         description="AllTheBacteria Database Scripts",
-        epilog="""
-        Examples:
-        Create a database:
-            python main.py --create-db
-
-        Create a database (local machine/debug)
-            python main.py -- create-db --conf="config/clx_debug.json"
-
-        Evaluate a model for phylum classification
-            python main.py --train --kfold --rank="phylum"
-
-        Train a model for phylum classification
-            python main.py --train --rank="phylum"
-        """,
     )
     parser.add_argument(
         "--conf",
@@ -531,14 +517,14 @@ if __name__ == "__main__":
         help="Number of folds for k-fold cross-validation",
     )
 
-    parser.add_argument(
-        "--load-model", type=str, help="Path to load an existing model", default=None
-    )
-    parser.add_argument(
-        "--evaluate-fa",
-        type=str,
-        help="Path to a FASTA file for evaluation (check config for report location)",
-    )
+    # parser.add_argument(
+    #     "--load-model", type=str, help="Path to load an existing model", default=None
+    # )
+    # parser.add_argument(
+    #     "--evaluate-fa",
+    #     type=str,
+    #     help="Path to a FASTA file for evaluation (check config for report location)",
+    # )
 
     parser.add_argument(
         "--db-info",
