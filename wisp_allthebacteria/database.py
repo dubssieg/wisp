@@ -283,6 +283,20 @@ class Database:
 
         return samples
 
+    def get_db_path(self):
+        dir_name = f"kmr_{'_'.join(map(str, self._kmer_sizes))}"
+        if self._full:
+            dir_name += "__full"
+        else:
+            dir_name += f"__wsz_{self._window_size}__stp_{self._step}"
+
+        if self._compression:
+            dir_name += f"__comp_{self._compression}"
+
+        dir_name += f"__shd_{self._fanout_shards}"
+
+        return self._dbs_path / dir_name
+
     def _archive_stem(self, path: str | Path) -> str:
         return Path(path).stem.split(".")[0]
 
@@ -317,20 +331,6 @@ class Database:
 
         path.mkdir(parents=True, exist_ok=True)
         return FanoutCache(path, size_limit=sys.maxsize, shards=self._fanout_shards)
-
-    def get_db_path(self):
-        dir_name = f"kmr_{'_'.join(map(str, self._kmer_sizes))}"
-        if self._full:
-            dir_name += "__full"
-        else:
-            dir_name += f"__wsz_{self._window_size}__stp_{self._step}"
-
-        if self._compression:
-            dir_name += f"__comp_{self._compression}"
-
-        dir_name += f"__shd_{self._fanout_shards}"
-
-        return self._dbs_path / dir_name
 
 
 class DatabaseBuilder(Database):

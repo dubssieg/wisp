@@ -64,7 +64,7 @@ class Dataset:
                 data[rank] = {"counts": counts, "tax_ids": tids_by_rank}
         return data
 
-    # FIXME: Not called anymore?
+    # FIXME: Not called anymore? deprecated
     def get_tax_id_analysis(self, tax_ids: int | list[int] | None = None) -> dict:
         if tax_ids is None:
             tax_ids = self._db.get_tax_ids()
@@ -538,7 +538,7 @@ class ByRankGenerator(Dataset):
         return {key: value / total_count for key, value in count_dict.items()}
 
     @staticmethod
-    def _normalize_min_max(count_dict) -> dict:
+    def _normalize_min_max(count_dict: dict) -> dict:
         min_value = min(count_dict.values())
         max_value = max(count_dict.values())
         if max_value == min_value:
