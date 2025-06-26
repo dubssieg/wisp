@@ -118,14 +118,16 @@ def train_model_targets(phylo_tree, exp_dir, params, logger, max_workers=4):
 
         logger.info(f"📊 Modèles non générés : {nb_model_fail}/{ len(futures) }")
 
-    phylo_path = f"{exp_dir}/phylo_tree.txt"
-    os.makedirs(os.path.dirname(phylo_path), exist_ok=True)
+    os.makedirs(os.path.dirname(exp_dir), exist_ok=True)
 
-    with open(phylo_path, 'wb') as jtree:
+    with open(f"{exp_dir}/phylo_tree.bin", 'wb') as jtree:
         pickle.dump(phylo_tree, jtree)
 
+    with open( f"{exp_dir}/phylo_tree.txt", "w", encoding="utf-8") as f:
+        f.write(phylo_tree.show(stdout=False))
+
     model_time = round((time.time() - start_model))
-    logger.info(f"Finished make_model in {model_time} s  tree @ {phylo_path} ")
+    logger.info(f"Finished make_model in {model_time} s  tree @ {exp_dir}/phylo_tree.txt ")
     mlflow.log_metric("model_time", model_time)
     log_resource_usage(logger, "train_model_targets (end)")
     return model_time
@@ -165,8 +167,7 @@ def validate(val_dataset, exp_dir, params, logger, max_workers=4, save_raw_pred=
     val_dir = os.path.join(exp_dir, 'eval')
     os.makedirs(f"{val_dir}", exist_ok=True)
 
-    phylo_path = f"{exp_dir}/phylo_tree.txt"
-    with open(phylo_path, 'rb') as jtree:
+    with open( f"{exp_dir}/phylo_tree.bin", 'rb') as jtree:
         phylo_tree: Tree = pickle.load(jtree)
 
     model_dir = os.path.join(exp_dir,"model")

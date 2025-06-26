@@ -27,15 +27,10 @@ git clone https://github.com/dubssieg/wisp.git
 cd wisp
 git checkout optim_wisp
 ```
-installe de wip_light en tant que paquet avec ses dépendances:
-```
-cd wisp_light
 
-pip install -e .  
-```
 
 ## virtual env
-sur genouest, obligatoirement sur un noeud calcul
+sur genouest en python 3.11.9 , obligatoirement sur un noeud calcul
 ```
 srun --time 00-10:00:00 --pty bash 
 . /local/env/envpython-3.11.9.sh
@@ -46,9 +41,17 @@ pip install -r requirements.txt
 ```
 
 ## conda
+en python 3.12, spécifié dans le yml
 ```
 conda env create -f micro_env.yml
 conda activate micro_env
+```
+## installation de  wip_light 
+en tant que paquet avec ses dépendances (fichier setup.py):
+
+depuis le répertoire wisp
+```
+pip install -e .  
 ```
 
 # II. Construire le dataset refseq 
@@ -56,7 +59,7 @@ conda activate micro_env
 ## a. Télécharger et dézipper tous les fichiers listés dans le .tsv 
 - obtenir le summary.txt 
 ```
-wget https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt -o {output_dir}
+wget https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt -P {output_dir}
 ```
 ou via l'interface web 
 
@@ -70,32 +73,48 @@ ou via l'interface web
 
 depuis /wisp_light/build_dataset/refseq
 ```
-python download_refseq_from_csv.py --csv_file reference_genome_summary.tsv --output_dir /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data --num_workers 8
+python download_refseq_from_csv.py --csv_file assembly_summary.txt \
+    --output_dir /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data \
+    --filter_by reference genome \
+    --num_workers 8
 ```
-
+ce script sauvegarde aussi la base de donnée filtrée dans un fichier  <filter_by>_summary.tsv avec les espaces remplacés par des underscores)
+, par exemple reference_genome_summary.tsv
 ## b. Obtenir les taxonomies à partir des taxid de chaque génome 
+Entrées du script : 
+- Un fichier TSV d'entrée contenant une colonne de taxids.
+- Un fichier `NCBI_api_key.yaml` à placer dans ce répertoire pour accélerer les requètes de 3 à 10 par seconde, voir https://support.nlm.nih.gov/kbArticle/?pn=KA-05317 :
+```
+Entrez:
+    email: "votre_email@domaine.com"
+    api_key: "votre_clé_ncbi"
+```
 
 ```
 python get_all_taxo_from_NCBI.py --input reference_genome_summary.tsv --taxid_column taxid --batch_size 10
 ```
-
+toutes les informations taxonomiques sont mise en cache dans un répertoire `ncbi_taxonomy_cache`
 2 tableaux tsv sont générés dans le répertoire  /wisp_light/build_dataset/refseq : 
 - le 1er avec toutes les taxonomies présentes  ['phylum', 'class', 'order', 'family'] dans "reference_genome_summary_complete_taxo.tsv"
 - le 2eme avec des taxonomies incompletes dans "reference_genome_summary_incomplete_taxo.tsv"
 
 ## c. Association dans l'itérateur
+La classe RefSeqDataset permet d'itérer sur tous les génomes téléchargés dont la taxonomie a été récupére.
+Elle permet la séparation en 2 ensemble : un ensemble d'entrainement et un ensemble de validation
+
 ```python
 from wisp_light.dataset.refSeqDataset import RefSeqDataset
 datadir = "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data"
 dataset = RefSeqDataset("reference_genome_summary_complete_taxo.tsv", datadir)
 ```
+
 ```
-14:18 - refSeqDataset.py - INFO - nb files in datadir: 451 restrict to 448 with labels in index 
-14:18 - refSeqDataset.py - INFO - Splitted dataset nb 448 into train :403 val: 45
- 0, genome /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data/GCF_002865995.1_ASM286599v1_genomic.fna
-taxo_dict {'phylum': 'Bacillota', 'class': 'Clostridia', 'order': 'Peptostreptococcales', 'family': 'Peptostreptococcaceae'}
- 1, genome /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data/GCF_016028775.1_ASM1602877v1_genomic.fna
-taxo_dict {'phylum': 'Pseudomonadota', 'class': 'Gammaproteobacteria', 'order': 'Moraxellales', 'family': 'Moraxellaceae'}
+11:49 - refSeqDataset.py - INFO - nb files in datadir: 986 restrict to 907 with labels in index 
+11:49 - refSeqDataset.py - INFO - Splitted dataset nb 907 into train :816 val: 91
+ 0, genome /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data/GCF_000740965.1_ASM74096v1_genomic.fna
+taxo_dict {'phylum': 'Pseudomonadota', 'class': 'Gammaproteobacteria', 'order': 'Enterobacterales', 'family': 'Pectobacteriaceae'}
+ 1, genome /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data/GCF_020510245.1_ASM2051024v1_genomic.fna
+taxo_dict {'phylum': 'Bacillota', 'class': 'Bacilli', 'order': 'Lactobacillales', 'family': 'Lactobacillaceae'}axellales', 'family': 'Moraxellaceae'}
 ```
 # III. Entraîner et Evaluer les modèles xgboost
 On part de tous les génomes de références de refseq.
@@ -168,8 +187,38 @@ Voici le contenue d'une expérience
 ├── init_train.log         # les logs d'entrainement
 ├── model                  # contient tous les modèles entrainés, 
 ├── params.yaml            # tous les paramètres de l'entrainement
-└── phylo_tree.txt         # l'arbre phylogénétique
+├── phylo_tree.bin         # l'arbre phylo sérialisé en binaire pour rechargement
+└── phylo_tree.txt         # l'arbre phylogénétique pour affichage lisible
 ```
+### arbre phylogénétique  
+début d'un arbre dans  phylo_tree.txt
+```
+Root
+├── Actinomycetota
+│   ├── Actinomycetes
+│   │   ├── Actinomycetales
+│   │   │   └── Actinomycetaceae
+│   │   ├── Bifidobacteriales
+│   │   │   └── Bifidobacteriaceae
+│   │   ├── Frankiales
+│   │   │   └── Frankiaceae
+│   │   ├── Kineosporiales
+│   │   │   └── Kineosporiaceae
+│   │   ├── Kitasatosporales
+│   │   │   └── Streptomycetaceae
+│   │   ├── Micrococcales
+```
+### model
+regroupe tous les modèles entrainé pour chacune des noeuds internes de l'arbre. Chque modèle est enregistré dans un json
+prénomé f"{taxon}_{level}.json" et accompagné d'un fichier de paramètres suffixé par "_params.json"
+Exemple : 
+```
+ Chromatiales_order_params.json                      Mariprofundales_order_params.json         Tichowtungiia_class_params.json
+ Chroococcales_order.json                            Mesoaciditogales_order.json               Tissierellales_order.json
+ Chroococcales_order_params.json                     Mesoaciditogales_order_params.json        Tissierellales_order_params.js
+```
+### eval
+
 dans le sous-répertoire eval: 
 ```
 ├── error_phylum_val.txt   # les génomes pour lesquelles il y a une erreur dès le phylum
@@ -183,6 +232,13 @@ dans le sous-répertoire eval:
 │ ├── ConfMat_phylum.csv
 │ └── ConfMat_phylum.png
 ```
+### en quelques chiffres sur genouest
+
+A titre indicatif, sur la base des génomes référents (~20 000 génomes), l'entrainement pour des kmers de taille 4 (100 reads de taille 10 000 par génome), 
+l'entrainement  sur genouest noeud cl1n027 prend:
+- approximativement 6h 
+- consomme moins de 40 Go de mémoire vive
+- les modèles occupent 630 Mo d'espace disque (/projects/microtaxo/exp_refseq/model_base_complete_04_07_22_15/model )
 
 ## 2. Comparaison des  expériences avec mlflow
 
@@ -197,9 +253,26 @@ mlflow ui --port 8123 --backend-store-uri /projects/microtaxo/exp_refseq/mlruns
 ```
 cliquer sur le lien fourni après avoir , faire un point ssh vers le <noeud> depuis votre laptop
 ```
-ssh -A -t -t hcourtei@genossh.genouest.org -L 8123:localhost:8123 ssh <noeud> -L 8123:localhost:8123
+ssh -A -t -t <user>@genossh.genouest.org -L 8123:localhost:8123 ssh <noeud> -L 8123:localhost:8123
 ```
 # VI. Prédiction sur un fichier .fna ou un répertoire
+
+Voici l'arbre et les différents niveaux hiérachique que l'on prédit :
+
+![arbre_hierarchique](images_readme/arbre_hierarchique.png)
+
+Partant d'une séquence d'ADN, voici la partie encodage et comptage et ensuite l'illustration de la prédiction pour le premier niveau : le phylum
+
+
+![process_pred](images_readme/process_pred.png)
+
+
+A chaque nouveau noeud, prédit, on répète le processus, jusqu'à arrivé à la famille. Sur l'exemple ci-dessus, la lignée est:
+
+domain: Bacteria , phylum : Bacillota, group: Bacilli, Order : Lactobacillales, Family Lactobacillus 
+
+=========================================================================================================
+
 soit en commande python, voir notebooks/predict_taxo_examples.ipynb
 
 Une interface simple de chargement du modèle et de prédiction est exécutable après l'installation du paquet wisp_light
