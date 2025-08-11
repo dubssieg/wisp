@@ -3,6 +3,8 @@ import os
 import sys
 import pandas as pd
 from sklearn.model_selection import train_test_split
+
+
 sys.path.append('../../..')
 
 TAXO_LEVELS =  ['phylum', 'class', 'order', 'family']
@@ -57,10 +59,23 @@ class RefSeqDataset:
         if cut > 0:
             self.index_with_label = self.index_with_label.head(cut)
         self.datadir = datadir
-        self.logger = logger
+        if logger is None:
+            logger = logging.getLogger("RefSeqDataset")
+            logger.setLevel(logging.INFO)  # <-- C’est ça qui manquait
+            if not logger.hasHandlers():
+                stream_handler = logging.StreamHandler(sys.stdout)
+                stream_handler.setLevel(logging.INFO)
+                formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+                stream_handler.setFormatter(formatter)
+                logger.addHandler(stream_handler)
+
+
+        self.logger = logger        # print(f"Logger type: {type(logger)}")  # Debug temporaire
         self.pairing_label_to_file()
 
     def pairing_label_to_file(self):
+        if self.logger is None:
+            raise RuntimeError("Logger is None in pairing_label_to_file.")
         all_files = os.listdir(self.datadir)
 
         gcf_ids_from_labels = self.index_with_label['assembly_accession']
@@ -92,18 +107,23 @@ class RefSeqDataset:
         train_df = train_df.reset_index(drop=True)
         test_df = test_df.reset_index(drop=True)
         # Créer deux nouvelles instances de RefSeqDataset pour les ensembles d'entraînement et de test
-        train_dataset = RefSeqDataset.from_dataframe(train_df, self.datadir)
-        test_dataset = RefSeqDataset.from_dataframe(test_df, self.datadir)
+        train_dataset = RefSeqDataset.from_dataframe(train_df, self.datadir, logger=self.logger)
+        test_dataset = RefSeqDataset.from_dataframe(test_df, self.datadir, logger=self.logger)
         self.logger.info(f"Splitted dataset nb {len(self.index_with_label)} into train :{len(train_dataset)} val: {len(test_dataset)}")
 
         return train_dataset, test_dataset
 
     @classmethod
-    def from_dataframe(cls, dataframe, datadir):
+    def from_dataframe(cls, dataframe, datadir, logger=None):
         """Créer une instance de RefSeqDataset à partir d'un DataFrame existant."""
         instance = cls.__new__(cls)
         instance.index_with_label = dataframe
         instance.datadir = datadir
+        if logger is None:
+            logger = logging.getLogger("RefSeqDataset")
+            if not logger.handlers:
+                logger.addHandler(logging.NullHandler())
+        instance.logger = logger
         return instance
 
     def __iter__(self):

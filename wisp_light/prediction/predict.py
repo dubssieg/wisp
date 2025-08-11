@@ -68,7 +68,7 @@ class TaxoPredictor:
         self.logger = setup_logger('TaxoPredictor', level=logging.INFO, log_file=log_file)
 
         # Load phylogenetic tree
-        phylo_path = os.path.join(model_dir, "phylo_tree.txt")
+        phylo_path = os.path.join(model_dir, "phylo_tree.bin")
         with open(phylo_path, 'rb') as jtree:
             self.phylo_tree = pickle.load(jtree)
 

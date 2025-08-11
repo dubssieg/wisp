@@ -1,3 +1,4 @@
+
 """
 Téléchargement et décompression de fichiers génomiques RefSeq.
 
@@ -5,23 +6,40 @@ Ce script lit un fichier TSV contenant des URLs FTP de génomes, télécharge
 les fichiers `.fna.gz` associés, les décompresse, et met à jour un DataFrame
 avec les chemins locaux et informations d'accession.
 
-Utilise le multithreading pour accélérer le traitement des fichiers.
+Il permet également de filtrer les génomes selon un critère donné (par exemple,
+'reference genome' ou 'Complete Genome') avant le téléchargement.
 
+Le fichier filtré est sauvegardé dans le même répertoire que le fichier CSV d'entrée,
+sous le nom : <filter_by>_summary.tsv (avec les espaces remplacés par des underscores).
+
+Utilise le multithreading pour accélérer le traitement des fichiers.
 
 Parameters
 ----------
 --csv_file : str
-    Chemin vers le fichier TSV contenant la colonne 'ftp_path'. Par défaut : "reference_genome_summary.tsv".
+    Chemin vers le fichier TSV contenant la colonne 'ftp_path'.
+    Par défaut : "assembly_summary.txt".
+
 --output_dir : str
-    Répertoire de sortie où seront placés les fichiers décompressés. Par défaut : "/projects/microtaxo/data/refseq_data".
+    Répertoire de sortie où seront placés les fichiers décompressés.
+    Par défaut : "/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data".
+
+--filter_by : str
+    Critère de filtrage des génomes. Doit être 'reference genome' ou 'Complete Genome'.
+    Par défaut : 'reference genome'.
+
 --num_workers : int
-    Nombre de threads à utiliser pour les téléchargements/décompressions parallèles. Par défaut : 5.
+    Nombre de threads à utiliser pour les téléchargements/décompressions parallèles.
+    Par défaut : 5.
 
 Usage (en ligne de commande)
 ----------------------------
-python download_refseq_from_csv.py --csv_file reference_genome_summary.tsv --output_dir /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data --num_workers 8
-
+python download_refseq_from_csv.py --csv_file assembly_summary.txt \
+    --output_dir /home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data \
+    --filter_by reference genome \
+    --num_workers 8
 """
+
 import argparse
 import os
 import subprocess
@@ -163,31 +181,69 @@ def download_and_decompress_all(df, output_dir, num_workers=10):
 
     return processed_files
 
+def read_assembly_summary(txt_file):
+    """
+        Lit un fichier d'assemblage NCBI (assembly_summary.txt) et retourne un DataFrame propre.
 
+        Ce fichier contient un en-tête commençant par le caractère `#`, que cette fonction nettoie
+        pour faciliter l'accès aux colonnes.
 
+        Parameters
+        ----------
+        txt_file : str or Path
+            Chemin vers le fichier `assembly_summary.txt` au format tabulé (TSV).
+
+        Returns
+        -------
+        pandas.DataFrame
+            Un DataFrame contenant les métadonnées d'assemblage, avec le nom de la première
+            colonne (`#assembly_accession`) nettoyé (le `#` est retiré).
+        """
+    completed_df = pd.read_csv(txt_file, sep="\t", header=1)
+    completed_df.columns = [col.lstrip('#') for col in completed_df.columns]
+    print(f"Lecture en Dataframe de assembly_summary.txt. Contient {len(completed_df)} génomes ")
+
+    return completed_df
+def filter_assembly_summary_df(df, filter_by):
+    if filter_by == "reference genome":
+        by_column = 'refseq_category'
+    elif filter_by == "Complete Genome":
+        by_column = 'assembly_level'
+    else:
+        raise NotImplemented (f"Filtrage par {filter_by} non implémenté")
+    filter_df = df[df[by_column]==filter_by].reset_index(drop=True)
+    print(f"Filtrage par '{by_column}' = '{filter_by}' : {len(filter_df)} génomes retenus.")
+
+    return filter_df
 
 if __name__ == "__main__":
     #
     parser = argparse.ArgumentParser(description="Téléchargement et décompression de fichiers génomiques.")
     parser.add_argument("--output_dir", type=str,
                         help="Répertoire de sortie pour les fichiers téléchargés et décompressés",
-                        default='/projects/microtaxo/data/refseq_data')
+                        default='/home/hcourtei/Projects/MicroTaxo/codes/data/refseq_data')
     parser.add_argument("--csv_file", type=str, help="Fichier CSV contenant les chemins FTP",
-                        default="reference_genome_summary.tsv")
+                        default="assembly_summary.txt")
+    parser.add_argument("--filter_by", type=str, help="filtrage des genomes: 'reference genome' ou 'Complete Genome'",
+                        default="reference genome")
     parser.add_argument("--num_workers", type=int, default=5, help="Nombre de workers pour le téléchargement et la décompression (par défaut 5)")
 
     args = parser.parse_args()
     # args.output_dir = '/wisp/wisp_light/import_dataset/refseq/out_refseq'
     # completed_csv_out = "assembly_summary_Complete_Genome.csv"
-    completed_df = pd.read_csv(args.csv_file, sep="\t")
-
+    completed_df = read_assembly_summary(args.csv_file)
+    filter_df = filter_assembly_summary_df(completed_df, filter_by=args.filter_by)
+    filter_name = args.filter_by.replace(" ", "_")
+    filtered_csv_path = os.path.join( os.path.dirname(args.csv_file), f"{filter_name}_summary.tsv")
+    filter_df.to_csv(filtered_csv_path, sep="\t", index=False)
+    print(f"Fichier filtré sauvegardé : {filtered_csv_path}")
     # # Créer le répertoire de sortie si nécessaire
     os.makedirs(args.output_dir, exist_ok=True)
     #
     # # Lancer le téléchargement et la décompression
-    processed_files = download_and_decompress_all(completed_df, args.output_dir, num_workers=args.num_workers)
-    #
-    print(f"{len(processed_files)} fichiers traités.")
+    # processed_files = download_and_decompress_all(completed_df, args.output_dir, num_workers=args.num_workers)
+    # # #
+    # print(f"{len(processed_files)} fichiers traités.")
 
 
 

@@ -7,7 +7,7 @@ Il utilise un cache local pour éviter les requêtes redondantes et permet de re
 
 Fichiers requis :
 - Un fichier TSV d'entrée contenant une colonne de taxids.
-- Un fichier `NCBI_api_key.yaml` avec les identifiants suivants :
+- Un fichier `NCBI_api_key.yaml` avec les identifiants suivants pour accéler les requetes:
   Entrez:
     email: "votre_email@domaine.com"
     api_key: "votre_clé_ncbi"
@@ -30,11 +30,11 @@ from Bio import Entrez
 from tqdm import tqdm
 import yaml
 import argparse
-import sys
+# import sys
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+# project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+# if project_root not in sys.path:
+#     sys.path.insert(0, project_root)
 
 from wisp_light.dataset.refSeqDataset import TAXO_LEVELS
 
@@ -195,7 +195,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    df_in = pd.read_csv(f'{script_dir}/{args.input}', sep='\t', index_col=0)
+    df_in = pd.read_csv(args.input, sep='\t')
     print(df_in.head())
     df_out, failed_taxid = add_taxo_to_df_batch(df_in, taxid_column=args.taxid_column, batch_size=args.batch_size)
 
@@ -205,11 +205,15 @@ if __name__ == '__main__':
 
     df_incomplete_taxo = df_out[~df_out.index.isin(df_complete_taxo.index)]
     base, ext = os.path.splitext(args.input)
+    complete_path = f"{base}_complete_taxo{ext}"
+    incomplete_path = f"{base}_incomplete_taxo{ext}"
 
     print(f"Entrées avec taxonomie complète : {len(df_complete_taxo)}")
+    df_complete_taxo.to_csv(complete_path, sep='\t', index=True)
+    print(f"Fichier écrit : {complete_path}")
+    df_incomplete_taxo.to_csv(incomplete_path, sep='\t', index=True)
     print(f"Entrées avec taxonomie incomplète : {len(df_incomplete_taxo)}")
-    df_complete_taxo.to_csv(f"{base}_complete_taxo{ext}", sep='\t', index=True)
-    df_incomplete_taxo.to_csv(f"{base}_incomplete_taxo{ext}", sep='\t', index=True)
+    print(f"Fichier écrit : {incomplete_path}")
 
 
 
