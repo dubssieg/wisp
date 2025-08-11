@@ -283,7 +283,7 @@ class Database:
 
         return samples
 
-    def get_db_path(self):
+    def get_db_path(self) -> Path:
         dir_name = f"kmr_{'_'.join(map(str, self._kmer_sizes))}"
         if self._full:
             dir_name += "__full"
@@ -521,3 +521,36 @@ class DatabaseBuilder(Database):
             self._set_last_valid_ids(last_valid_ids)
             del md_db[ARCHIVE_TRANSACTION]
             LOG.warning("Transaction canceled")
+
+
+class FakeDatabase(Database):
+    def __init__(
+        self,
+        kmer_sizes: int | list[int],
+        window_size: int,
+        step: int,
+        **kwargs,
+    ):
+        self._kmer_sizes = kmer_sizes
+        self._window_size = window_size
+        self._step = step
+
+    def get_index(self, key: Any) -> Any:
+        return None
+
+    def get_db_path(self) -> Path:
+        return Path()
+
+    def get_tax_ids(self) -> list:
+        return []
+
+    def _get_db(
+        self, tax_id: int | str | None = None, db_type: DB_TYPE = "counter"
+    ) -> FanoutCache:
+        return FanoutCache()
+
+    def _get_last_valid_ids(self) -> dict:
+        return {}
+
+    def signature(self) -> str:
+        return ""

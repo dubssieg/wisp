@@ -12,7 +12,7 @@ from fastakmer import FastaKmer
 from taxdb import TaxDB, RANKS
 from model import Model
 from supermodel import SuperModel
-from database import Database, DatabaseBuilder
+from database import Database, DatabaseBuilder, FakeDatabase
 from dataset import Dataset
 from utils import (
     SystemStatsLogger,
@@ -471,6 +471,59 @@ def debug(conf):
     # print(ds._get_tax_ids_by_rank("phylum"))
 
 
+def predict_fasta(
+    conf: dict, fasta_path: str, model_path: str, output_path: str | None = None
+):
+    fasta_path = Path(fasta_path)
+    model_path = Path(model_path)
+    if output_path is None:
+        output_path = f"{fasta_path.stem}_result.txt"
+    output_path = Path(output_path)
+
+    taxdb = TaxDB(
+        cache_dir=conf["taxdb"]["cache_dir"],
+        email=conf["taxdb"]["email"],
+        can_download=conf["taxdb"]["can_download"],
+    )
+
+    database = FakeDatabase(
+        kmer_sizes=conf["db"]["kmer_sizes"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+    )
+
+    model = Model(
+        batch_size=conf["model"]["batch_size"],
+        workspace_path=conf["model"]["default_workspaces_dir"],
+        normalize=conf["model"]["normalize"],
+        taxdb=taxdb,
+        database=database,
+        model_type=conf["model"]["type"],
+        start_generator=False,
+    )
+    model.load(model_path)
+    res = model.predict_fasta(
+        fasta_path,
+        kmer_sizes=conf["db"]["kmer_sizes"],
+        window_size=conf["db"]["window_size"],
+        step=conf["db"]["step"],
+        full=conf["db"]["full"],
+    )
+
+    result_str = ""
+    for sid, results in res.items():
+        total = sum(results.values())
+        sorted_results = sorted(results.items(), key=lambda x: x[1], reverse=True)
+
+        result_str += f"{sid}:\n"
+        for taxa, count in sorted_results:
+            percentage = (count / total * 100) if total > 0 else 0
+            result_str += f"- {taxa}: {percentage:.2f}% ({count})\n"
+        result_str += "\n"
+
+    output_path.write_text(result_str)
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
@@ -569,6 +622,13 @@ if __name__ == "__main__":
         help="Dev only, do not use",
     )
 
+    parser.add_argument(
+        "--predict-fasta",
+        type=str,
+        help="predict fasta file",
+    )
+
+    parser.add_argument("--load", type=str, help="path to model")
     args = parser.parse_args()
 
     conf = load_config(Path(args.conf))
@@ -615,5 +675,8 @@ if __name__ == "__main__":
         )
     if args.train_supermodel:
         train_supermodel(conf=conf, name=args.train_supermodel)
+
+    if args.predict_fasta:
+        predict_fasta(conf=conf, fasta_path=args.predict_fasta, model_path=args.load)
 
     # train-model, save-model, evaluate-model-kfolds, load-model, evaluate-fa

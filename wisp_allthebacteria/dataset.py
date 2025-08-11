@@ -12,7 +12,7 @@ from typing import Generator
 import concurrent
 import numpy as np
 import xgboost as xgb
-from database import Database
+from database import Database, FakeDatabase
 from taxdb import RANKS, TaxDB
 from utils import hashed, get_weights, sample_count_estimation
 
@@ -322,7 +322,11 @@ class ByRankGenerator(Dataset):
         if batch_max_size:
             self._batch_size = min(self._batch_size, self._batch_max_size)
 
-        self._max_batch_count = self.estimated_batches_count()
+        self._max_batch_count = (
+            self.estimated_batches_count()
+            if not isinstance(self._db, FakeDatabase)
+            else 0
+        )
         if max_buffer_total_size is None:
             max_buffer_total_size = len(self._rank_tids) * self._batch_size
         self._max_buffer_size = (
@@ -402,7 +406,7 @@ class ByRankGenerator(Dataset):
                 continue
 
             # prepare data and labels for DMatrix
-            row = self._counter_to_row(counter=counter, normalize=self._normalize)
+            row = self.counter_to_row(counter=counter)
             self._data_batch.append(row)
             self._labels_batch.append(rank_tid)
 
@@ -458,7 +462,7 @@ class ByRankGenerator(Dataset):
 
     def estimated_batches_count(self) -> int:
         """How many batches should be available"""
-        if self._batch_size == 0:
+        if self._batch_size == 0 or isinstance(self._db, FakeDatabase):
             return 0
         total_samples = self.get_sample_count_estimation()
         return (total_samples + self._batch_size - 1) // self._batch_size
@@ -548,15 +552,15 @@ class ByRankGenerator(Dataset):
             for key, value in count_dict.items()
         }
 
-    def _counter_to_row(self, counter: dict, normalize: str) -> np.array:
+    def counter_to_row(self, counter: dict) -> np.array:
         row = np.zeros(len(self._column_names))
 
         # merge kmer counts
         counter = {k: v for d in counter.values() for k, v in d.items()}
 
-        if normalize == "sum":
+        if self._normalize == "sum":
             counter = self._normalize_sum(counter)
-        elif normalize == "min_max":
+        elif self._normalize == "min_max":
             counter = self._normalize_min_max(counter)
         # for each "ATGC", etc. count
         indices = np.array(

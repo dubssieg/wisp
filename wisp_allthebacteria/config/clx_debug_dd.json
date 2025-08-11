@@ -6,7 +6,7 @@
     "taxdb": {
         "cache_dir": "/media/cyrille/beca41d2-42be-4e99-b0dc-2279175a2216/apicache",
         "can_download": true,
-        "email": "cyrille.leroux.2@irisa.fr"
+        "email": "cyrille.leroux@irisa.fr"
     },
     "db": {
         "kmer_sizes": [
@@ -14,12 +14,12 @@
             4,
             7
         ],
-        "path": "/media/cyrille/beca41d2-42be-4e99-b0dc-2279175a2216/dbs_100000",
+        "path": "/media/cyrille/beca41d2-42be-4e99-b0dc-2279175a2216/dbs_1000",
         "tmp_path": "/media/cyrille/beca41d2-42be-4e99-b0dc-2279175a2216/tmp",
         "full": false,
         "window_size": 10000,
         "step": 9000,
-        "species_count_limit": 100000,
+        "species_count_limit": 1000,
         "create_db_workers": "max_minus_2",
         "db_insert_threads": "max_minus_2",
         "fanout_shards": 4,
@@ -34,8 +34,8 @@
         "scientific_name": true,
         "default_models_dir": "/media/cyrille/beca41d2-42be-4e99-b0dc-2279175a2216/models",
         "default_workspaces_dir": "/media/cyrille/beca41d2-42be-4e99-b0dc-2279175a2216/workspaces",
-        "force_workspace_dir": "/media/cyrille/beca41d2-42be-4e99-b0dc-2279175a2216/workspaces/default",
-        "force_model_dir": "/media/cyrille/beca41d2-42be-4e99-b0dc-2279175a2216/models/default",
+        "force_workspace_dir": "/media/cyrille/beca41d2-42be-4e99-b0dc-2279175a2216/workspaces/default_1000",
+        "force_model_dir": "/media/cyrille/beca41d2-42be-4e99-b0dc-2279175a2216/models/default_1000",
         "batch_size": "adapt_splits",
         "batch_max_size": 50000,
         "adapt_batch_size_splits": 20,
@@ -47,7 +47,7 @@
         "eval_patience": 5,
         "sample_balance_factor": 0,
         "batch_balance_factor": 1,
-        "min_samples_per_class": 10000,
+        "min_samples_per_class": 1000,
         "max_buffer_total_size": 10000,
         "kfold": 5
     },

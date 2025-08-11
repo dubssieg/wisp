@@ -243,7 +243,7 @@ class FastaKmer:
         file_name, file_size = file_path.name, format_size(file_path.stat().st_size)
 
         try:
-            sequences = FastaKmer._read_fasta(file_path)
+            sequences = FastaKmer.read_fasta(file_path)
             LOG.debug(
                 f"[{file_name}] SIZE: {file_size} - {len(sequences)} sequences found"
             )
@@ -268,7 +268,7 @@ class FastaKmer:
             if len(sequence["sequence"]) < window_size:
                 continue
 
-            kmer_counts = FastaKmer._counter(
+            kmer_counts = FastaKmer.counter(
                 entry=sequence["sequence"],
                 kmer_sizes=kmer_sizes,
                 window_size=window_size,
@@ -389,7 +389,7 @@ class FastaKmer:
         }
 
     @staticmethod
-    def _counter(
+    def counter(
         entry: str,
         kmer_sizes: list[int],
         window_size: int,
@@ -502,7 +502,7 @@ class FastaKmer:
         return result
 
     @staticmethod
-    def _read_fasta(file_path: Path | str) -> list:
+    def read_fasta(file_path: Path | str) -> list:
         """Just read and parse file, no processing.
         Return a list of:
             'id' = 'SAMD00013333'

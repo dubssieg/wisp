@@ -1,3 +1,4 @@
+from collections import defaultdict
 import json
 import logging
 from pathlib import Path
@@ -14,6 +15,7 @@ import xgboost as xgb
 import lightgbm as lgb
 from datetime import datetime
 from utils import serialize, deserialize, format_duration, FunctionLogger, hashed
+from fastakmer import FastaKmer
 
 # from tqdm.auto import tqdm
 
@@ -62,10 +64,10 @@ TEST_STORAGE = "test"
 class Model:
     def __init__(
         self,
-        rank: str,
-        database: Database,
-        batch_size: int | str,
-        workspace_path: str | Path,
+        rank: str | None = None,
+        database: Database | None = None,
+        batch_size: int | str | None = None,
+        workspace_path: str | Path | None = None,
         params: dict | None = None,
         normalize: str | None = None,
         seed: int = 2025,
@@ -85,7 +87,7 @@ class Model:
         LOG.debug(f"Model({locals()})")
         self._model_type = model_type
         self._params = params
-        if self._params is not None:
+        if self._params is None:
             if self._model_type == "lightgbm":
                 self._params = DEFAULT_PARAMETERS_LIGHTGBM
             elif self._model_type == "xgboost":
@@ -106,7 +108,9 @@ class Model:
         self._parent_filter = parent_filter
         self._adapt_batch_size_splits = adapt_batch_size_splits
 
-        self._workspace_path = Path(workspace_path).resolve()
+        self._workspace_path = (
+            Path(workspace_path).resolve() if workspace_path else None
+        )
         self._model = None
         self._gen = None
         self._last_batch_id = 0
@@ -133,23 +137,26 @@ class Model:
         if start_generator:
             self._gen.start()
 
-        self._dmat_store = DMatStore(
-            self._workspace_path / "dmatstore", signature=self.signature()
+        self._dmat_store = (
+            DMatStore(self._workspace_path / "dmatstore", signature=self.signature())
+            if self._workspace_path
+            else None
         )
 
-        # labels
-        self._labels = self._gen.labels(self._rank, min_samples=min_samples_per_class)
-        self._label_encoder = LabelEncoder()
-        self._label_encoder.fit(self._labels)
+        if self._database:
+            # labels
+            self._labels = self._gen.labels(
+                self._rank, min_samples=min_samples_per_class
+            )
+            self._label_encoder = LabelEncoder()
+            self._label_encoder.fit(self._labels)
+            self._sn_map = {
+                tax_id: self._taxdb[tax_id]["ScientificName"] for tax_id in self._labels
+            }
+            # batches
+            self._max_batch_count = self._gen.estimated_batches_count()
 
-        self._sn_map = {
-            tax_id: self._taxdb[tax_id]["ScientificName"] for tax_id in self._labels
-        }
-
-        # batches
-        self._max_batch_count = self._gen.estimated_batches_count()
-
-        LOG.info(f"Model max batches: {self._max_batch_count}")
+            LOG.info(f"Model max batches: {self._max_batch_count}")
 
     def signature(self) -> str:
         return hashed(
@@ -270,6 +277,54 @@ class Model:
             }
             self._generate_report(path=save_path, report=report)
             return report
+
+    def predict_fasta(
+        self,
+        fasta_path: Path,
+        kmer_sizes: list[int],
+        window_size: int,
+        step: int,
+        full: bool,
+    ) -> dict:
+        seqs = defaultdict(list)
+        # extract sequences (and ids)
+        for entry in FastaKmer.read_fasta(fasta_path):
+            counters_by_kmer = FastaKmer.counter(
+                entry=entry["sequence"],
+                kmer_sizes=kmer_sizes,
+                window_size=window_size,
+                step=step,
+                full=full,
+            )
+            # convert counters to rows
+            item_len = len(next(iter(counters_by_kmer.values())))
+            for i in range(item_len):
+                counter = {k: counters_by_kmer[k][i] for k in counters_by_kmer.keys()}
+                row = self._gen.counter_to_row(counter)
+                seqs[entry["id"]].append(row)
+        # predict
+        res = {}
+        sn_map = {
+            tax_id: self._taxdb[tax_id]["ScientificName"] for tax_id in self._labels
+        }
+        for seq_id, rows in seqs.items():
+            # predict batch for this sequence
+            batch = np.vstack(rows)
+            if self._model_type == "xgboost":
+                y_pred_encoded = self._model.predict(batch).astype(int)
+            elif self._model_type == "lightgbm":
+                y_pred_probs = self._model.predict(batch)
+                y_pred_encoded = np.argmax(y_pred_probs, axis=1).astype(int)
+
+            # compare predictions for this sequence
+            unique_preds, counts = np.unique(y_pred_encoded, return_counts=True)
+            tax_ids = self._label_encoder.inverse_transform(unique_preds)
+            sn_names = [sn_map[tax_id] for tax_id in tax_ids]
+            # raw_counts = dict(zip(unique_preds, counts))
+            # scientific names
+            res[seq_id] = dict(zip(sn_names, list(map(int, counts))))
+
+        return res
 
     def _train(
         self,
@@ -636,6 +691,7 @@ class Model:
         LOG.debug(f"Loading model: {path}...")
         model_path = path / "model.bin"
         model_type_path = path / "model_type.txt"
+        model_rank_path = path / "model_rank.txt"
         label_path = path / "labels.pkl"
         label_encoder_path = path / "labels_encoder.pkl"
         params_path = path / "params.json"
@@ -659,6 +715,7 @@ class Model:
         self._labels = deserialize(label_path)
         self._label_encoder = deserialize(label_encoder_path)
         self._params = json.loads(params_path.read_text())
+        self._rank = model_rank_path.read_text()
 
     def save(self, path: str | Path) -> None:
         """Save model to directory."""
@@ -667,6 +724,7 @@ class Model:
         path.mkdir(parents=True, exist_ok=True)
         model_path = path / "model.bin"
         model_type_path = path / "model_type.txt"
+        model_rank_path = path / "model_rank.txt"
         label_path = path / "labels.pkl"
         label_encoder_path = path / "labels_encoder.pkl"
         params_path = path / "params.json"
@@ -677,6 +735,7 @@ class Model:
             serialize(self._label_encoder, label_encoder_path)
             params_path.write_text(json.dumps(self._params, indent=4))
             model_type_path.write_text(self._model_type)
+            model_rank_path.write_text(self._rank)
 
         else:
             raise ValueError("Model is not trained or loaded yet.")

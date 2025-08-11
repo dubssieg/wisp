@@ -143,3 +143,4 @@ wisp_allthebacteria/*_deprecated.py
 out/*.pkl
 pyproject.toml
 poetry.lock
+*_result.txt
