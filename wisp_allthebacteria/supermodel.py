@@ -1,21 +1,26 @@
+from collections import defaultdict
 import copy
 import logging
 from pathlib import Path
-
+import shutil
 import numpy as np
 import xgboost as xgb
 from database import Database
 from dataset import ByRankGenerator, Dataset
 from model import Model
 from taxdb import TaxDB
+from fastakmer import FastaKmer
 from tqdm.auto import tqdm
 from utils import (
     SystemStatsLogger,
     cpu_count,
+    deserialize,
     get_current_datetime_string,
     merge_dicts,
+    serialize,
     space_format,
 )
+
 
 LOG = logging.getLogger(__name__)
 
@@ -24,7 +29,12 @@ IDX_MODELS_ROUTING = "_idx_models_routing_"
 
 class SuperModel:
     def __init__(
-        self, model_conf: dict, supermodel_conf: dict, database: Database, taxdb: TaxDB
+        self,
+        model_conf: dict,
+        supermodel_conf: dict,
+        database: Database,
+        taxdb: TaxDB,
+        routing: dict | None = None,
     ):
         self._model_conf = model_conf
         self._supermodel_conf = supermodel_conf
@@ -32,7 +42,7 @@ class SuperModel:
         self._taxdb = taxdb
         self._dataset = Dataset(database=self._database, taxdb=self._taxdb)
         self._dt = get_current_datetime_string()
-        self._routing = self._get_models_routing()
+        self._routing = routing or self._get_models_routing()
 
     def routing_report(self, path: str | Path | None = None) -> list[list[dict]]:
         report = []
@@ -168,8 +178,132 @@ class SuperModel:
                 model_path = self._get_model_paths(model_tid)["model"]
                 model.save(model_path)
 
-    def predict(self, data: xgb.DMatrix) -> np.ndarray:
-        pass
+    def save(self, path: str | Path) -> None:
+        # save routing and copy all trained models
+        path = Path(path).resolve()
+        LOG.info(f"Saving supermodel: {path} ...")
+        path.mkdir(parents=True, exist_ok=True)
+        serialize(self._routing, path / "routing.pkl")
+        serialize(self._model_conf, path / "m_conf.pkl")
+        serialize(self._supermodel_conf, path / "sm_conf.pkl")
+        for model_tid, route in tqdm(self._routing.items()):
+            if len(route["classes"]) > 1:
+                model_path = self._get_model_paths(model_tid)["model"]
+                dest_path = path / Path(*model_path.parts[-2:])
+                shutil.copytree(model_path, dest_path, dirs_exist_ok=True)
+
+    # deprecated
+    def load(self, path: str | Path) -> None:
+        path = Path(path).resolve()
+        LOG.info(f"Loading supermodel: {path} ...")
+        self._routing = deserialize(path / "routing.pkl")
+        for model_tid, route in tqdm(self._routing.items()):
+            model_path = self._get_model_paths(model_tid)["model"]
+            src_path = path / Path(*model_path.parts[-2:])
+            if src_path.exists():
+                shutil.copytree(src_path, model_path, dirs_exist_ok=True)
+
+    def predict_fasta(
+        self,
+        fasta_path: Path,
+        kmer_sizes: list[int],
+        window_size: int,
+        step: int,
+        full: bool,
+    ) -> dict:
+
+        seqs = defaultdict(list)
+
+        # first, predict with the root model (None)
+        root_model = self._load_model(None)
+        root_preds = root_model.predict_fasta(
+            fasta_path=fasta_path,
+            kmer_sizes=kmer_sizes,
+            window_size=window_size,
+            step=step,
+            full=full,
+            scientific_names=False,
+        )
+        all_seqids = list(root_preds.keys())
+        for seqid in all_seqids:
+            seqs[seqid].append(root_preds[seqid])
+
+        # now, initialize seq_to_next_model
+        seq_to_next_model = {}
+        for seqid in all_seqids:
+            pred = seqs[seqid][-1]
+            best = max(pred, key=pred.get)
+
+            # bypass?
+            while best in self._routing and len(self._routing[best]["classes"]) == 1:
+                child = self._routing[best]["classes"][0]
+                seqs[seqid].append({child: None})
+                best = child
+
+            # next model (if needed)
+            if best in self._routing and len(self._routing[best]["classes"]) > 1:
+                seq_to_next_model[seqid] = best
+
+        # now, loop while there are no more predictions to make
+        while seq_to_next_model:
+            # collect unique models to run at this stage
+            next_models = set(seq_to_next_model.values())
+
+            for model_id in next_models:
+                model = self._load_model(model_id)
+                preds = model.predict_fasta(
+                    fasta_path=fasta_path,
+                    kmer_sizes=kmer_sizes,
+                    window_size=window_size,
+                    step=step,
+                    full=full,
+                    scientific_names=False,
+                )
+
+                # process each seqid expecting this model
+                relevant_seqids = [
+                    s for s in seq_to_next_model if seq_to_next_model[s] == model_id
+                ]
+                for seqid in relevant_seqids:
+                    pred = preds.get(seqid, {})
+                    if not pred:
+                        # if no prediction for this seqid, skip or handle as needed
+                        del seq_to_next_model[seqid]
+                        continue
+
+                    seqs[seqid].append(pred)
+
+                    best = max(pred, key=pred.get)
+
+                    # bypass?
+                    while (
+                        best in self._routing
+                        and len(self._routing[best]["classes"]) == 1
+                    ):
+                        child = self._routing[best]["classes"][0]
+                        seqs[seqid].append({child: None})
+                        best = child
+
+                    # next model (if needed)
+                    if (
+                        best in self._routing
+                        and len(self._routing[best]["classes"]) > 1
+                    ):
+                        seq_to_next_model[seqid] = best
+                    else:
+                        del seq_to_next_model[seqid]
+
+        # scientific names
+        transformed_seqs = defaultdict(list)
+        for seqid, predictions in seqs.items():
+            for pred in predictions:
+                new_pred = {}
+                for taxid, value in pred.items():
+                    sn = self._taxdb[taxid]["ScientificName"]
+                    new_pred[sn] = value
+                transformed_seqs[seqid].append(new_pred)
+
+        return dict(transformed_seqs)
 
     def _train_model(self, model_tid: int | None):
         with SystemStatsLogger(interval=30):  # FIXME: main.py

@@ -285,6 +285,7 @@ class Model:
         window_size: int,
         step: int,
         full: bool,
+        scientific_names: bool = True,
     ) -> dict:
         seqs = defaultdict(list)
         # extract sequences (and ids)
@@ -304,9 +305,10 @@ class Model:
                 seqs[entry["id"]].append(row)
         # predict
         res = {}
-        sn_map = {
-            tax_id: self._taxdb[tax_id]["ScientificName"] for tax_id in self._labels
-        }
+        if scientific_names:
+            sn_map = {
+                tax_id: self._taxdb[tax_id]["ScientificName"] for tax_id in self._labels
+            }
         for seq_id, rows in seqs.items():
             # predict batch for this sequence
             batch = np.vstack(rows)
@@ -319,10 +321,13 @@ class Model:
             # compare predictions for this sequence
             unique_preds, counts = np.unique(y_pred_encoded, return_counts=True)
             tax_ids = self._label_encoder.inverse_transform(unique_preds)
-            sn_names = [sn_map[tax_id] for tax_id in tax_ids]
+            if scientific_names:
+                names = [sn_map[tax_id] for tax_id in tax_ids]
+            else:
+                names = [int(tax_id) for tax_id in tax_ids]
             # raw_counts = dict(zip(unique_preds, counts))
             # scientific names
-            res[seq_id] = dict(zip(sn_names, list(map(int, counts))))
+            res[seq_id] = dict(zip(names, list(map(int, counts))))
 
         return res
 

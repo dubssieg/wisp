@@ -16,6 +16,7 @@ from database import Database, DatabaseBuilder, FakeDatabase
 from dataset import Dataset
 from utils import (
     SystemStatsLogger,
+    deserialize,
     format_duration,
     get_current_datetime_string,
     cpu_count,
@@ -343,7 +344,7 @@ def train_model(
         model.stop()
 
 
-def train_supermodel(conf, name: str):
+def train_supermodel(conf, name: str, save_path: str | None):
     LOG.info("Train supermodel")
 
     taxdb = TaxDB(
@@ -369,6 +370,8 @@ def train_supermodel(conf, name: str):
         taxdb=taxdb,
     )
     sm.train()
+    if save_path:
+        sm.save(Path(save_path))
 
 
 def routing_report(conf: dict, name: str):
@@ -472,10 +475,12 @@ def debug(conf):
 
 
 def predict_fasta(
-    conf: dict, fasta_path: str, model_path: str, output_path: str | None = None
+    conf: dict, fasta_path: str, model_path: str | Path, output_path: str | None = None
 ):
+
     fasta_path = Path(fasta_path)
     model_path = Path(model_path)
+    is_supermodel = model_path / "routing.pkl" in model_path.glob("*.pkl")
     if output_path is None:
         output_path = f"{fasta_path.stem}_result.txt"
     output_path = Path(output_path)
@@ -492,34 +497,70 @@ def predict_fasta(
         step=conf["db"]["step"],
     )
 
-    model = Model(
-        batch_size=conf["model"]["batch_size"],
-        workspace_path=conf["model"]["default_workspaces_dir"],
-        normalize=conf["model"]["normalize"],
-        taxdb=taxdb,
-        database=database,
-        model_type=conf["model"]["type"],
-        start_generator=False,
-    )
-    model.load(model_path)
-    res = model.predict_fasta(
-        fasta_path,
-        kmer_sizes=conf["db"]["kmer_sizes"],
-        window_size=conf["db"]["window_size"],
-        step=conf["db"]["step"],
-        full=conf["db"]["full"],
-    )
+    # hierarchic model
+    if is_supermodel:
+        sm_conf = deserialize(model_path / "sm_conf.pkl")
+        # m_conf = deserialize(model_path / "m_conf.pkl")
+        routing = deserialize(model_path / "routing.pkl")
+        sm = SuperModel(
+            model_conf=conf["model"],
+            supermodel_conf=sm_conf,
+            database=database,
+            taxdb=taxdb,
+            routing=routing,
+        )
+        res = sm.predict_fasta(
+            fasta_path,
+            kmer_sizes=conf["db"]["kmer_sizes"],
+            window_size=conf["db"]["window_size"],
+            step=conf["db"]["step"],
+            full=conf["db"]["full"],
+        )
+        result_str = ""
+        for sid, pred_list in res.items():
+            result_str += f"{sid}:\n"
+            for i, results in enumerate(pred_list, 1):
+                total = sum(v for v in results.values() if v is not None)
+                sorted_results = sorted(
+                    ((k, v) for k, v in results.items() if v is not None),
+                    key=lambda x: x[1],
+                    reverse=True,
+                )
+                result_str += f"  Prediction {i}:\n"
+                for taxa, count in sorted_results:
+                    percentage = (count / total * 100) if total > 0 else 0
+                    result_str += f"    - {taxa}: {percentage:.2f}% ({count})\n"
+            result_str += "\n"
+    # simple model
+    else:
+        model = Model(
+            batch_size=conf["model"]["batch_size"],
+            workspace_path=conf["model"]["default_workspaces_dir"],
+            normalize=conf["model"]["normalize"],
+            taxdb=taxdb,
+            database=database,
+            model_type=conf["model"]["type"],
+            start_generator=False,
+        )
+        model.load(model_path)
+        res = model.predict_fasta(
+            fasta_path,
+            kmer_sizes=conf["db"]["kmer_sizes"],
+            window_size=conf["db"]["window_size"],
+            step=conf["db"]["step"],
+            full=conf["db"]["full"],
+        )
 
-    result_str = ""
-    for sid, results in res.items():
-        total = sum(results.values())
-        sorted_results = sorted(results.items(), key=lambda x: x[1], reverse=True)
+        result_str = ""
+        for sid, results in res.items():
+            total = sum(results.values())
+            sorted_results = sorted(results.items(), key=lambda x: x[1], reverse=True)
 
-        result_str += f"{sid}:\n"
-        for taxa, count in sorted_results:
-            percentage = (count / total * 100) if total > 0 else 0
-            result_str += f"- {taxa}: {percentage:.2f}% ({count})\n"
-        result_str += "\n"
+            result_str += f"{sid}:\n"
+            for taxa, count in sorted_results:
+                percentage = (count / total * 100) if total > 0 else 0
+                result_str += f"- {taxa}: {percentage:.2f}% ({count})\n"
+            result_str += "\n"
 
     output_path.write_text(result_str)
 
@@ -674,9 +715,9 @@ if __name__ == "__main__":
             kfold=args.kfold,
         )
     if args.train_supermodel:
-        train_supermodel(conf=conf, name=args.train_supermodel)
+        train_supermodel(
+            conf=conf, name=args.train_supermodel, save_path=args.save_path
+        )
 
     if args.predict_fasta:
         predict_fasta(conf=conf, fasta_path=args.predict_fasta, model_path=args.load)
-
-    # train-model, save-model, evaluate-model-kfolds, load-model, evaluate-fa
